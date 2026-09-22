@@ -1,5 +1,6 @@
 import { useState, type ChangeEvent, type ComponentType, type FormEvent } from 'react'
 import { useNavigate } from 'react-router'
+import { applyAccessToken, login, signup } from '@/api/auth'
 import AuthCard, { AuthSwitch } from '@/components/auth/AuthCard'
 import type { InterestId } from '@/components/profile/ProfileEditModal'
 import {
@@ -16,7 +17,6 @@ import {
   RunIcon,
   UserIcon,
 } from '@/components/icons'
-import { setLoggedIn } from '@/data/session'
 
 const interests: { id: InterestId; label: string; Icon: ComponentType }[] = [
   { id: 'food', label: '맛집', Icon: ForkKnifeIcon },
@@ -39,6 +39,7 @@ export default function RegisterPage() {
   const [interest, setInterest] = useState<InterestId | null>(null)
   const [error, setError] = useState('')
   const [preview, setPreview] = useState('')
+  const [loading, setLoading] = useState(false)
 
   function pickImage(event: ChangeEvent<HTMLInputElement>) {
     const file = event.target.files?.[0]
@@ -51,7 +52,7 @@ export default function RegisterPage() {
     reader.readAsDataURL(file)
   }
 
-  function submit(event: FormEvent<HTMLFormElement>) {
+  async function submit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault()
     if (step === 'account') {
       if (!email.trim() || !password || !nickname.trim()) {
@@ -75,8 +76,26 @@ export default function RegisterPage() {
       setStep('profile')
       return
     }
-    setLoggedIn(true)
-    navigate('/')
+
+    // 마지막 단계: 회원가입 API → 바로 로그인
+    setLoading(true)
+    setError('')
+    try {
+      const account = {
+        email: email.trim(),
+        password,
+        nickname: nickname.trim(),
+      }
+      await signup(account)
+      const { accessToken } = await login({ email: account.email, password: account.password })
+      applyAccessToken(accessToken)
+      navigate('/')
+    } catch (err: unknown) {
+      const message = err instanceof Error ? err.message : '회원가입에 실패했습니다.'
+      setError(message)
+    } finally {
+      setLoading(false)
+    }
   }
 
   return (
@@ -175,8 +194,9 @@ export default function RegisterPage() {
             )}
           </label>
           <p className="profile-picker-note">미선택 시 기본 프로필 적용</p>
-          <button type="submit" className="auth-submit">
-            회원가입
+          {error && <p className="auth-error">{error}</p>}
+          <button type="submit" className="auth-submit" disabled={loading}>
+            {loading ? '가입 중…' : '회원가입'}
           </button>
         </>
       )}
