@@ -2,6 +2,11 @@ import { useState, type FormEvent } from 'react'
 import { useNavigate } from 'react-router'
 import AuthCard, { AuthSwitch, GoogleMark, KakaoMark } from '../components/AuthCard'
 import { EyeIcon, EyeOffIcon, LockIcon, MailIcon } from '../components/icons'
+import { setAdmin } from '../data/adminSession'
+import { setLoggedIn } from '../data/session'
+
+const adminId = 'admin@example.com'
+const adminPassword = '1111'
 
 export default function LoginPage() {
   const navigate = useNavigate()
@@ -12,17 +17,29 @@ export default function LoginPage() {
 
   function submit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault()
-    if (!email.trim() || !password) {
+    const id = email.trim()
+    if (!id || !password) {
       setError('이메일과 비밀번호를 입력해 주세요.')
       return
     }
+    if (id === adminId) {
+      if (password !== adminPassword) {
+        setError('이메일 또는 비밀번호가 올바르지 않습니다.')
+        return
+      }
+      setAdmin(true)
+      navigate('/admin/members')
+      return
+    }
+    setLoggedIn(true)
     navigate('/')
   }
 
   return (
     <AuthCard
+      noValidate
       onSubmit={submit}
-      footer={<AuthSwitch prompt="아직 계정이 없으신가요?" to="/signup" label="회원가입" />}
+      footer={<AuthSwitch prompt="아직 계정이 없으신가요?" to="/register" label="회원가입" />}
     >
       <label className="auth-field">
         <MailIcon />
@@ -58,11 +75,25 @@ export default function LoginPage() {
       <button type="submit" className="auth-submit">
         로그인
       </button>
-      <button type="button" className="auth-social" onClick={() => navigate('/')}>
+      <button
+        type="button"
+        className="auth-social"
+        onClick={() => {
+          setLoggedIn(true)
+          navigate('/')
+        }}
+      >
         <GoogleMark />
         구글로 로그인
       </button>
-      <button type="button" className="auth-social" onClick={() => navigate('/')}>
+      <button
+        type="button"
+        className="auth-social"
+        onClick={() => {
+          setLoggedIn(true)
+          navigate('/')
+        }}
+      >
         <KakaoMark />
         카카오로 로그인
       </button>

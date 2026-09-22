@@ -1,27 +1,33 @@
 import type { MyPost } from '../data/mypage'
-import { CommentIcon, DotsIcon, EyeIcon, HeartIcon } from './icons'
+import { BookmarkIcon, CommentIcon, DotsIcon, EyeIcon, HeartIcon } from './icons'
 
 type MyPostCardProps = {
   post: MyPost
   menuOpen: boolean
   canManage: boolean
+  onOpen: () => void
   onToggleMenu: () => void
   onEdit: () => void
   onDelete: () => void
   onToggleLike: () => void
+  scrapped?: boolean
+  onToggleScrap?: () => void
 }
 
 export default function MyPostCard({
   post,
   menuOpen,
   canManage,
+  onOpen,
   onToggleMenu,
   onEdit,
   onDelete,
   onToggleLike,
+  scrapped = false,
+  onToggleScrap,
 }: MyPostCardProps) {
   return (
-    <article className="my-post">
+    <article className="my-post" onClick={onOpen}>
       <header className="my-post-head">
         <img src={post.avatar} alt="" />
         <div>
@@ -68,7 +74,10 @@ export default function MyPostCard({
           type="button"
           className={post.liked ? 'stat liked' : 'stat'}
           aria-pressed={post.liked}
-          onClick={onToggleLike}
+          onClick={(event) => {
+            event.stopPropagation()
+            onToggleLike()
+          }}
         >
           <HeartIcon filled={post.liked} />
           <span>{post.likes}</span>
@@ -77,6 +86,20 @@ export default function MyPostCard({
           <EyeIcon />
           <span>조회수 {post.views}</span>
         </span>
+        {onToggleScrap && (
+          <button
+            type="button"
+            className={scrapped ? 'bookmark on' : 'bookmark'}
+            aria-pressed={scrapped}
+            aria-label={scrapped ? '북마크 해제' : '북마크'}
+            onClick={(event) => {
+              event.stopPropagation()
+              onToggleScrap()
+            }}
+          >
+            <BookmarkIcon filled={scrapped} />
+          </button>
+        )}
       </footer>
 
       {menuOpen && (

@@ -1,6 +1,8 @@
 import type { ReactNode } from 'react'
-import { NavLink } from 'react-router'
+import { useSyncExternalStore } from 'react'
+import { Link, NavLink } from 'react-router'
 import { categories, type CategoryId, type FeedUser } from '../data/feed'
+import { getLoggedIn, subscribeSession } from '../data/session'
 import {
   BagIcon,
   BookIcon,
@@ -12,12 +14,12 @@ import {
   FolderIcon,
   GameIcon,
   HomeIcon,
+  LoginIcon,
   MusicIcon,
   PaletteIcon,
   PencilIcon,
   PlaneIcon,
   PotIcon,
-  SendIcon,
   SubscribeIcon,
   UserIcon,
   UtensilsIcon,
@@ -56,10 +58,22 @@ export default function Sidebar({
   onWrite,
 }: SidebarProps) {
   const compact = categoryItems !== categories
+  const loggedIn = useSyncExternalStore(subscribeSession, getLoggedIn)
 
   return (
     <aside className="sidebar">
-      {compact ? (
+      {!loggedIn ? (
+        <div className="guest-side">
+          <Link to="/login" className="guest-side-login">
+            <LoginIcon />
+            로그인
+          </Link>
+          <Link to="/register" className="guest-side-join">
+            <UserIcon />
+            회원가입
+          </Link>
+        </div>
+      ) : compact ? (
         <div className="profile studio">
           <img src={user.avatar} alt="" />
           <span className="profile-label">프로필</span>
@@ -89,25 +103,23 @@ export default function Sidebar({
         <NavLink to="/" end className={({ isActive }) => (isActive ? 'nav-item active' : 'nav-item')}>
           <HomeIcon />
           <span>홈</span>
-          {compact && <small className="nav-hint">(SNS 메인페이지)</small>}
+          {(compact || !loggedIn) && <small className="nav-hint">(SNS 메인페이지)</small>}
         </NavLink>
-        <button type="button" className="nav-item">
-          <SendIcon />
-          <span>{compact ? '메시지(DM)' : '메시지'}</span>
-          {!compact && <span className="nav-badge">3</span>}
-        </button>
         <NavLink to="/mypage" className={({ isActive }) => (isActive ? 'nav-item active' : 'nav-item')}>
           <UserIcon />
           <span>마이페이지</span>
         </NavLink>
-        <button type="button" className="nav-item">
+        <NavLink to="/theme" className={({ isActive }) => (isActive ? 'nav-item active' : 'nav-item')}>
           <BagIcon />
           <span>테마 구매</span>
-        </button>
-        <button type="button" className="nav-item">
+        </NavLink>
+        <NavLink
+          to="/subscription/jieun"
+          className={({ isActive }) => (isActive ? 'nav-item active' : 'nav-item')}
+        >
           <SubscribeIcon />
           <span>구독</span>
-        </button>
+        </NavLink>
       </nav>
 
       <section className="category-block">

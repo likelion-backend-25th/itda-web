@@ -1,4 +1,5 @@
-import type { FeedImage, PostCategory } from './feed'
+import type { ThemeTone } from '../components/ThemeShot'
+import type { Comment, FeedImage, PostCategory } from './feed'
 
 export type PostVisibility = 'public' | 'subscribers'
 
@@ -17,6 +18,8 @@ export type MyPost = {
   liked: boolean
   views: number
   visibility?: PostVisibility
+  createdAt?: string
+  thread?: Comment[]
 }
 
 export type OwnedTheme = {
@@ -24,7 +27,7 @@ export type OwnedTheme = {
   name: string
   title: string
   subtitle: string
-  tone: 'light' | 'dark'
+  tone: ThemeTone
   active: boolean
 }
 
@@ -54,6 +57,16 @@ export const myPosts: MyPost[] = [
     likes: 10,
     liked: true,
     views: 53,
+    createdAt: '2024. 03. 16. 11:20',
+    thread: [
+      {
+        id: 'my-jeju-1',
+        author: '민수',
+        avatar: '/images/avatar-minsu.jpg',
+        createdAt: '2024. 03. 16. 13:05',
+        content: '사진만 봐도 바람이 느껴져요. 다음에 같이 가요!',
+      },
+    ],
   },
   {
     id: 'my-cafe',
@@ -68,6 +81,16 @@ export const myPosts: MyPost[] = [
     likes: 10,
     liked: true,
     views: 53,
+    createdAt: '2024. 03. 15. 16:40',
+    thread: [
+      {
+        id: 'my-cafe-1',
+        author: '하늘',
+        avatar: '/images/avatar-haneul.jpg',
+        createdAt: '2024. 03. 15. 18:02',
+        content: '홈카페 분위기 너무 좋아요. 레시피도 궁금해요!',
+      },
+    ],
   },
 ]
 
@@ -86,6 +109,16 @@ export const likedPosts: MyPost[] = [
     likes: 10,
     liked: true,
     views: 53,
+    createdAt: '2024. 03. 16. 08:10',
+    thread: [
+      {
+        id: 'liked-workout-1',
+        author: '하늘',
+        avatar: '/images/avatar-haneul.jpg',
+        createdAt: '2024. 03. 16. 09:40',
+        content: '꾸준함이 정말 멋있어요. 오늘도 화이팅!',
+      },
+    ],
   },
 ]
 
@@ -104,25 +137,16 @@ export const scrappedPosts: MyPost[] = [
     likes: 10,
     liked: true,
     views: 53,
-  },
-]
-
-export const ownedThemes: OwnedTheme[] = [
-  {
-    id: 'light',
-    name: '기본 라이트',
-    title: '라이트모드',
-    subtitle: '기본 라이트 모드',
-    tone: 'light',
-    active: true,
-  },
-  {
-    id: 'dark',
-    name: '기본 다크',
-    title: '다크모드',
-    subtitle: '기본 다크 모드',
-    tone: 'dark',
-    active: false,
+    createdAt: '2024. 03. 15. 18:20',
+    thread: [
+      {
+        id: 'scrap-cafe-1',
+        author: '민서',
+        avatar: '/images/avatar-minseo.jpg',
+        createdAt: '2024. 03. 15. 19:10',
+        content: '주말에 가보고 싶어요. 자리 여유로워요?',
+      },
+    ],
   },
 ]
 

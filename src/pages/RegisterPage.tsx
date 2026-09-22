@@ -4,13 +4,19 @@ import AuthCard, { AuthSwitch } from '../components/AuthCard'
 import type { InterestId } from '../components/ProfileEditModal'
 import {
   ChefHatIcon,
+  EyeIcon,
+  EyeOffIcon,
   FlightIcon,
   ForkKnifeIcon,
   ImageIcon,
+  LockIcon,
+  MailIcon,
   NoteIcon,
   OpenBookIcon,
   RunIcon,
+  UserIcon,
 } from '../components/icons'
+import { setLoggedIn } from '../data/session'
 
 const interests: { id: InterestId; label: string; Icon: ComponentType }[] = [
   { id: 'food', label: '맛집', Icon: ForkKnifeIcon },
@@ -21,9 +27,15 @@ const interests: { id: InterestId; label: string; Icon: ComponentType }[] = [
   { id: 'music', label: '음악', Icon: NoteIcon },
 ]
 
-export default function SignupPage() {
+type RegisterStep = 'account' | 'interest' | 'profile'
+
+export default function RegisterPage() {
   const navigate = useNavigate()
-  const [step, setStep] = useState<'interest' | 'profile'>('interest')
+  const [step, setStep] = useState<RegisterStep>('account')
+  const [email, setEmail] = useState('')
+  const [password, setPassword] = useState('')
+  const [nickname, setNickname] = useState('')
+  const [visible, setVisible] = useState(false)
   const [interest, setInterest] = useState<InterestId | null>(null)
   const [error, setError] = useState('')
   const [preview, setPreview] = useState('')
@@ -41,14 +53,29 @@ export default function SignupPage() {
 
   function submit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault()
+    if (step === 'account') {
+      if (!email.trim() || !password || !nickname.trim()) {
+        setError('이메일, 비밀번호, 닉네임을 입력해 주세요.')
+        return
+      }
+      if (!email.includes('@')) {
+        setError('이메일 형식을 확인해 주세요.')
+        return
+      }
+      setError('')
+      setStep('interest')
+      return
+    }
     if (step === 'interest') {
       if (!interest) {
         setError('관심사를 하나 선택해 주세요.')
         return
       }
+      setError('')
       setStep('profile')
       return
     }
+    setLoggedIn(true)
     navigate('/')
   }
 
@@ -58,16 +85,65 @@ export default function SignupPage() {
       onSubmit={submit}
       footer={<AuthSwitch prompt="이미 계정이 있으신가요?" to="/login" label="로그인" />}
     >
-      {step === 'interest' ? (
+      {step === 'account' && (
         <>
-          <p className="signup-lead">당신이 가장 좋아하는 것 하나를 알려주세요</p>
-          <p className="signup-sub">당신의 관심사가 새로운 인연으로 이어질 거예요.</p>
-          <div className="signup-interests">
+          <label className="auth-field">
+            <MailIcon />
+            <input
+              type="email"
+              name="email"
+              placeholder="email"
+              autoComplete="email"
+              value={email}
+              onChange={(event) => setEmail(event.target.value)}
+            />
+          </label>
+          <label className="auth-field">
+            <LockIcon />
+            <input
+              type={visible ? 'text' : 'password'}
+              name="password"
+              placeholder="password"
+              autoComplete="new-password"
+              value={password}
+              onChange={(event) => setPassword(event.target.value)}
+            />
+            <button
+              type="button"
+              className="auth-eye"
+              aria-label={visible ? '비밀번호 숨기기' : '비밀번호 보기'}
+              onClick={() => setVisible((open) => !open)}
+            >
+              {visible ? <EyeOffIcon /> : <EyeIcon />}
+            </button>
+          </label>
+          <label className="auth-field">
+            <UserIcon />
+            <input
+              type="text"
+              name="nickname"
+              placeholder="nickname"
+              autoComplete="nickname"
+              value={nickname}
+              onChange={(event) => setNickname(event.target.value)}
+            />
+          </label>
+          {error && <p className="auth-error">{error}</p>}
+          <button type="submit" className="auth-submit">
+            다음
+          </button>
+        </>
+      )}
+      {step === 'interest' && (
+        <>
+          <p className="register-lead">당신이 가장 좋아하는 것 하나를 알려주세요</p>
+          <p className="register-sub">당신의 관심사가 새로운 인연으로 이어질 거예요.</p>
+          <div className="register-interests">
             {interests.map((item) => (
               <button
                 key={item.id}
                 type="button"
-                className={interest === item.id ? 'signup-interest on' : 'signup-interest'}
+                className={interest === item.id ? 'register-interest on' : 'register-interest'}
                 aria-pressed={interest === item.id}
                 onClick={() => {
                   setInterest(item.id)
@@ -84,7 +160,8 @@ export default function SignupPage() {
             다음 →
           </button>
         </>
-      ) : (
+      )}
+      {step === 'profile' && (
         <>
           <label className={preview ? 'profile-picker has-image' : 'profile-picker'}>
             <input type="file" accept="image/*" onChange={pickImage} />

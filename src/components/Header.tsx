@@ -1,6 +1,8 @@
-import { Link, useLocation } from 'react-router'
+import { useSyncExternalStore } from 'react'
+import { Link, useLocation, useNavigate } from 'react-router'
 import type { FeedUser } from '../data/feed'
-import { BellIcon, ChevronDownIcon, MailIcon, SearchIcon } from './icons'
+import { getLoggedIn, setLoggedIn, subscribeSession } from '../data/session'
+import { BellIcon, ChevronDownIcon, LogoutIcon, SearchIcon } from './icons'
 
 type HeaderProps = {
   query: string
@@ -9,7 +11,15 @@ type HeaderProps = {
 }
 
 export default function Header({ query, user, onQueryChange }: HeaderProps) {
-  const onMyPage = useLocation().pathname.startsWith('/mypage')
+  const navigate = useNavigate()
+  const loggedIn = useSyncExternalStore(subscribeSession, getLoggedIn)
+  const pathname = useLocation().pathname
+  const onMyPage =
+    pathname.startsWith('/mypage') ||
+    pathname.startsWith('/member') ||
+    pathname.startsWith('/subscription') ||
+    pathname.startsWith('/theme') ||
+    pathname.startsWith('/support')
 
   return (
     <header className="topbar">
@@ -30,25 +40,45 @@ export default function Header({ query, user, onQueryChange }: HeaderProps) {
         <input
           type="search"
           value={query}
-          placeholder={onMyPage ? '검색창' : '관심 있는 내용을 검색해보세요!'}
+          placeholder={onMyPage ? '검색창' : loggedIn ? '관심 있는 내용을 검색해보세요!' : '관심 있는 이야기를 검색해보세요.'}
           onChange={(event) => onQueryChange(event.target.value)}
         />
       </label>
 
       <div className="top-actions">
-        <button type="button" className="top-action">
-          <BellIcon />
-          <span>알림</span>
-        </button>
-        <button type="button" className="top-action">
-          <MailIcon />
-          <span>메시지</span>
-        </button>
-        <Link to="/mypage" className="top-action profile-action">
-          <img src={user.avatar} alt="" />
-          <span>프로필</span>
-          <ChevronDownIcon />
-        </Link>
+        {loggedIn ? (
+          <>
+            <button type="button" className="top-action">
+              <BellIcon />
+              <span>알림</span>
+            </button>
+            <Link to="/mypage" className="top-action profile-action">
+              <img src={user.avatar} alt="" />
+              <span>프로필</span>
+              <ChevronDownIcon />
+            </Link>
+            <button
+              type="button"
+              className="top-action"
+              onClick={() => {
+                setLoggedIn(false)
+                navigate('/')
+              }}
+            >
+              <LogoutIcon />
+              <span>로그아웃</span>
+            </button>
+          </>
+        ) : (
+          <>
+            <Link to="/login" className="guest-auth">
+              로그인
+            </Link>
+            <Link to="/register" className="guest-auth">
+              회원가입
+            </Link>
+          </>
+        )}
       </div>
     </header>
   )

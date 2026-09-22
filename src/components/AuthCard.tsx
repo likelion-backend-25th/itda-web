@@ -5,15 +5,20 @@ type AuthCardProps = {
   children: ReactNode
   footer: ReactNode
   className?: string
+  noValidate?: boolean
   onSubmit: (event: FormEvent<HTMLFormElement>) => void
 }
 
-export default function AuthCard({ children, footer, className, onSubmit }: AuthCardProps) {
+export default function AuthCard({ children, footer, className, noValidate, onSubmit }: AuthCardProps) {
   return (
     <div className="auth-page">
       <span className="auth-blob top" aria-hidden="true" />
       <span className="auth-blob bottom" aria-hidden="true" />
-      <form className={className ? `auth-card ${className}` : 'auth-card'} onSubmit={onSubmit}>
+      <form
+        className={className ? `auth-card ${className}` : 'auth-card'}
+        noValidate={noValidate}
+        onSubmit={onSubmit}
+      >
         <h1>ITDA</h1>
         {children}
         {footer}

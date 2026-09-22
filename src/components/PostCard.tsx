@@ -1,9 +1,11 @@
 import type { MouseEvent } from 'react'
+import { Link } from 'react-router'
 import type { Post } from '../data/feed'
 import { BookmarkIcon, CommentIcon, DotsIcon, EyeIcon, HeartIcon } from './icons'
 
 type PostCardProps = {
   post: Post
+  canManage: boolean
   menuOpen: boolean
   onOpen: (id: string) => void
   onToggleMenu: () => void
@@ -11,6 +13,7 @@ type PostCardProps = {
   onDelete: () => void
   onToggleLike: (id: string) => void
   onToggleBookmark: (id: string) => void
+  profileHref: string | null
 }
 
 function keepOnCard(event: MouseEvent<HTMLElement>) {
@@ -19,6 +22,7 @@ function keepOnCard(event: MouseEvent<HTMLElement>) {
 
 export default function PostCard({
   post,
+  canManage,
   menuOpen,
   onOpen,
   onToggleMenu,
@@ -26,6 +30,7 @@ export default function PostCard({
   onDelete,
   onToggleLike,
   onToggleBookmark,
+  profileHref,
 }: PostCardProps) {
   const singleImage = post.images.length === 1
   const galleryClass = post.images.length === 2 ? 'gallery two' : 'gallery'
@@ -33,32 +38,51 @@ export default function PostCard({
   return (
     <article className="post" onClick={() => onOpen(post.id)}>
       <header className="post-head">
-        <div className="author">
-          <img src={post.avatar} alt="" />
-          <div>
-            <div className="author-name">
-              <strong>{post.author}</strong>
-              {post.isMe && <span className="me-badge">나</span>}
+        {profileHref ? (
+          <Link to={profileHref} className="author" onClick={keepOnCard}>
+            <img src={post.avatar} alt="" />
+            <div>
+              <div className="author-name">
+                <strong>{post.author}</strong>
+                {post.isMe && <span className="me-badge">나</span>}
+              </div>
+              <p className="post-meta">
+                {post.time}
+                <span aria-hidden="true"> · </span>
+                {post.categoryLabel}
+              </p>
             </div>
-            <p className="post-meta">
-              {post.time}
-              <span aria-hidden="true"> · </span>
-              {post.categoryLabel}
-            </p>
+          </Link>
+        ) : (
+          <div className="author">
+            <img src={post.avatar} alt="" />
+            <div>
+              <div className="author-name">
+                <strong>{post.author}</strong>
+                {post.isMe && <span className="me-badge">나</span>}
+              </div>
+              <p className="post-meta">
+                {post.time}
+                <span aria-hidden="true"> · </span>
+                {post.categoryLabel}
+              </p>
+            </div>
           </div>
-        </div>
-        <button
-          type="button"
-          className="more"
-          aria-label="게시글 메뉴"
-          aria-expanded={menuOpen}
-          onClick={(event) => {
-            keepOnCard(event)
-            onToggleMenu()
-          }}
-        >
-          <DotsIcon />
-        </button>
+        )}
+        {canManage && (
+          <button
+            type="button"
+            className="more"
+            aria-label="게시글 메뉴"
+            aria-expanded={menuOpen}
+            onClick={(event) => {
+              keepOnCard(event)
+              onToggleMenu()
+            }}
+          >
+            <DotsIcon />
+          </button>
+        )}
       </header>
 
       {singleImage ? (
@@ -114,7 +138,7 @@ export default function PostCard({
         </button>
       </footer>
 
-      {menuOpen && (
+      {canManage && menuOpen && (
         <div className="post-menu in-card" onClick={keepOnCard}>
           <button type="button" onClick={onEdit}>
             수정

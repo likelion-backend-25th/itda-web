@@ -1,23 +1,21 @@
 import { useCallback, useEffect, useMemo, useState, useSyncExternalStore } from 'react'
-import EditPostModal from '../components/EditPostModal'
-import Header from '../components/Header'
-import PostCard from '../components/PostCard'
-import PostDetail from '../components/PostDetail'
-import Sidebar from '../components/Sidebar'
-import WritePostModal, { type PostDraft } from '../components/WritePostModal'
+import EditPostModal from './EditPostModal'
+import PostCard from './PostCard'
+import PostDetail from './PostDetail'
 import { categories, currentUser, formatDateTime, initialPosts, type CategoryId, type Post } from '../data/feed'
-import { getLoggedIn, subscribeSession } from '../data/session'
 import { profilePath } from '../data/members'
 import type { MyPost } from '../data/mypage'
+import { getLoggedIn, subscribeSession } from '../data/session'
 
-export default function HomePage() {
+type CategoryFeedProps = {
+  category: CategoryId
+  query: string
+}
+
+export default function CategoryFeed({ category, query }: CategoryFeedProps) {
   const loggedIn = useSyncExternalStore(subscribeSession, getLoggedIn)
-  const [query, setQuery] = useState('')
-  const [category, setCategory] = useState<CategoryId>('all')
-  const [categoriesOpen, setCategoriesOpen] = useState(true)
   const [posts, setPosts] = useState<Post[]>(initialPosts)
   const [selectedId, setSelectedId] = useState<string | null>(null)
-  const [writing, setWriting] = useState(false)
   const [menuId, setMenuId] = useState<string | null>(null)
   const [editingPost, setEditingPost] = useState<Post | null>(null)
   const closeDetail = useCallback(() => setSelectedId(null), [])
@@ -32,10 +30,19 @@ export default function HomePage() {
     return () => window.removeEventListener('click', closeMenu)
   }, [menuId])
 
-  function openEditor(post: Post) {
-    setEditingPost(post)
-    setMenuId(null)
-  }
+  const visiblePosts = useMemo(() => {
+    const keyword = query.trim().toLowerCase()
+    return posts.filter((post) => {
+      const categoryMatch = category === 'all' || post.category === category
+      const publicPost = post.visibility !== 'subscribers'
+      const keywordMatch =
+        keyword.length === 0 ||
+        post.author.toLowerCase().includes(keyword) ||
+        post.categoryLabel.toLowerCase().includes(keyword) ||
+        post.content.toLowerCase().includes(keyword)
+      return publicPost && categoryMatch && keywordMatch
+    })
+  }, [category, posts, query])
 
   function toEditable(post: Post): MyPost {
     const [title, ...rest] = post.content.split('\n')
@@ -58,29 +65,11 @@ export default function HomePage() {
     }
   }
 
-  const visiblePosts = useMemo(() => {
-    const keyword = query.trim().toLowerCase()
-    return posts.filter((post) => {
-      const categoryMatch = category === 'all' || post.category === category
-      const publicPost = post.visibility !== 'subscribers'
-      const keywordMatch =
-        keyword.length === 0 ||
-        post.author.toLowerCase().includes(keyword) ||
-        post.categoryLabel.toLowerCase().includes(keyword) ||
-        post.content.toLowerCase().includes(keyword)
-      return publicPost && categoryMatch && keywordMatch
-    })
-  }, [category, posts, query])
-
   function toggleLike(id: string) {
     setPosts((current) =>
       current.map((post) =>
         post.id === id
-          ? {
-              ...post,
-              liked: !post.liked,
-              likes: post.likes + (post.liked ? -1 : 1),
-            }
+          ? { ...post, liked: !post.liked, likes: post.likes + (post.liked ? -1 : 1) }
           : post,
       ),
     )
@@ -88,35 +77,8 @@ export default function HomePage() {
 
   function toggleBookmark(id: string) {
     setPosts((current) =>
-      current.map((post) =>
-        post.id === id ? { ...post, bookmarked: !post.bookmarked } : post,
-      ),
+      current.map((post) => (post.id === id ? { ...post, bookmarked: !post.bookmarked } : post)),
     )
-  }
-
-  function publishPost(draft: PostDraft) {
-    const now = new Date()
-    const post: Post = {
-      id: `post-${now.getTime()}`,
-      author: currentUser.name,
-      avatar: currentUser.avatar,
-      time: '방금 전',
-      category: draft.category,
-      categoryLabel: draft.categoryLabel,
-      isMe: true,
-      content: draft.content,
-      images: draft.images,
-      createdAt: formatDateTime(now),
-      comments: 0,
-      likes: 0,
-      liked: false,
-      views: 0,
-      bookmarked: false,
-      thread: [],
-    }
-    setPosts((current) => [post, ...current])
-    setCategory((current) => (current === 'all' || current === draft.category ? current : 'all'))
-    setWriting(false)
   }
 
   function updateComment(postId: string, commentId: string, content: string) {
@@ -169,44 +131,34 @@ export default function HomePage() {
   }
 
   return (
-    <div className="page">
-      <div className="shell">
-        <Header query={query} user={currentUser} onQueryChange={setQuery} />
-        <div className="layout">
-          <Sidebar
-            user={currentUser}
-            category={category}
-            categoriesOpen={categoriesOpen}
-            onCategoryChange={setCategory}
-            onToggleCategories={() => setCategoriesOpen((open) => !open)}
-            onWrite={() => setWriting(true)}
-          />
-          <main className="feed" aria-label="피드">
-            {visiblePosts.length === 0 ? (
-              <div className="empty">해당하는 글이 없습니다.</div>
-            ) : (
-              visiblePosts.map((post) => (
-                <PostCard
-                  key={post.id}
-                  post={post}
-                  canManage={loggedIn && post.author === currentUser.name}
-                  menuOpen={menuId === post.id}
-                  onOpen={setSelectedId}
-                  onToggleMenu={() => setMenuId((current) => (current === post.id ? null : post.id))}
-                  onEdit={() => openEditor(post)}
-                  onDelete={() => {
-                    setPosts((current) => current.filter((item) => item.id !== post.id))
-                    setMenuId(null)
-                    if (selectedId === post.id) setSelectedId(null)
-                  }}
-                  onToggleLike={toggleLike}
-                  onToggleBookmark={toggleBookmark}
-                  profileHref={profilePath(post.author)}
-                />
-              ))
-            )}
-          </main>
-        </div>
+    <>
+      <div className="feed" aria-label="카테고리 게시글">
+        {visiblePosts.length === 0 ? (
+          <div className="empty">해당하는 글이 없습니다.</div>
+        ) : (
+          visiblePosts.map((post) => (
+            <PostCard
+              key={post.id}
+              post={post}
+              canManage={loggedIn && post.author === currentUser.name}
+              menuOpen={menuId === post.id}
+              onOpen={setSelectedId}
+              onToggleMenu={() => setMenuId((current) => (current === post.id ? null : post.id))}
+              onEdit={() => {
+                setEditingPost(post)
+                setMenuId(null)
+              }}
+              onDelete={() => {
+                setPosts((current) => current.filter((item) => item.id !== post.id))
+                setMenuId(null)
+                if (selectedId === post.id) setSelectedId(null)
+              }}
+              onToggleLike={toggleLike}
+              onToggleBookmark={toggleBookmark}
+              profileHref={profilePath(post.author)}
+            />
+          ))
+        )}
       </div>
       {editingPost && (
         <EditPostModal
@@ -232,14 +184,6 @@ export default function HomePage() {
           }}
         />
       )}
-      {writing && (
-        <WritePostModal
-          user={currentUser}
-          categories={categories}
-          onClose={() => setWriting(false)}
-          onPublish={publishPost}
-        />
-      )}
       {selectedPost && (
         <PostDetail
           post={selectedPost}
@@ -252,6 +196,6 @@ export default function HomePage() {
           onDeleteComment={deleteComment}
         />
       )}
-    </div>
+    </>
   )
 }

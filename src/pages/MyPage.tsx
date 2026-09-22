@@ -1,18 +1,22 @@
-import { useEffect, useMemo, useState } from 'react'
+import { useCallback, useEffect, useMemo, useState, useSyncExternalStore } from 'react'
+import { Link } from 'react-router'
 import EditPostModal from '../components/EditPostModal'
+import FollowList, { type FollowTab } from '../components/FollowList'
 import WritePostModal, { type PostDraft } from '../components/WritePostModal'
 import Header from '../components/Header'
 import MyPostCard from '../components/MyPostCard'
+import PostDetail from '../components/PostDetail'
 import Sidebar from '../components/Sidebar'
 import ThemeDetail from '../components/ThemeDetail'
 import ProfileEditModal, { type ProfileForm } from '../components/ProfileEditModal'
 import ThemeShot from '../components/ThemeShot'
 import { GearIcon, HeadsetIcon } from '../components/icons'
-import { myPageCategories, type CategoryId } from '../data/feed'
+import { formatDateTime, myPageCategories, type CategoryId, type Post } from '../data/feed'
+import { getOwnedThemeIds, shopThemes, subscribeOwnedThemes } from '../data/themes'
+import { getFollowingIds, myFollowerIds, setFollowing, subscribeFollows } from '../data/follows'
 import {
   likedPosts,
   myPosts,
-  ownedThemes,
   pageProfile,
   profileStats,
   scrappedPosts,
@@ -21,6 +25,19 @@ import {
 } from '../data/mypage'
 
 type MyTab = 'posts' | 'likes' | 'scraps' | 'themes'
+
+function purchasedThemes(ids: ReadonlySet<string>): OwnedTheme[] {
+  return shopThemes
+    .filter((theme) => ids.has(theme.id))
+    .map((theme) => ({
+      id: theme.id,
+      name: theme.name,
+      title: theme.name,
+      subtitle: theme.description,
+      tone: theme.tone,
+      active: theme.id === 'light',
+    }))
+}
 
 const tabCopy: Record<Exclude<MyTab, 'themes'>, string> = {
   posts: '본인 작성 게시글 목록',
@@ -36,13 +53,17 @@ export default function MyPage() {
   const [posts, setPosts] = useState<MyPost[]>(myPosts)
   const [liked, setLiked] = useState<MyPost[]>(likedPosts)
   const [scraps, setScraps] = useState<MyPost[]>(scrappedPosts)
-  const [themes, setThemes] = useState<OwnedTheme[]>(ownedThemes)
+  const ownedIds = useSyncExternalStore(subscribeOwnedThemes, getOwnedThemeIds)
+  const [themes, setThemes] = useState<OwnedTheme[]>(() => purchasedThemes(getOwnedThemeIds()))
   const [detailId, setDetailId] = useState<string | null>(null)
   const [menuId, setMenuId] = useState<string | null>(null)
   const [editingPost, setEditingPost] = useState<MyPost | null>(null)
+  const [selectedId, setSelectedId] = useState<string | null>(null)
+  const closeDetail = useCallback(() => setSelectedId(null), [])
   const [writing, setWriting] = useState(false)
-  const [supportOpen, setSupportOpen] = useState(false)
   const [settingsOpen, setSettingsOpen] = useState(false)
+  const [followTab, setFollowTab] = useState<FollowTab | null>(null)
+  const followedIds = useSyncExternalStore(subscribeFollows, getFollowingIds)
   const [profile, setProfile] = useState<ProfileForm>({
     name: pageProfile.name,
     bio: '카페 디저트와 여행 사진을 좋아합니다.',
@@ -57,6 +78,14 @@ export default function MyPage() {
   }
 
   useEffect(() => {
+    setThemes((current) => {
+      const known = new Set(current.map((theme) => theme.id))
+      const added = purchasedThemes(ownedIds).filter((theme) => !known.has(theme.id))
+      return added.length === 0 ? current : [...current, ...added]
+    })
+  }, [ownedIds])
+
+  useEffect(() => {
     if (!menuId) return
     function closeMenu() {
       setMenuId(null)
@@ -66,6 +95,28 @@ export default function MyPage() {
   }, [menuId])
 
   const detailTheme = themes.find((theme) => theme.id === detailId) ?? null
+  const selectedPost = [...posts, ...liked, ...scraps].find((post) => post.id === selectedId) ?? null
+
+  function toDetailPost(post: MyPost): Post {
+    return {
+      id: post.id,
+      author: post.author,
+      avatar: post.avatar,
+      time: '',
+      category: post.category,
+      categoryLabel: post.categoryLabel,
+      content: post.body ? `${post.title}\n${post.body}` : post.title,
+      images: post.images,
+      createdAt: post.createdAt ?? '',
+      comments: post.comments,
+      likes: post.likes,
+      liked: post.liked,
+      views: post.views,
+      bookmarked: scraps.some((item) => item.id === post.id),
+      visibility: post.visibility,
+      thread: post.thread ?? [],
+    }
+  }
   const source = tab === 'likes' ? liked : tab === 'scraps' ? scraps : posts
 
   const visiblePosts = useMemo(() => {
@@ -80,6 +131,21 @@ export default function MyPage() {
       return categoryMatch && keywordMatch
     })
   }, [category, query, source])
+
+  function toggleScrap(post: MyPost) {
+    setScraps((current) =>
+      current.some((item) => item.id === post.id)
+        ? current.filter((item) => item.id !== post.id)
+        : [post, ...current],
+    )
+  }
+
+  function patchPost(id: string, updater: (post: MyPost) => MyPost) {
+    const apply = (list: MyPost[]) => list.map((post) => (post.id === id ? updater(post) : post))
+    setPosts(apply)
+    setLiked(apply)
+    setScraps(apply)
+  }
 
   function updateList(id: string, updater: (post: MyPost) => MyPost) {
     const apply = (list: MyPost[]) => list.map((post) => (post.id === id ? updater(post) : post))
@@ -102,19 +168,19 @@ export default function MyPage() {
             onToggleCategories={() => setCategoriesOpen((open) => !open)}
             onWrite={() => setWriting(true)}
           />
-          <main className="my-main" aria-label="마이페이지">
+          <main className="my-main my-board" aria-label="마이페이지">
             <section className="my-summary">
               <img src={viewer.avatar} alt="" />
               <div>
                 <h2>{viewer.name}</h2>
                 <p className="my-intro">{viewer.bio}</p>
                 <p className="my-counts">
-                  <span>
-                    팔로잉 <b>{profileStats.following}</b>
-                  </span>
-                  <span>
-                    팔로워 <b>{profileStats.followers}</b>
-                  </span>
+                  <button type="button" className="count-link" onClick={() => setFollowTab('following')}>
+                    팔로잉 <b>{followedIds.size}</b>
+                  </button>
+                  <button type="button" className="count-link" onClick={() => setFollowTab('followers')}>
+                    팔로워 <b>{myFollowerIds().length}</b>
+                  </button>
                   <span>
                     게시글 <b>{profileStats.posts}</b>
                   </span>
@@ -193,6 +259,7 @@ export default function MyPage() {
                         post={post}
                         canManage={tab === 'posts'}
                         menuOpen={menuId === post.id}
+                        onOpen={() => setSelectedId(post.id)}
                         onToggleMenu={() => setMenuId((current) => (current === post.id ? null : post.id))}
                         onEdit={() => {
                           setEditingPost(post)
@@ -201,6 +268,7 @@ export default function MyPage() {
                         onDelete={() => {
                           setPosts((current) => current.filter((item) => item.id !== post.id))
                           setMenuId(null)
+                          if (selectedId === post.id) setSelectedId(null)
                         }}
                         onToggleLike={() =>
                           updateList(post.id, (item) => ({
@@ -209,15 +277,37 @@ export default function MyPage() {
                             likes: item.likes + (item.liked ? -1 : 1),
                           }))
                         }
+                        scrapped={scraps.some((item) => item.id === post.id)}
+                        onToggleScrap={tab === 'posts' ? undefined : () => toggleScrap(post)}
                       />
                     ))
                   )}
                 </div>
               </>
             )}
+            <div className="support">
+              <Link to="/support" className="support-fab">
+                <HeadsetIcon />
+                <span>
+                  고객센터
+                  <small>환불 신청</small>
+                </span>
+              </Link>
+            </div>
           </main>
         </div>
       </div>
+
+      {followTab && (
+        <FollowList
+          initialTab={followTab}
+          followers={myFollowerIds()}
+          following={[...followedIds]}
+          followedIds={followedIds}
+          onToggle={setFollowing}
+          onClose={() => setFollowTab(null)}
+        />
+      )}
 
       {settingsOpen && (
         <ProfileEditModal
@@ -262,12 +352,61 @@ export default function MyPage() {
               liked: false,
               views: 0,
               visibility: draft.visibility,
+              createdAt: formatDateTime(new Date()),
+              thread: [],
             }
             setPosts((current) => [post, ...current])
             setTab('posts')
             setCategory((current) => (current === 'all' || current === draft.category ? current : 'all'))
             setWriting(false)
           }}
+        />
+      )}
+
+      {selectedPost && (
+        <PostDetail
+          post={toDetailPost(selectedPost)}
+          user={viewer}
+          onClose={closeDetail}
+          onToggleLike={(id) =>
+            patchPost(id, (item) => ({
+              ...item,
+              liked: !item.liked,
+              likes: item.likes + (item.liked ? -1 : 1),
+            }))
+          }
+          onToggleBookmark={() => toggleScrap(selectedPost)}
+          onAddComment={(id, content) =>
+            patchPost(id, (item) => ({
+              ...item,
+              comments: item.comments + 1,
+              thread: [
+                {
+                  id: `comment-${Date.now()}`,
+                  author: viewer.name,
+                  avatar: viewer.avatar,
+                  createdAt: formatDateTime(new Date()),
+                  content,
+                },
+                ...(item.thread ?? []),
+              ],
+            }))
+          }
+          onUpdateComment={(id, commentId, content) =>
+            patchPost(id, (item) => ({
+              ...item,
+              thread: (item.thread ?? []).map((comment) =>
+                comment.id === commentId ? { ...comment, content } : comment,
+              ),
+            }))
+          }
+          onDeleteComment={(id, commentId) =>
+            patchPost(id, (item) => {
+              const thread = (item.thread ?? []).filter((comment) => comment.id !== commentId)
+              if (thread.length === (item.thread ?? []).length) return item
+              return { ...item, thread, comments: Math.max(0, item.comments - 1) }
+            })
+          }
         />
       )}
 
@@ -284,16 +423,6 @@ export default function MyPage() {
         />
       )}
 
-      <div className="support">
-        <button type="button" className="support-fab" onClick={() => setSupportOpen((open) => !open)}>
-          <HeadsetIcon />
-          <span>
-            고객센터
-            <small>환불 문의</small>
-          </span>
-        </button>
-        {supportOpen && <p className="support-note">환불 문의는 고객센터로 남겨 주세요.</p>}
-      </div>
     </div>
   )
 }
