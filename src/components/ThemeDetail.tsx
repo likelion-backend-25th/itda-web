@@ -1,5 +1,6 @@
 import { useEffect, useId, useRef } from 'react'
 import { createPortal } from 'react-dom'
+import type { ThemeTone } from './ThemeShot'
 import type { OwnedTheme } from '../data/mypage'
 import { pageProfile } from '../data/mypage'
 import { CloseIcon, HeartIcon, PencilIcon } from './icons'
@@ -72,15 +73,15 @@ export default function ThemeDetail({ theme, onClose, onApply }: ThemeDetailProp
   )
 }
 
-function ThemeBoard({ tone }: { tone: 'light' | 'dark' }) {
+function ThemeBoard({ tone }: { tone: ThemeTone }) {
   return (
     <div className={`theme-board ${tone}`} aria-hidden="true">
       <header className="board-top">
         <strong>ITDA</strong>
         <span className="board-search">검색창</span>
         <span>알림</span>
-        <span>메시지</span>
         <img src={pageProfile.avatar} alt="" />
+        <span>로그아웃</span>
       </header>
       <div className="board-layout">
         <aside className="board-side">
@@ -91,7 +92,6 @@ function ThemeBoard({ tone }: { tone: 'light' | 'dark' }) {
             글쓰기
           </span>
           <span>홈 (SNS 메인페이지)</span>
-          <span>메시지(DM)</span>
           <span className="on">마이페이지</span>
           <span>테마 구매</span>
           <span>구독</span>

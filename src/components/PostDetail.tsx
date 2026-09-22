@@ -1,6 +1,8 @@
 import { useEffect, useId, useRef, useState, type FormEvent } from 'react'
 import { createPortal } from 'react-dom'
+import { Link } from 'react-router'
 import type { FeedUser, Post } from '../data/feed'
+import { profilePath } from '../data/members'
 import { BookmarkIcon, CloseIcon, CommentIcon, DotsIcon, EyeIcon, HeartIcon } from './icons'
 
 type PostDetailProps = {
@@ -10,6 +12,8 @@ type PostDetailProps = {
   onToggleLike: (id: string) => void
   onToggleBookmark: (id: string) => void
   onAddComment: (id: string, content: string) => void
+  onUpdateComment: (postId: string, commentId: string, content: string) => void
+  onDeleteComment: (postId: string, commentId: string) => void
 }
 
 export default function PostDetail({
@@ -19,10 +23,15 @@ export default function PostDetail({
   onToggleLike,
   onToggleBookmark,
   onAddComment,
+  onUpdateComment,
+  onDeleteComment,
 }: PostDetailProps) {
   const titleId = useId()
   const closeRef = useRef<HTMLButtonElement>(null)
   const [draft, setDraft] = useState('')
+  const [menuCommentId, setMenuCommentId] = useState<string | null>(null)
+  const [editingId, setEditingId] = useState<string | null>(null)
+  const [editDraft, setEditDraft] = useState('')
 
   useEffect(() => {
     closeRef.current?.focus()
@@ -42,7 +51,19 @@ export default function PostDetail({
 
   useEffect(() => {
     setDraft('')
+    setMenuCommentId(null)
+    setEditingId(null)
+    setEditDraft('')
   }, [post.id])
+
+  useEffect(() => {
+    if (!menuCommentId) return
+    function closeMenu() {
+      setMenuCommentId(null)
+    }
+    window.addEventListener('click', closeMenu)
+    return () => window.removeEventListener('click', closeMenu)
+  }, [menuCommentId])
 
   function submitComment(event: FormEvent<HTMLFormElement>) {
     event.preventDefault()
@@ -50,6 +71,14 @@ export default function PostDetail({
     if (!content) return
     onAddComment(post.id, content)
     setDraft('')
+  }
+
+  function saveComment(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault()
+    const content = editDraft.trim()
+    if (!editingId || !content) return
+    onUpdateComment(post.id, editingId, content)
+    setEditingId(null)
   }
 
   return createPortal(
@@ -124,21 +153,83 @@ export default function PostDetail({
             </div>
           </div>
 
-          {post.thread.map((comment) => (
-            <article key={comment.id} className="comment">
-              <img src={comment.avatar} alt="" />
-              <div>
-                <div className="comment-top">
-                  <strong>{comment.author}</strong>
-                  <time dateTime={comment.createdAt}>{comment.createdAt}</time>
-                  <button type="button" className="more" aria-label="댓글 메뉴">
-                    <DotsIcon />
-                  </button>
+          {post.thread.map((comment) => {
+            const mine = comment.author === user.name
+            const editing = editingId === comment.id
+            const href = profilePath(comment.author)
+            return (
+              <article key={comment.id} className="comment">
+                <img src={comment.avatar} alt="" />
+                <div>
+                  <div className="comment-top">
+                    {href ? (
+                      <Link to={href} className="comment-author">
+                        {comment.author}
+                      </Link>
+                    ) : (
+                      <strong>{comment.author}</strong>
+                    )}
+                    <time dateTime={comment.createdAt}>{comment.createdAt}</time>
+                    {mine && (
+                      <button
+                        type="button"
+                        className="more"
+                        aria-label="댓글 메뉴"
+                        aria-expanded={menuCommentId === comment.id}
+                        onClick={(event) => {
+                          event.stopPropagation()
+                          setMenuCommentId((current) => (current === comment.id ? null : comment.id))
+                        }}
+                      >
+                        <DotsIcon />
+                      </button>
+                    )}
+                  </div>
+                  {editing ? (
+                    <form className="comment-edit" onSubmit={saveComment}>
+                      <input
+                        value={editDraft}
+                        aria-label="댓글 수정"
+                        onChange={(event) => setEditDraft(event.target.value)}
+                      />
+                      <button type="submit" disabled={editDraft.trim().length === 0}>
+                        저장
+                      </button>
+                      <button type="button" onClick={() => setEditingId(null)}>
+                        취소
+                      </button>
+                    </form>
+                  ) : (
+                    <p>{comment.content}</p>
+                  )}
                 </div>
-                <p>{comment.content}</p>
-              </div>
-            </article>
-          ))}
+                {mine && menuCommentId === comment.id && (
+                  <div className="post-menu in-comment" onClick={(event) => event.stopPropagation()}>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setEditingId(comment.id)
+                        setEditDraft(comment.content)
+                        setMenuCommentId(null)
+                      }}
+                    >
+                      수정
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        onDeleteComment(post.id, comment.id)
+                        setMenuCommentId(null)
+                        if (editingId === comment.id) setEditingId(null)
+                      }}
+                    >
+                      삭제
+                    </button>
+                  </div>
+                )}
+              </article>
+            )
+          })}
         </section>
       </div>
     </div>,

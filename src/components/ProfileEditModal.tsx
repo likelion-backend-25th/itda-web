@@ -1,5 +1,9 @@
-import { useEffect, useId, useRef, useState } from 'react'
+import { useEffect, useId, useRef, useState, useSyncExternalStore } from 'react'
 import { createPortal } from 'react-dom'
+import { useNavigate } from 'react-router'
+import { creatorSubscriberCount, getMemberships, subscribeMemberships } from '../data/subscriptions'
+import { setLoggedIn } from '../data/session'
+import WithdrawModal, { type WithdrawKind } from './WithdrawModal'
 import { CloseIcon } from './icons'
 
 export type InterestId =
@@ -55,14 +59,26 @@ export default function ProfileEditModal({
   const [bio, setBio] = useState(profile.bio)
   const [avatar, setAvatar] = useState(profile.avatar)
   const [selected, setSelected] = useState<InterestId[]>(profile.interests)
-  const [confirmLeave, setConfirmLeave] = useState(false)
+  const [withdrawOpen, setWithdrawOpen] = useState(false)
+  const [confirmCancel, setConfirmCancel] = useState(false)
+  const withdrawOpenRef = useRef(false)
+  const confirmCancelRef = useRef(false)
+  withdrawOpenRef.current = withdrawOpen
+  confirmCancelRef.current = confirmCancel
+  const navigate = useNavigate()
+  const memberships = useSyncExternalStore(subscribeMemberships, getMemberships)
+  // 구독자가 있으면 창작자 안내, 없으면 내 유료 구독 여부만 본다
+  const withdrawKind: WithdrawKind =
+    creatorSubscriberCount > 0 ? 'creator' : memberships.length > 0 ? 'subscriber' : 'general'
 
   useEffect(() => {
     const previousOverflow = document.body.style.overflow
     document.body.style.overflow = 'hidden'
 
     function onKeyDown(event: KeyboardEvent) {
-      if (event.key === 'Escape') onCloseRef.current()
+      if (event.key === 'Escape' && !withdrawOpenRef.current && !confirmCancelRef.current) {
+        onCloseRef.current()
+      }
     }
 
     window.addEventListener('keydown', onKeyDown)
@@ -71,6 +87,17 @@ export default function ProfileEditModal({
       window.removeEventListener('keydown', onKeyDown)
     }
   }, [])
+
+  useEffect(() => {
+    if (!confirmCancel) return
+
+    function onKeyDown(event: KeyboardEvent) {
+      if (event.key === 'Escape') setConfirmCancel(false)
+    }
+
+    window.addEventListener('keydown', onKeyDown)
+    return () => window.removeEventListener('keydown', onKeyDown)
+  }, [confirmCancel])
 
   function resetProfile() {
     setName(profile.name)
@@ -92,6 +119,7 @@ export default function ProfileEditModal({
   }
 
   return createPortal(
+    <>
     <div className="detail-backdrop" onClick={onClose}>
       <div
         className="profile-edit"
@@ -173,34 +201,63 @@ export default function ProfileEditModal({
         </div>
 
         <footer className="profile-edit-foot">
-          {confirmLeave ? (
-            <div className="leave-confirm">
-              <span>탈퇴하면 수정 중인 내용이 닫힙니다.</span>
-              <button type="button" onClick={() => setConfirmLeave(false)}>
+          <button type="button" className="leave-link" onClick={() => setWithdrawOpen(true)}>
+            회원 탈퇴
+          </button>
+          <div className="edit-apply">
+            <button type="button" className="interest-cancel" onClick={() => setConfirmCancel(true)}>
+              취소
+            </button>
+            <button
+              type="button"
+              className="theme-apply interest-apply"
+              onClick={() => {
+                onSaveInterests(selected)
+                onClose()
+              }}
+            >
+              적용
+            </button>
+          </div>
+        </footer>
+      </div>
+    </div>
+      {confirmCancel && (
+        <div className="detail-backdrop cancel-layer" onClick={() => setConfirmCancel(false)}>
+          <div
+            className="cancel-dialog"
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="cancel-ask"
+            onClick={(event) => event.stopPropagation()}
+          >
+            <p id="cancel-ask">
+              정말 취소하시겠습니까?
+              <br />
+              변경사항이 적용되지 않을 수 있습니다
+            </p>
+            <div className="withdraw-actions">
+              <button type="button" onClick={() => setConfirmCancel(false)}>
                 돌아가기
               </button>
               <button type="button" onClick={onClose}>
-                탈퇴
+                확인
               </button>
             </div>
-          ) : (
-            <button type="button" className="leave-link" onClick={() => setConfirmLeave(true)}>
-              회원 탈퇴
-            </button>
-          )}
-          <button
-            type="button"
-            className="theme-apply interest-apply"
-            onClick={() => {
-              onSaveInterests(selected)
-              onClose()
-            }}
-          >
-            적용
-          </button>
-        </footer>
-      </div>
-    </div>,
+          </div>
+        </div>
+      )}
+      {withdrawOpen && (
+        <WithdrawModal
+          kind={withdrawKind}
+          onClose={() => setWithdrawOpen(false)}
+          onConfirm={() => {
+            setLoggedIn(false)
+            navigate('/')
+          }}
+        />
+      )}
+    </>,
     document.body,
   )
 }

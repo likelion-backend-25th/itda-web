@@ -57,6 +57,26 @@ export function MailIcon() {
   )
 }
 
+export function LoginIcon() {
+  return (
+    <Icon>
+      <path d="M14 6.5V5.2A1.2 1.2 0 0 0 12.8 4H5.2A1.2 1.2 0 0 0 4 5.2v13.6A1.2 1.2 0 0 0 5.2 20h7.6a1.2 1.2 0 0 0 1.2-1.2V17.5" />
+      <path d="M10.5 12H20.5" />
+      <path d="m17.8 9.2 2.7 2.8-2.7 2.8" />
+    </Icon>
+  )
+}
+
+export function LogoutIcon() {
+  return (
+    <Icon>
+      <path d="M10 6.5V5.2A1.2 1.2 0 0 1 11.2 4h7.6A1.2 1.2 0 0 1 20 5.2v13.6a1.2 1.2 0 0 1-1.2 1.2h-7.6a1.2 1.2 0 0 1-1.2-1.2V17.5" />
+      <path d="M13.5 12H3.5" />
+      <path d="m6.2 9.2-2.7 2.8 2.7 2.8" />
+    </Icon>
+  )
+}
+
 export function LockIcon() {
   return (
     <Icon>
@@ -133,6 +153,15 @@ export function BagIcon() {
     <Icon>
       <path d="M6.5 8h11l-.8 11.2a1 1 0 0 1-1 .8H8.3a1 1 0 0 1-1-.8Z" />
       <path d="M9 8V7.2A3 3 0 0 1 15 7.2V8" />
+    </Icon>
+  )
+}
+
+export function CrownIcon() {
+  return (
+    <Icon>
+      <path d="M4.5 16.2 6.6 8.6 9.8 12 12 7.2l2.2 4.8 3.2-3.4 2.1 7.6Z" />
+      <path d="M5.2 18.4h13.6" />
     </Icon>
   )
 }
@@ -417,6 +446,45 @@ export function PaletteIcon() {
       <circle cx="8.2" cy="10" r="0.9" fill="currentColor" stroke="none" />
       <circle cx="11.2" cy="7.8" r="0.9" fill="currentColor" stroke="none" />
       <circle cx="14.6" cy="9.2" r="0.9" fill="currentColor" stroke="none" />
+    </Icon>
+  )
+}
+
+export function CardIcon() {
+  return (
+    <Icon>
+      <rect x="3" y="6" width="18" height="12" rx="2" />
+      <path d="M3 10h18" />
+    </Icon>
+  )
+}
+
+export function RefreshIcon() {
+  return (
+    <Icon>
+      <path d="M20 12a8 8 0 1 1-2.2-5.5" />
+      <path d="M20 4.5V9h-4.5" />
+    </Icon>
+  )
+}
+
+export function DocIcon() {
+  return (
+    <Icon>
+      <path d="M7 3.5h7l4 4V20a1 1 0 0 1-1 1H7a1 1 0 0 1-1-1V4.5a1 1 0 0 1 1-1Z" />
+      <path d="M14 3.5V8h4.5" />
+      <path d="M8.5 12.5h7" />
+      <path d="M8.5 16h5" />
+    </Icon>
+  )
+}
+
+export function AlertIcon() {
+  return (
+    <Icon>
+      <path d="M12 4.2 3.8 19h16.4L12 4.2Z" />
+      <path d="M12 10v4" />
+      <circle cx="12" cy="16.4" r="0.7" fill="currentColor" stroke="none" />
     </Icon>
   )
 }

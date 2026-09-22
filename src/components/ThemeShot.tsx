@@ -1,10 +1,19 @@
+export type ThemeTone = 'light' | 'dark' | 'ocean' | 'sunset' | 'forest' | 'lavender'
+
+const photos: Record<ThemeTone, string> = {
+  light: '/images/photo-palms.jpg',
+  dark: '/images/photo-cliff.jpg',
+  ocean: '/images/photo-palms.jpg',
+  sunset: '/images/photo-field.jpg',
+  forest: '/images/photo-field.jpg',
+  lavender: '/images/photo-cliff.jpg',
+}
+
 type ThemeShotProps = {
-  tone: 'light' | 'dark'
+  tone: ThemeTone
 }
 
 export default function ThemeShot({ tone }: ThemeShotProps) {
-  const photo = tone === 'light' ? '/images/photo-palms.jpg' : '/images/photo-cliff.jpg'
-
   return (
     <div className={`theme-shot ${tone}`} aria-hidden="true">
       <div className="shot-top">
@@ -20,7 +29,7 @@ export default function ThemeShot({ tone }: ThemeShotProps) {
           <span />
         </div>
         <div className="shot-feed">
-          <img src={photo} alt="" />
+          <img src={photos[tone]} alt="" />
           <div>
             <span />
             <span />
