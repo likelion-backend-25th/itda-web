@@ -1,9 +1,9 @@
 import { useEffect, useId, useRef, useState, type FormEvent } from 'react'
 import { createPortal } from 'react-dom'
 import { Link } from 'react-router'
-import type { FeedUser, Post } from '../data/feed'
-import { profilePath } from '../data/members'
-import { BookmarkIcon, CloseIcon, CommentIcon, DotsIcon, EyeIcon, HeartIcon } from './icons'
+import type { FeedUser, Post } from '@/data/feed'
+import { profilePath } from '@/data/members'
+import { BookmarkIcon, CloseIcon, CommentIcon, DotsIcon, EyeIcon, HeartIcon } from '@/components/icons'
 
 type PostDetailProps = {
   post: Post

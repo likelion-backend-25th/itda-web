@@ -1,6 +1,6 @@
 import { useEffect, useState, useSyncExternalStore, type FormEvent } from 'react'
 import { Navigate, NavLink, useNavigate, useParams } from 'react-router'
-import ThemeShot from '../components/ThemeShot'
+import ThemeShot from '@/components/theme/ThemeShot'
 import {
   AlertIcon,
   CardIcon,
@@ -11,7 +11,7 @@ import {
   RefreshIcon,
   SearchIcon,
   UsersIcon,
-} from '../components/icons'
+} from '@/components/icons'
 import {
   addTheme,
   adminPageSize,
@@ -25,8 +25,8 @@ import {
   subscribeAdminData,
   type AdminPayment,
   type AdminTheme,
-} from '../data/admin'
-import { getAdmin, setAdmin, subscribeAdmin } from '../data/adminSession'
+} from '@/data/admin'
+import { getAdmin, setAdmin, subscribeAdmin } from '@/data/adminSession'
 
 const sections = [
   { id: 'members', label: '회원 관리', icon: UsersIcon },

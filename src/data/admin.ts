@@ -1,4 +1,4 @@
-import type { ThemeTone } from '../components/ThemeShot'
+import type { ThemeTone } from '@/components/theme/ThemeShot'
 
 export type AdminMember = {
   id: string

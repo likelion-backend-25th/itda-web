@@ -2,10 +2,10 @@ import { useCallback, useEffect, useMemo, useState, useSyncExternalStore } from 
 import EditPostModal from './EditPostModal'
 import PostCard from './PostCard'
 import PostDetail from './PostDetail'
-import { categories, currentUser, formatDateTime, initialPosts, type CategoryId, type Post } from '../data/feed'
-import { profilePath } from '../data/members'
-import type { MyPost } from '../data/mypage'
-import { getLoggedIn, subscribeSession } from '../data/session'
+import { categories, currentUser, formatDateTime, initialPosts, type CategoryId, type Post } from '@/data/feed'
+import { profilePath } from '@/data/members'
+import type { MyPost } from '@/data/mypage'
+import { getLoggedIn, subscribeSession } from '@/data/session'
 
 type CategoryFeedProps = {
   category: CategoryId

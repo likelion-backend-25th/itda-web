@@ -1,4 +1,4 @@
-import type { ThemeTone } from '../components/ThemeShot'
+import type { ThemeTone } from '@/components/theme/ThemeShot'
 import type { Comment, FeedImage, PostCategory } from './feed'
 
 export type PostVisibility = 'public' | 'subscribers'

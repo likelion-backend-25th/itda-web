@@ -1,19 +1,19 @@
 import { useCallback, useEffect, useMemo, useState, useSyncExternalStore } from 'react'
 import { Link } from 'react-router'
-import EditPostModal from '../components/EditPostModal'
-import FollowList, { type FollowTab } from '../components/FollowList'
-import WritePostModal, { type PostDraft } from '../components/WritePostModal'
-import Header from '../components/Header'
-import MyPostCard from '../components/MyPostCard'
-import PostDetail from '../components/PostDetail'
-import Sidebar from '../components/Sidebar'
-import ThemeDetail from '../components/ThemeDetail'
-import ProfileEditModal, { type ProfileForm } from '../components/ProfileEditModal'
-import ThemeShot from '../components/ThemeShot'
-import { GearIcon, HeadsetIcon } from '../components/icons'
-import { formatDateTime, myPageCategories, type CategoryId, type Post } from '../data/feed'
-import { getOwnedThemeIds, shopThemes, subscribeOwnedThemes } from '../data/themes'
-import { getFollowingIds, myFollowerIds, setFollowing, subscribeFollows } from '../data/follows'
+import EditPostModal from '@/components/feed/EditPostModal'
+import FollowList, { type FollowTab } from '@/components/profile/FollowList'
+import WritePostModal, { type PostDraft } from '@/components/feed/WritePostModal'
+import Header from '@/components/layout/Header'
+import MyPostCard from '@/components/feed/MyPostCard'
+import PostDetail from '@/components/feed/PostDetail'
+import Sidebar from '@/components/layout/Sidebar'
+import ThemeDetail from '@/components/theme/ThemeDetail'
+import ProfileEditModal, { type ProfileForm } from '@/components/profile/ProfileEditModal'
+import ThemeShot from '@/components/theme/ThemeShot'
+import { GearIcon, HeadsetIcon } from '@/components/icons'
+import { formatDateTime, myPageCategories, type CategoryId, type Post } from '@/data/feed'
+import { getOwnedThemeIds, shopThemes, subscribeOwnedThemes } from '@/data/themes'
+import { getFollowingIds, myFollowerIds, setFollowing, subscribeFollows } from '@/data/follows'
 import {
   likedPosts,
   myPosts,
@@ -22,7 +22,7 @@ import {
   scrappedPosts,
   type MyPost,
   type OwnedTheme,
-} from '../data/mypage'
+} from '@/data/mypage'
 
 type MyTab = 'posts' | 'likes' | 'scraps' | 'themes'
 

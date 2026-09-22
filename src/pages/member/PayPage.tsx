@@ -1,11 +1,11 @@
 import { useState, useSyncExternalStore } from 'react'
 import { Link, useParams } from 'react-router'
-import Header from '../components/Header'
-import Sidebar from '../components/Sidebar'
-import WritePostModal from '../components/WritePostModal'
-import { currentUser, myPageCategories, type CategoryId } from '../data/feed'
-import { memberById } from '../data/members'
-import { getSubscribedIds, setSubscribed, subscribeMemberships } from '../data/subscriptions'
+import Header from '@/components/layout/Header'
+import Sidebar from '@/components/layout/Sidebar'
+import WritePostModal from '@/components/feed/WritePostModal'
+import { currentUser, myPageCategories, type CategoryId } from '@/data/feed'
+import { memberById } from '@/data/members'
+import { getSubscribedIds, setSubscribed, subscribeMemberships } from '@/data/subscriptions'
 
 export default function PayPage() {
   const { memberId = '' } = useParams()

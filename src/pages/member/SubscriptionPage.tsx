@@ -1,22 +1,22 @@
 import { useMemo, useState, useSyncExternalStore } from 'react'
 import { Link, Navigate, useParams } from 'react-router'
-import CategoryFeed from '../components/CategoryFeed'
-import FollowList, { type FollowTab } from '../components/FollowList'
-import Header from '../components/Header'
-import ProfileEditModal, { type ProfileForm } from '../components/ProfileEditModal'
-import Sidebar from '../components/Sidebar'
-import WritePostModal from '../components/WritePostModal'
-import { GearIcon } from '../components/icons'
-import { currentUser, myPageCategories, type CategoryId } from '../data/feed'
-import { getFollowingIds, memberFollowIds, setFollowing, subscribeFollows } from '../data/follows'
-import { memberById, profilePath } from '../data/members'
+import CategoryFeed from '@/components/feed/CategoryFeed'
+import FollowList, { type FollowTab } from '@/components/profile/FollowList'
+import Header from '@/components/layout/Header'
+import ProfileEditModal, { type ProfileForm } from '@/components/profile/ProfileEditModal'
+import Sidebar from '@/components/layout/Sidebar'
+import WritePostModal from '@/components/feed/WritePostModal'
+import { GearIcon } from '@/components/icons'
+import { currentUser, myPageCategories, type CategoryId } from '@/data/feed'
+import { getFollowingIds, memberFollowIds, setFollowing, subscribeFollows } from '@/data/follows'
+import { memberById, profilePath } from '@/data/members'
 import {
   creatorSubscriberCount,
   getMemberships,
   setSubscribed,
   settlementAmount,
   subscribeMemberships,
-} from '../data/subscriptions'
+} from '@/data/subscriptions'
 
 type SubscriptionTab = 'users' | 'manage'
 

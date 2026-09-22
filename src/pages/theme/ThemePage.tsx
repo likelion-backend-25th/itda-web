@@ -1,12 +1,12 @@
 import { useEffect, useMemo, useState, useSyncExternalStore, type FormEvent } from 'react'
 import { Link, useNavigate, useParams } from 'react-router'
-import CategoryFeed from '../components/CategoryFeed'
-import Header from '../components/Header'
-import Sidebar from '../components/Sidebar'
-import ThemeShot from '../components/ThemeShot'
-import WritePostModal from '../components/WritePostModal'
-import { BagIcon, CloseIcon, SearchIcon } from '../components/icons'
-import { currentUser, myPageCategories, type CategoryId } from '../data/feed'
+import CategoryFeed from '@/components/feed/CategoryFeed'
+import Header from '@/components/layout/Header'
+import Sidebar from '@/components/layout/Sidebar'
+import ThemeShot from '@/components/theme/ThemeShot'
+import WritePostModal from '@/components/feed/WritePostModal'
+import { BagIcon, CloseIcon, SearchIcon } from '@/components/icons'
+import { currentUser, myPageCategories, type CategoryId } from '@/data/feed'
 import {
   formatThemePrice,
   getOwnedThemeIds,
@@ -15,7 +15,7 @@ import {
   shopThemes,
   subscribeOwnedThemes,
   themesPerPage,
-} from '../data/themes'
+} from '@/data/themes'
 
 export default function ThemePage() {
   const { themeId } = useParams()

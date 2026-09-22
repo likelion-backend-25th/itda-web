@@ -1,8 +1,8 @@
 import { useEffect, useId, useRef, useState } from 'react'
 import { createPortal } from 'react-dom'
-import { myPageCategories, type CategoryId, type FeedImage, type PostCategory } from '../data/feed'
-import type { MyPost, PostVisibility } from '../data/mypage'
-import { ChevronDownIcon, CloseIcon, GlobeIcon, ImageIcon, UsersIcon } from './icons'
+import { myPageCategories, type CategoryId, type FeedImage, type PostCategory } from '@/data/feed'
+import type { MyPost, PostVisibility } from '@/data/mypage'
+import { ChevronDownIcon, CloseIcon, GlobeIcon, ImageIcon, UsersIcon } from '@/components/icons'
 
 const textLimit = 2000
 

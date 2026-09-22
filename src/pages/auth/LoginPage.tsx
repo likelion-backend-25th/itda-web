@@ -1,9 +1,9 @@
 import { useState, type FormEvent } from 'react'
 import { useNavigate } from 'react-router'
-import AuthCard, { AuthSwitch, GoogleMark, KakaoMark } from '../components/AuthCard'
-import { EyeIcon, EyeOffIcon, LockIcon, MailIcon } from '../components/icons'
-import { setAdmin } from '../data/adminSession'
-import { setLoggedIn } from '../data/session'
+import AuthCard, { AuthSwitch, GoogleMark, KakaoMark } from '@/components/auth/AuthCard'
+import { EyeIcon, EyeOffIcon, LockIcon, MailIcon } from '@/components/icons'
+import { setAdmin } from '@/data/adminSession'
+import { setLoggedIn } from '@/data/session'
 
 const adminId = 'admin@example.com'
 const adminPassword = '1111'
@@ -75,28 +75,14 @@ export default function LoginPage() {
       <button type="submit" className="auth-submit">
         로그인
       </button>
-      <button
-        type="button"
-        className="auth-social"
-        onClick={() => {
-          setLoggedIn(true)
-          navigate('/')
-        }}
-      >
+      <a className="auth-social" href="/oauth2/authorization/google">
         <GoogleMark />
         구글로 로그인
-      </button>
-      <button
-        type="button"
-        className="auth-social"
-        onClick={() => {
-          setLoggedIn(true)
-          navigate('/')
-        }}
-      >
+      </a>
+      <a className="auth-social" href="/oauth2/authorization/kakao">
         <KakaoMark />
         카카오로 로그인
-      </button>
+      </a>
     </AuthCard>
   )
 }

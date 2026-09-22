@@ -1,14 +1,24 @@
 import { useCallback, useEffect, useMemo, useState, useSyncExternalStore } from 'react'
-import EditPostModal from '../components/EditPostModal'
-import Header from '../components/Header'
-import PostCard from '../components/PostCard'
-import PostDetail from '../components/PostDetail'
-import Sidebar from '../components/Sidebar'
-import WritePostModal, { type PostDraft } from '../components/WritePostModal'
-import { categories, currentUser, formatDateTime, initialPosts, type CategoryId, type Post } from '../data/feed'
-import { getLoggedIn, subscribeSession } from '../data/session'
-import { profilePath } from '../data/members'
-import type { MyPost } from '../data/mypage'
+import { fetchMyProfile, toFeedUser } from '@/api/member'
+import EditPostModal from '@/components/feed/EditPostModal'
+import Header from '@/components/layout/Header'
+import PostCard from '@/components/feed/PostCard'
+import PostDetail from '@/components/feed/PostDetail'
+import Sidebar from '@/components/layout/Sidebar'
+import WritePostModal, { type PostDraft } from '@/components/feed/WritePostModal'
+import { categories, currentUser, formatDateTime, initialPosts, type CategoryId, type FeedUser, type Post } from '@/data/feed'
+import { getLoggedIn, setLoggedIn, subscribeSession } from '@/data/session'
+import { profilePath } from '@/data/members'
+import { ApiError } from '@/lib/apiClient'
+import type { MyPost } from '@/data/mypage'
+import type { MemberProfileResponse } from '@/types/member'
+
+const guestUser: FeedUser = {
+  name: '',
+  handle: '',
+  bio: '',
+  avatar: '',
+}
 
 export default function HomePage() {
   const loggedIn = useSyncExternalStore(subscribeSession, getLoggedIn)
@@ -20,8 +30,45 @@ export default function HomePage() {
   const [writing, setWriting] = useState(false)
   const [menuId, setMenuId] = useState<string | null>(null)
   const [editingPost, setEditingPost] = useState<Post | null>(null)
+  const [profile, setProfile] = useState<MemberProfileResponse | null>(null)
+  const [profileError, setProfileError] = useState('')
   const closeDetail = useCallback(() => setSelectedId(null), [])
   const selectedPost = posts.find((post) => post.id === selectedId) ?? null
+
+  // 로그인 후 JWT로 내 프로필(/member/me) 조회
+  useEffect(() => {
+    if (!loggedIn) {
+      setProfile(null)
+      setProfileError('')
+      return
+    }
+
+    let cancelled = false
+    async function loadProfile() {
+      try {
+        const me = await fetchMyProfile()
+        if (cancelled) return
+        setProfile(me)
+        setProfileError('')
+      } catch (error: unknown) {
+        if (cancelled) return
+        const message = error instanceof Error ? error.message : '프로필을 불러오지 못했습니다.'
+        setProfileError(message)
+        setProfile(null)
+        // 토큰 만료·무효면 로그아웃 처리
+        if (error instanceof ApiError && error.status === 401) {
+          setLoggedIn(false)
+        }
+      }
+    }
+
+    void loadProfile()
+    return () => {
+      cancelled = true
+    }
+  }, [loggedIn])
+
+  const user: FeedUser = profile ? toFeedUser(profile) : loggedIn ? currentUser : guestUser
 
   useEffect(() => {
     if (!menuId) return
@@ -98,8 +145,8 @@ export default function HomePage() {
     const now = new Date()
     const post: Post = {
       id: `post-${now.getTime()}`,
-      author: currentUser.name,
-      avatar: currentUser.avatar,
+      author: user.name,
+      avatar: user.avatar,
       time: '방금 전',
       category: draft.category,
       categoryLabel: draft.categoryLabel,
@@ -155,8 +202,8 @@ export default function HomePage() {
               thread: [
                 {
                   id: `comment-${Date.now()}`,
-                  author: currentUser.name,
-                  avatar: currentUser.avatar,
+                  author: user.name,
+                  avatar: user.avatar,
                   createdAt: formatDateTime(new Date()),
                   content,
                 },
@@ -171,10 +218,10 @@ export default function HomePage() {
   return (
     <div className="page">
       <div className="shell">
-        <Header query={query} user={currentUser} onQueryChange={setQuery} />
+        <Header query={query} user={user} onQueryChange={setQuery} />
         <div className="layout">
           <Sidebar
-            user={currentUser}
+            user={user}
             category={category}
             categoriesOpen={categoriesOpen}
             onCategoryChange={setCategory}
@@ -182,6 +229,11 @@ export default function HomePage() {
             onWrite={() => setWriting(true)}
           />
           <main className="feed" aria-label="피드">
+            {profileError && loggedIn && (
+              <div className="empty" role="alert">
+                {profileError}
+              </div>
+            )}
             {visiblePosts.length === 0 ? (
               <div className="empty">해당하는 글이 없습니다.</div>
             ) : (
@@ -189,7 +241,7 @@ export default function HomePage() {
                 <PostCard
                   key={post.id}
                   post={post}
-                  canManage={loggedIn && post.author === currentUser.name}
+                  canManage={loggedIn && post.author === user.name}
                   menuOpen={menuId === post.id}
                   onOpen={setSelectedId}
                   onToggleMenu={() => setMenuId((current) => (current === post.id ? null : post.id))}
@@ -234,7 +286,7 @@ export default function HomePage() {
       )}
       {writing && (
         <WritePostModal
-          user={currentUser}
+          user={user}
           categories={categories}
           onClose={() => setWriting(false)}
           onPublish={publishPost}
@@ -243,7 +295,7 @@ export default function HomePage() {
       {selectedPost && (
         <PostDetail
           post={selectedPost}
-          user={currentUser}
+          user={user}
           onClose={closeDetail}
           onToggleLike={toggleLike}
           onToggleBookmark={toggleBookmark}

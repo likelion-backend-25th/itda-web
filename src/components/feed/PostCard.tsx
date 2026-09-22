@@ -1,7 +1,7 @@
 import type { MouseEvent } from 'react'
 import { Link } from 'react-router'
-import type { Post } from '../data/feed'
-import { BookmarkIcon, CommentIcon, DotsIcon, EyeIcon, HeartIcon } from './icons'
+import type { Post } from '@/data/feed'
+import { BookmarkIcon, CommentIcon, DotsIcon, EyeIcon, HeartIcon } from '@/components/icons'
 
 type PostCardProps = {
   post: Post

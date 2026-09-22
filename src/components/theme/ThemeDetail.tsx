@@ -1,9 +1,9 @@
 import { useEffect, useId, useRef } from 'react'
 import { createPortal } from 'react-dom'
 import type { ThemeTone } from './ThemeShot'
-import type { OwnedTheme } from '../data/mypage'
-import { pageProfile } from '../data/mypage'
-import { CloseIcon, HeartIcon, PencilIcon } from './icons'
+import type { OwnedTheme } from '@/data/mypage'
+import { pageProfile } from '@/data/mypage'
+import { CloseIcon, HeartIcon, PencilIcon } from '@/components/icons'
 
 const previewPhotos = [
   '/images/photo-cliff.jpg',

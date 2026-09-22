@@ -176,6 +176,8 @@ img {
   border: 1px solid #e6edf5;
   background: #fff;
   color: #3c4a5d;
+  text-decoration: none;
+  cursor: pointer;
 }
 
 .auth-social:hover {

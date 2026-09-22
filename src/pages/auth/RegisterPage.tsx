@@ -1,7 +1,7 @@
 import { useState, type ChangeEvent, type ComponentType, type FormEvent } from 'react'
 import { useNavigate } from 'react-router'
-import AuthCard, { AuthSwitch } from '../components/AuthCard'
-import type { InterestId } from '../components/ProfileEditModal'
+import AuthCard, { AuthSwitch } from '@/components/auth/AuthCard'
+import type { InterestId } from '@/components/profile/ProfileEditModal'
 import {
   ChefHatIcon,
   EyeIcon,
@@ -15,8 +15,8 @@ import {
   OpenBookIcon,
   RunIcon,
   UserIcon,
-} from '../components/icons'
-import { setLoggedIn } from '../data/session'
+} from '@/components/icons'
+import { setLoggedIn } from '@/data/session'
 
 const interests: { id: InterestId; label: string; Icon: ComponentType }[] = [
   { id: 'food', label: '맛집', Icon: ForkKnifeIcon },

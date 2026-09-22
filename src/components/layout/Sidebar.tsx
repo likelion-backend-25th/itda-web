@@ -1,8 +1,8 @@
 import type { ReactNode } from 'react'
 import { useSyncExternalStore } from 'react'
 import { Link, NavLink } from 'react-router'
-import { categories, type CategoryId, type FeedUser } from '../data/feed'
-import { getLoggedIn, subscribeSession } from '../data/session'
+import { categories, type CategoryId, type FeedUser } from '@/data/feed'
+import { getLoggedIn, subscribeSession } from '@/data/session'
 import {
   BagIcon,
   BookIcon,
@@ -23,7 +23,7 @@ import {
   SubscribeIcon,
   UserIcon,
   UtensilsIcon,
-} from './icons'
+} from '@/components/icons'
 
 type SidebarProps = {
   user: FeedUser

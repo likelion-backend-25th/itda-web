@@ -1,5 +1,5 @@
-import type { MyPost } from '../data/mypage'
-import { BookmarkIcon, CommentIcon, DotsIcon, EyeIcon, HeartIcon } from './icons'
+import type { MyPost } from '@/data/mypage'
+import { BookmarkIcon, CommentIcon, DotsIcon, EyeIcon, HeartIcon } from '@/components/icons'
 
 type MyPostCardProps = {
   post: MyPost

@@ -1,6 +1,6 @@
 import { useEffect, useId, useRef, useState } from 'react'
 import { createPortal } from 'react-dom'
-import { CloseIcon } from './icons'
+import { CloseIcon } from '@/components/icons'
 
 export type WithdrawKind = 'general' | 'subscriber' | 'creator'
 

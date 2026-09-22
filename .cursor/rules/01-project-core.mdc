@@ -18,8 +18,12 @@ alwaysApply: true
 ## 디렉터리
 
 - `src/types/` — 여러 파일에서 재사용하는 API DTO, 도메인 타입
-- `src/components/` — 재사용 UI
-- `src/pages/` — 페이지
+- `src/api/` — REST API 호출 함수
+- `src/lib/` — apiClient, authToken 등 공통 유틸
+- `src/hooks/` — 공통·기능별 훅 (`hooks/auth/` 등)
+- `src/components/` — 재사용 UI (기능별 하위 폴더: `auth`, `feed`, `layout`, `profile`, `theme`)
+- `src/pages/` — 페이지 (기능별 하위 폴더: `auth`, `home`, `member`, `theme`, `admin`, `support`)
+- `src/data/` — 목/클라이언트 세션 데이터
 - `src/layouts/` — 레이아웃 (`RootLayout.tsx`)
 - `src/stores/` — Zustand 스토어
 - 경로 별칭: `@` → `/src`

@@ -1,9 +1,9 @@
 import { useState } from 'react'
-import Header from '../components/Header'
-import Sidebar from '../components/Sidebar'
-import WritePostModal from '../components/WritePostModal'
-import { currentUser, myPageCategories, type CategoryId } from '../data/feed'
-import { refundPurchases } from '../data/refunds'
+import Header from '@/components/layout/Header'
+import Sidebar from '@/components/layout/Sidebar'
+import WritePostModal from '@/components/feed/WritePostModal'
+import { currentUser, myPageCategories, type CategoryId } from '@/data/feed'
+import { refundPurchases } from '@/data/refunds'
 
 export default function SupportPage() {
   const [query, setQuery] = useState('')

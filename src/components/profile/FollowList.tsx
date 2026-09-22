@@ -1,7 +1,7 @@
 import { useEffect, useId, useState } from 'react'
 import { Link } from 'react-router'
-import { currentUser } from '../data/feed'
-import { memberById, profilePath } from '../data/members'
+import { currentUser } from '@/data/feed'
+import { memberById, profilePath } from '@/data/members'
 
 export type FollowTab = 'followers' | 'following'
 

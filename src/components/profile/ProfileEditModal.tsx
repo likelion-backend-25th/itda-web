@@ -1,10 +1,10 @@
 import { useEffect, useId, useRef, useState, useSyncExternalStore } from 'react'
 import { createPortal } from 'react-dom'
 import { useNavigate } from 'react-router'
-import { creatorSubscriberCount, getMemberships, subscribeMemberships } from '../data/subscriptions'
-import { setLoggedIn } from '../data/session'
+import { creatorSubscriberCount, getMemberships, subscribeMemberships } from '@/data/subscriptions'
+import { setLoggedIn } from '@/data/session'
 import WithdrawModal, { type WithdrawKind } from './WithdrawModal'
-import { CloseIcon } from './icons'
+import { CloseIcon } from '@/components/icons'
 
 export type InterestId =
   | 'food'
