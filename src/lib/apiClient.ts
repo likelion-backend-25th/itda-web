@@ -36,6 +36,13 @@ type ApiFetchOptions = Omit<RequestInit, 'headers'> & {
   skipAuth?: boolean
 }
 
+/** 배포 시 절대 URL. 개발 중엔 비워 두고 Vite 프록시(/api → EC2)를 쓴다. */
+function apiOrigin(): string {
+  const raw = import.meta.env.VITE_API_BASE_URL
+  if (typeof raw !== 'string' || raw.trim() === '') return ''
+  return raw.replace(/\/$/, '')
+}
+
 /**
  * /api/v1 요청 래퍼. JWT가 있으면 Bearer로 자동 첨부.
  */
@@ -54,7 +61,10 @@ export async function apiFetch(path: string, options: ApiFetchOptions = {}): Pro
     headers.set('Content-Type', 'application/json')
   }
 
-  const url = path.startsWith('/api/') ? path : `/api/v1${path.startsWith('/') ? path : `/${path}`}`
+  const pathWithVersion = path.startsWith('/api/')
+    ? path
+    : `/api/v1${path.startsWith('/') ? path : `/${path}`}`
+  const url = `${apiOrigin()}${pathWithVersion}`
 
   try {
     const response = await fetch(url, { ...rest, headers })
