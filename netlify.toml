@@ -1,0 +1,9 @@
+[build.environment]
+  # Netlify 빌드 시 번들에 포함 → 브라우저가 EC2로 API 호출
+  VITE_API_BASE_URL = "http://13.209.210.142"
+
+# SPA 새로고침 404 방지
+[[redirects]]
+  from = "/*"
+  to = "/index.html"
+  status = 200

@@ -36,11 +36,21 @@ type ApiFetchOptions = Omit<RequestInit, 'headers'> & {
   skipAuth?: boolean
 }
 
-/** 배포 시 절대 URL. 개발 중엔 비워 두고 Vite 프록시(/api → EC2)를 쓴다. */
+/** 로컬: 빈 문자열(프록시). Netlify: VITE_API_BASE_URL 또는 PROD 기본 EC2. */
 function apiOrigin(): string {
   const raw = import.meta.env.VITE_API_BASE_URL
-  if (typeof raw !== 'string' || raw.trim() === '') return ''
-  return raw.replace(/\/$/, '')
+  if (typeof raw === 'string' && raw.trim() !== '') {
+    return raw.replace(/\/$/, '')
+  }
+  // env 누락 시에도 배포 빌드는 EC2로 (Netlify 상대경로 404 방지)
+  if (import.meta.env.PROD) {
+    return 'http://13.209.210.142'
+  }
+  return ''
+}
+
+export function getApiOrigin(): string {
+  return apiOrigin()
 }
 
 /**

@@ -4,12 +4,12 @@ import { fileURLToPath, URL } from 'node:url'
 
 /**
  * 개발 서버 프록시
- * 브라우저 → localhost:5173/api/... → EC2(13.209.210.142:80) → Spring(8080)
- * RDS는 프론트가 아니라 EC2 스프링이 직접 접속한다.
+ * - 로컬: /api → localhost:8080
+ * - Netlify: VITE_API_BASE_URL(EC2)로 직접 호출 (프록시 없음)
  */
 export default defineConfig(({ mode }) => {
   const env = loadEnv(mode, process.cwd(), '')
-  const backend = env.VITE_API_PROXY_TARGET || 'http://13.209.210.142'
+  const backend = env.VITE_API_PROXY_TARGET || 'http://localhost:8080'
 
   return {
     plugins: [react()],
