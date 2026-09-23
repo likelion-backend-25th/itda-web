@@ -1,9 +1,11 @@
 import { useEffect, useState, useSyncExternalStore, type FormEvent } from 'react'
 import { Navigate, NavLink, useNavigate, useParams } from 'react-router'
+import { ThemeFormDialog } from '@/components/admin/ThemeFormDialog'
 import ThemeShot from '@/components/theme/ThemeShot'
 import {
   AlertIcon,
   CardIcon,
+  CloseIcon,
   CommentIcon,
   DocIcon,
   LogoutIcon,
@@ -20,11 +22,12 @@ import {
   removeMember,
   removePost,
   removeReport,
-  removeTheme,
-  renameTheme,
+  setThemeActive,
   subscribeAdminData,
+  updateTheme,
   type AdminPayment,
   type AdminTheme,
+  type ThemeDraft,
 } from '@/data/admin'
 import { getAdmin, setAdmin, subscribeAdmin } from '@/data/adminSession'
 
@@ -100,6 +103,24 @@ function slicePage<T>(rows: T[], page: number) {
   }
 }
 
+const newTheme: ThemeDraft = {
+  name: '봄날의 테마',
+  description: '따뜻한 봄 분위기의 테마입니다.',
+  price: '3,900',
+  code: 'sp01',
+  image: '',
+}
+
+function themeDraft(theme: AdminTheme): ThemeDraft {
+  return {
+    name: theme.name,
+    description: theme.description,
+    price: theme.price,
+    code: theme.code,
+    image: theme.image,
+  }
+}
+
 function isSection(value: string | undefined): value is SectionId {
   return sections.some((item) => item.id === value)
 }
@@ -157,7 +178,7 @@ function AdminBoard({ section }: { section: SectionId }) {
   const [payment, setPayment] = useState<AdminPayment | null>(null)
   const [editing, setEditing] = useState<AdminTheme | null>(null)
   const [adding, setAdding] = useState(false)
-  const [themeName, setThemeName] = useState('')
+  const [themeForm, setThemeForm] = useState<ThemeDraft>(newTheme)
 
   useEffect(() => {
     setField('')
@@ -194,15 +215,14 @@ function AdminBoard({ section }: { section: SectionId }) {
     setPage(1)
   }
 
-  function saveTheme(event: FormEvent<HTMLFormElement>) {
-    event.preventDefault()
-    const name = themeName.trim()
+  function saveTheme() {
+    const name = themeForm.name.trim()
     if (!name) return
-    if (editing) renameTheme(editing.id, name)
-    else addTheme(name)
+    const draft = { ...themeForm, name }
+    if (editing) updateTheme(editing.id, draft)
+    else addTheme(draft)
     setEditing(null)
     setAdding(false)
-    setThemeName('')
   }
 
   return (
@@ -247,26 +267,39 @@ function AdminBoard({ section }: { section: SectionId }) {
       ) : section === 'themes' ? (
         <div className="admin-themes">
           {themePage.visible.map((theme) => (
-            <article key={theme.id} className="admin-theme">
+            <article key={theme.id} className={theme.active ? 'admin-theme' : 'admin-theme off'}>
               <ThemeShot tone={theme.tone} />
               <strong>{theme.name}</strong>
               <div>
                 <button
                   type="button"
                   onClick={() => {
+                    setAdding(false)
                     setEditing(theme)
-                    setThemeName(theme.name)
+                    setThemeForm(themeDraft(theme))
                   }}
                 >
                   수정
                 </button>
-                <button type="button" onClick={() => removeTheme(theme.id)}>
-                  삭제
+                <button
+                  type="button"
+                  className={theme.active ? undefined : 'theme-on'}
+                  onClick={() => setThemeActive(theme.id, !theme.active)}
+                >
+                  {theme.active ? '비활성화' : '활성화'}
                 </button>
               </div>
             </article>
           ))}
-          <button type="button" className="admin-theme-add" onClick={() => setAdding(true)}>
+          <button
+            type="button"
+            className="admin-theme-add"
+            onClick={() => {
+              setEditing(null)
+              setThemeForm(newTheme)
+              setAdding(true)
+            }}
+          >
             <span>+</span>
             <strong>새로운 테마 추가</strong>
             <small>다양한 분위기의 테마로 서비스를 더 특별하게 만들어보세요.</small>
@@ -354,49 +387,65 @@ function AdminBoard({ section }: { section: SectionId }) {
 
       {payment && (
         <div className="detail-backdrop" onClick={() => setPayment(null)}>
-          <div className="admin-dialog" role="dialog" aria-modal="true" onClick={(event) => event.stopPropagation()}>
-            <h2>결제 상세</h2>
-            <Cell label="결제 번호" value={payment.orderNo} />
-            <Cell label="member_id" value={payment.memberId} />
-            <Cell label="target_id" value={payment.targetId} />
-            <Cell label="결제일" value={payment.paidOn} />
-            <Cell label="만료일" value={payment.expiresOn} />
-            <Cell label="결제 유형" value={payment.payType} />
-            <button type="button" onClick={() => setPayment(null)}>
-              닫기
+          <div
+            className="pay-detail"
+            role="dialog"
+            aria-modal="true"
+            aria-label="결제 상세"
+            onClick={(event) => event.stopPropagation()}
+          >
+            <button type="button" className="detail-close" aria-label="닫기" onClick={() => setPayment(null)}>
+              <CloseIcon />
             </button>
+            <div className="pay-detail-ids">
+              <p>
+                <small>결제 번호</small>
+                <strong>payment_id: {payment.paymentId}</strong>
+              </p>
+              <p>
+                <small>PG_provider</small>
+                <strong>{payment.pgProvider}</strong>
+              </p>
+            </div>
+            <label>
+              imp_uid
+              <input readOnly value={payment.impUid} />
+            </label>
+            <label>
+              merchant_uid
+              <input readOnly value={payment.merchantUid} />
+            </label>
+            <label>
+              amount
+              <input readOnly value={payment.amount} />
+            </label>
+            <label>
+              pay_method
+              <input readOnly value={payment.payMethod} />
+            </label>
+            <label>
+              status
+              <input readOnly value={payment.status} />
+            </label>
+            <label className="pay-detail-paid">
+              paid_at
+              <input readOnly value={payment.paidAt} />
+            </label>
           </div>
         </div>
       )}
 
       {(editing || adding) && (
-        <div
-          className="detail-backdrop"
-          onClick={() => {
+        <ThemeFormDialog
+          mode={editing ? 'edit' : 'add'}
+          value={themeForm}
+          onChange={setThemeForm}
+          onClose={() => {
             setEditing(null)
             setAdding(false)
           }}
-        >
-          <form
-            className="admin-dialog"
-            onSubmit={saveTheme}
-            onClick={(event) => event.stopPropagation()}
-          >
-            <h2>{editing ? '테마 수정' : '새로운 테마 추가'}</h2>
-            <label>
-              테마 이름
-              <input value={themeName} onChange={(event) => setThemeName(event.target.value)} />
-            </label>
-            <div>
-              <button type="button" onClick={() => { setEditing(null); setAdding(false) }}>
-                취소
-              </button>
-              <button type="submit" disabled={themeName.trim().length === 0}>
-                {editing ? '저장' : '추가'}
-              </button>
-            </div>
-          </form>
-        </div>
+          onSubmit={saveTheme}
+        />
       )}
     </main>
   )
