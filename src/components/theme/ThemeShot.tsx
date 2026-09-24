@@ -9,11 +9,34 @@ const photos: Record<ThemeTone, string> = {
   lavender: '/images/photo-cliff.jpg',
 }
 
-type ThemeShotProps = {
-  tone: ThemeTone
+const tones: ThemeTone[] = ['light', 'dark', 'ocean', 'sunset', 'forest', 'lavender']
+
+/** themeCode → 미리보기 톤 (알 수 없으면 해시로 고른다) */
+export function toneFromThemeCode(themeCode: string): ThemeTone {
+  const lower = themeCode.trim().toLowerCase()
+  if ((tones as string[]).includes(lower)) return lower as ThemeTone
+  let hash = 0
+  for (let i = 0; i < lower.length; i += 1) {
+    hash = (hash * 31 + lower.charCodeAt(i)) | 0
+  }
+  return tones[Math.abs(hash) % tones.length]
 }
 
-export default function ThemeShot({ tone }: ThemeShotProps) {
+type ThemeShotProps = {
+  tone?: ThemeTone
+  /** API thumbnailUrl 이 있으면 톤 미리보기 대신 이미지 표시 */
+  thumbnailUrl?: string | null
+}
+
+export default function ThemeShot({ tone = 'light', thumbnailUrl }: ThemeShotProps) {
+  if (thumbnailUrl) {
+    return (
+      <div className="theme-shot thumb" aria-hidden="true">
+        <img className="theme-shot-thumb" src={thumbnailUrl} alt="" />
+      </div>
+    )
+  }
+
   return (
     <div className={`theme-shot ${tone}`} aria-hidden="true">
       <div className="shot-top">
