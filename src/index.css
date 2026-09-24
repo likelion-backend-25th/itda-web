@@ -1468,6 +1468,18 @@ button.stat {
   text-decoration: none;
 }
 
+.pay-submit:disabled {
+  opacity: 0.65;
+  cursor: default;
+}
+
+.pay-error {
+  margin-top: 12px;
+  color: var(--danger);
+  font-size: 13px;
+  font-weight: 700;
+}
+
 .pay-back {
   display: inline-block;
   margin-top: 14px;
@@ -2661,6 +2673,21 @@ img.sub-photo {
   background: #e8eef6;
   color: #7d8b9e;
   cursor: default;
+}
+
+.shop-pay-error,
+.shop-pay-done {
+  margin-top: 12px;
+  font-size: 13px;
+  font-weight: 700;
+}
+
+.shop-pay-error {
+  color: var(--danger);
+}
+
+.shop-pay-done {
+  color: var(--text-soft);
 }
 
 .shop-missing {

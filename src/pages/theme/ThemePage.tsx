@@ -7,10 +7,10 @@ import ThemeShot from '@/components/theme/ThemeShot'
 import WritePostModal from '@/components/feed/WritePostModal'
 import { BagIcon, CloseIcon, SearchIcon } from '@/components/icons'
 import { currentUser, myPageCategories, type CategoryId } from '@/data/feed'
+import { usePortOneCheckout } from '@/hooks/payment/usePortOneCheckout'
 import {
   formatThemePrice,
   getOwnedThemeIds,
-  setThemeOwned,
   shopThemeById,
   shopThemes,
   subscribeOwnedThemes,
@@ -29,6 +29,7 @@ export default function ThemePage() {
   const [categoriesOpen, setCategoriesOpen] = useState(true)
   const [writing, setWriting] = useState(false)
   const ownedIds = useSyncExternalStore(subscribeOwnedThemes, getOwnedThemeIds)
+  const { startCheckout, busy, error, completedPaymentId, reset } = usePortOneCheckout()
 
   const matched = useMemo(() => {
     const text = keyword.trim().toLowerCase()
@@ -39,6 +40,10 @@ export default function ThemePage() {
   const pageCount = Math.max(1, Math.ceil(matched.length / themesPerPage))
   const currentPage = Math.min(page, pageCount)
   const visible = matched.slice((currentPage - 1) * themesPerPage, currentPage * themesPerPage)
+
+  useEffect(() => {
+    reset()
+  }, [themeId, reset])
 
   useEffect(() => {
     if (!themeId) return
@@ -174,11 +179,31 @@ export default function ThemePage() {
                     <button type="button" className="shop-purchase" disabled>
                       보유 중
                     </button>
+                  ) : completedPaymentId ? (
+                    <p className="shop-pay-done">결제창이 완료되었습니다. 서버 확인 후 테마가 반영됩니다.</p>
                   ) : (
-                    <button type="button" className="shop-purchase" onClick={() => setThemeOwned(selected.id)}>
-                      <BagIcon />
-                      구매
-                    </button>
+                    <>
+                      <button
+                        type="button"
+                        className="shop-purchase"
+                        disabled={busy}
+                        onClick={() => {
+                          void startCheckout({
+                            paymentType: 'THEME',
+                            targetId: selected.backendId,
+                            orderName: selected.name,
+                          })
+                        }}
+                      >
+                        <BagIcon />
+                        {busy ? '결제창 여는 중…' : '구매'}
+                      </button>
+                      {error && (
+                        <p className="shop-pay-error" role="alert">
+                          {error}
+                        </p>
+                      )}
+                    </>
                   )}
                 </div>
               </>
