@@ -1,6 +1,6 @@
 [build.environment]
-  # Netlify 빌드 시 번들에 포함 → 브라우저가 EC2로 API 호출
-  VITE_API_BASE_URL = "http://13.209.210.142"
+  # Netlify 빌드 시 번들에 포함 → HTTPS API
+  VITE_API_BASE_URL = "https://api.eony.site"
 
 # SPA 새로고침 404 방지
 [[redirects]]

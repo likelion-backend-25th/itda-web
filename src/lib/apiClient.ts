@@ -36,15 +36,15 @@ type ApiFetchOptions = Omit<RequestInit, 'headers'> & {
   skipAuth?: boolean
 }
 
-/** 로컬: 빈 문자열(프록시). Netlify: VITE_API_BASE_URL 또는 PROD 기본 EC2. */
+/** 로컬: 빈 문자열(프록시). Netlify: VITE_API_BASE_URL 또는 PROD 기본값. */
 function apiOrigin(): string {
   const raw = import.meta.env.VITE_API_BASE_URL
   if (typeof raw === 'string' && raw.trim() !== '') {
     return raw.replace(/\/$/, '')
   }
-  // env 누락 시에도 배포 빌드는 EC2로 (Netlify 상대경로 404 방지)
+  // env 누락 시에도 배포 빌드는 HTTPS API로
   if (import.meta.env.PROD) {
-    return 'http://13.209.210.142'
+    return 'https://api.eony.site'
   }
   return ''
 }
