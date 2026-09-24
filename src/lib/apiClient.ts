@@ -36,7 +36,7 @@ type ApiFetchOptions = Omit<RequestInit, 'headers'> & {
   skipAuth?: boolean
 }
 
-/** 로컬: 빈 문자열(프록시). Netlify: VITE_API_BASE_URL 또는 PROD 기본값. */
+/** 로컬: 빈 문자열(프록시). 배포: netlify.toml 의 VITE_API_BASE_URL, 없으면 PROD 기본값. */
 function apiOrigin(): string {
   const raw = import.meta.env.VITE_API_BASE_URL
   if (typeof raw === 'string' && raw.trim() !== '') {

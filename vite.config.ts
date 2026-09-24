@@ -3,9 +3,8 @@ import { defineConfig, loadEnv } from 'vite'
 import { fileURLToPath, URL } from 'node:url'
 
 /**
- * 개발 서버 프록시
- * - 로컬: /api → localhost:8080
- * - Netlify: VITE_API_BASE_URL(EC2)로 직접 호출 (프록시 없음)
+ * 개발 서버 프록시. /api → VITE_API_PROXY_TARGET (.env.local), 없으면 localhost:8080.
+ * 배포 API 주소는 netlify.toml 의 VITE_API_BASE_URL.
  */
 export default defineConfig(({ mode }) => {
   const env = loadEnv(mode, process.cwd(), '')
