@@ -17,6 +17,14 @@ export type AdminPayment = {
   paidOn: string
   expiresOn: string
   payType: string
+  paymentId: string
+  pgProvider: string
+  impUid: string
+  merchantUid: string
+  amount: string
+  payMethod: string
+  status: string
+  paidAt: string
 }
 
 export type AdminRefund = {
@@ -37,10 +45,18 @@ export type AdminPost = {
   createdAt: string
 }
 
-export type AdminTheme = {
-  id: string
+export type ThemeDraft = {
   name: string
+  description: string
+  price: string
+  code: string
+  image: string
+}
+
+export type AdminTheme = ThemeDraft & {
+  id: string
   tone: ThemeTone
+  active: boolean
 }
 
 export type AdminReport = {
@@ -118,15 +134,29 @@ const initial = {
     year: seed[3],
     avatar: avatars[index % avatars.length],
   })),
-  payments: pages(paymentSeeds, (seed, index) => ({
-    id: `pay-${index + 1}`,
-    orderNo: index < 6 ? seed[0] : `P202409${String(index + 1).padStart(3, '0')}`,
-    memberId: String(Number(seed[1]) + (index < 6 ? 0 : index)),
-    targetId: String(Number(seed[2]) + (index < 6 ? 0 : index)),
-    paidOn: seed[3],
-    expiresOn: seed[4],
-    payType: seed[5],
-  })),
+  payments: pages(paymentSeeds, (seed, index) => {
+    const paidTimes = ['14:23', '10:15', '09:12', '18:40', '11:05', '16:22']
+    const providers = ['kcp', 'nice', 'toss', 'inicis', 'kcp', 'kcp']
+    const methods = ['card', 'trans', 'kakaopay', 'googlepay', 'card', 'card']
+    const statuses = ['paid', 'ready', 'paid', 'paid', 'failed', 'paid']
+    return {
+      id: `pay-${index + 1}`,
+      orderNo: index < 6 ? seed[0] : `P202409${String(index + 1).padStart(3, '0')}`,
+      memberId: String(Number(seed[1]) + (index < 6 ? 0 : index)),
+      targetId: String(Number(seed[2]) + (index < 6 ? 0 : index)),
+      paidOn: seed[3],
+      expiresOn: seed[4],
+      payType: seed[5],
+      paymentId: String(1234 + index),
+      pgProvider: providers[index % providers.length],
+      impUid: `imp_${202409010000 + index}`,
+      merchantUid: `merchant_${1234 + index}`,
+      amount: String(10000 + (index % 6) * 5000),
+      payMethod: methods[index % methods.length],
+      status: statuses[index % statuses.length],
+      paidAt: `${seed[3]} ${paidTimes[index % paidTimes.length]}`,
+    }
+  }),
   refunds: pages(refundSeeds, (seed, index) => ({
     id: `refund-${index + 1}`,
     orderNo: index < 6 ? seed[0] : `P20240901${String(index + 1).padStart(2, '0')}`,
@@ -144,11 +174,56 @@ const initial = {
     createdAt: seed[4],
   })),
   themes: [
-    { id: 'light', name: '기본 라이트', tone: 'light' },
-    { id: 'dark', name: '기본 다크', tone: 'dark' },
-    { id: 'sunset', name: '선셋 코랄', tone: 'sunset' },
-    { id: 'ocean', name: '오션 블루', tone: 'ocean' },
-    { id: 'forest', name: '포레스트 그린', tone: 'forest' },
+    {
+      id: 'light',
+      name: '기본 라이트',
+      description: '밝고 깔끔한 기본 라이트 테마입니다.',
+      price: '0',
+      code: 'lt01',
+      image: '',
+      tone: 'light',
+      active: true,
+    },
+    {
+      id: 'dark',
+      name: '기본 다크',
+      description: '눈이 편한 기본 다크 테마입니다.',
+      price: '10,000',
+      code: 'dk01',
+      image: '',
+      tone: 'dark',
+      active: true,
+    },
+    {
+      id: 'sunset',
+      name: '선셋 코랄',
+      description: '노을이 물든 따뜻한 감성의 테마입니다.',
+      price: '10,000',
+      code: 'ss01',
+      image: '',
+      tone: 'sunset',
+      active: true,
+    },
+    {
+      id: 'ocean',
+      name: '오션 블루',
+      description: '맑은 바다처럼 시원한 테마입니다.',
+      price: '10,000',
+      code: 'oc01',
+      image: '',
+      tone: 'ocean',
+      active: true,
+    },
+    {
+      id: 'forest',
+      name: '포레스트 그린',
+      description: '숲속처럼 편안한 초록 테마입니다.',
+      price: '10,000',
+      code: 'fr01',
+      image: '',
+      tone: 'forest',
+      active: true,
+    },
   ] as AdminTheme[],
   reports: pages(reportSeeds, (seed, index) => ({
     id: index < 6 ? seed[0] : String(Number(seed[0]) + index),
@@ -197,18 +272,21 @@ export function removeReport(id: string) {
   emit({ ...snapshot, reports: snapshot.reports.filter((item) => item.id !== id) })
 }
 
-export function removeTheme(id: string) {
-  emit({ ...snapshot, themes: snapshot.themes.filter((item) => item.id !== id) })
-}
-
-export function renameTheme(id: string, name: string) {
+export function setThemeActive(id: string, active: boolean) {
   emit({
     ...snapshot,
-    themes: snapshot.themes.map((item) => (item.id === id ? { ...item, name } : item)),
+    themes: snapshot.themes.map((item) => (item.id === id ? { ...item, active } : item)),
   })
 }
 
-export function addTheme(name: string) {
-  const theme: AdminTheme = { id: `theme-${Date.now()}`, name, tone: 'light' }
+export function updateTheme(id: string, draft: ThemeDraft) {
+  emit({
+    ...snapshot,
+    themes: snapshot.themes.map((item) => (item.id === id ? { ...item, ...draft } : item)),
+  })
+}
+
+export function addTheme(draft: ThemeDraft) {
+  const theme: AdminTheme = { id: `theme-${Date.now()}`, tone: 'light', active: true, ...draft }
   emit({ ...snapshot, themes: [...snapshot.themes, theme] })
 }

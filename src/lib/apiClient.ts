@@ -36,6 +36,23 @@ type ApiFetchOptions = Omit<RequestInit, 'headers'> & {
   skipAuth?: boolean
 }
 
+/** 로컬: 빈 문자열(프록시). Netlify: VITE_API_BASE_URL 또는 PROD 기본값. */
+function apiOrigin(): string {
+  const raw = import.meta.env.VITE_API_BASE_URL
+  if (typeof raw === 'string' && raw.trim() !== '') {
+    return raw.replace(/\/$/, '')
+  }
+  // env 누락 시에도 배포 빌드는 HTTPS API로
+  if (import.meta.env.PROD) {
+    return 'https://api.eony.site'
+  }
+  return ''
+}
+
+export function getApiOrigin(): string {
+  return apiOrigin()
+}
+
 /**
  * /api/v1 요청 래퍼. JWT가 있으면 Bearer로 자동 첨부.
  */
@@ -54,7 +71,10 @@ export async function apiFetch(path: string, options: ApiFetchOptions = {}): Pro
     headers.set('Content-Type', 'application/json')
   }
 
-  const url = path.startsWith('/api/') ? path : `/api/v1${path.startsWith('/') ? path : `/${path}`}`
+  const pathWithVersion = path.startsWith('/api/')
+    ? path
+    : `/api/v1${path.startsWith('/') ? path : `/${path}`}`
+  const url = `${apiOrigin()}${pathWithVersion}`
 
   try {
     const response = await fetch(url, { ...rest, headers })

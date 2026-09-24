@@ -4,6 +4,7 @@ import { applyAccessToken, login } from '@/api/auth'
 import AuthCard, { AuthSwitch, GoogleMark, KakaoMark } from '@/components/auth/AuthCard'
 import { EyeIcon, EyeOffIcon, LockIcon, MailIcon } from '@/components/icons'
 import { setAdmin } from '@/data/adminSession'
+import { getApiOrigin } from '@/lib/apiClient'
 
 const adminId = 'admin@example.com'
 const adminPassword = '1111'
@@ -15,6 +16,7 @@ export default function LoginPage() {
   const [visible, setVisible] = useState(false)
   const [error, setError] = useState('')
   const [loading, setLoading] = useState(false)
+  const oauthBase = getApiOrigin()
 
   async function submit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault()
@@ -89,11 +91,11 @@ export default function LoginPage() {
       <button type="submit" className="auth-submit" disabled={loading}>
         {loading ? '로그인 중…' : '로그인'}
       </button>
-      <a className="auth-social" href="/oauth2/authorization/google">
+      <a className="auth-social" href={`${oauthBase}/oauth2/authorization/google`}>
         <GoogleMark />
         구글로 로그인
       </a>
-      <a className="auth-social" href="/oauth2/authorization/kakao">
+      <a className="auth-social" href={`${oauthBase}/oauth2/authorization/kakao`}>
         <KakaoMark />
         카카오로 로그인
       </a>
