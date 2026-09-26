@@ -43,6 +43,8 @@ export type Post = {
   content: string
   images: FeedImage[]
   createdAt: string
+  /** 백엔드 PostResponse.updatedAt. 상세에서만 표시 */
+  updatedAt?: string
   comments: number
   likes: number
   liked: boolean

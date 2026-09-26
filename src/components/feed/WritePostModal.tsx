@@ -20,7 +20,7 @@ type WritePostModalProps = {
   user: FeedUser
   categories: { id: CategoryId; label: string }[]
   onClose: () => void
-  onPublish: (draft: PostDraft) => void
+  onPublish: (draft: PostDraft) => void | Promise<void>
 }
 
 export default function WritePostModal({ user, categories, onClose, onPublish }: WritePostModalProps) {
@@ -34,6 +34,8 @@ export default function WritePostModal({ user, categories, onClose, onPublish }:
   const [visibility, setVisibility] = useState<PostVisibility>('public')
   const [images, setImages] = useState<FeedImage[]>([])
   const [categoryOpen, setCategoryOpen] = useState(false)
+  const [saving, setSaving] = useState(false)
+  const [saveError, setSaveError] = useState('')
 
   const categoryOptions = categories.filter(
     (item): item is { id: PostCategory; label: string } => item.id !== 'all',
@@ -66,22 +68,31 @@ export default function WritePostModal({ user, categories, onClose, onPublish }:
     })
   }
 
-  function publish() {
+  async function publish() {
     const trimmed = text.trim()
     const fallback = categoryOptions.find((item) => item.id === 'etc')
     const chosen = selectedCategory ?? fallback
-    if (!trimmed || !chosen) return
+    if (!trimmed || !chosen || saving) return
     const [title, ...rest] = trimmed.split('\n')
     const body = rest.join('\n').trim()
-    onPublish({
-      title,
-      body: body || undefined,
-      content: trimmed,
-      category: chosen.id,
-      categoryLabel: chosen.label,
-      images,
-      visibility,
-    })
+    setSaving(true)
+    setSaveError('')
+    try {
+      await onPublish({
+        title,
+        body: body || undefined,
+        content: trimmed,
+        category: chosen.id,
+        categoryLabel: chosen.label,
+        images,
+        visibility,
+      })
+    } catch (error: unknown) {
+      const message = error instanceof Error ? error.message : '글을 등록하지 못했습니다.'
+      setSaveError(message)
+    } finally {
+      setSaving(false)
+    }
   }
 
   return createPortal(
@@ -187,6 +198,11 @@ export default function WritePostModal({ user, categories, onClose, onPublish }:
           </div>
         </div>
 
+        {saveError && (
+          <p className="editor-error" role="alert">
+            {saveError}
+          </p>
+        )}
         <footer className="editor-footer">
           <button type="button" className="add-image" onClick={() => fileRef.current?.click()}>
             <ImageIcon />
@@ -203,8 +219,13 @@ export default function WritePostModal({ user, categories, onClose, onPublish }:
               event.target.value = ''
             }}
           />
-          <button type="button" className="editor-save" onClick={publish}>
-            게시
+          <button
+            type="button"
+            className="editor-save"
+            disabled={saving || text.trim().length === 0}
+            onClick={() => void publish()}
+          >
+            {saving ? '게시 중...' : '게시'}
           </button>
         </footer>
       </div>

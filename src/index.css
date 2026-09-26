@@ -1018,6 +1018,16 @@ button.stat {
   background: #f4f7fb;
 }
 
+.detail-body {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.detail-body .post-text {
+  margin-top: 0;
+}
+
 .detail-photos {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));

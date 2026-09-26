@@ -99,6 +99,22 @@ export default function PostDetail({
           </button>
         </header>
 
+        <div className="detail-body">
+          <div className="author">
+            <img src={post.avatar} alt="" />
+            <div>
+              <div className="author-name">
+                <strong>{post.author}</strong>
+                {post.isMe && <span className="me-badge">나</span>}
+              </div>
+              <p className="post-meta">
+                {post.visibility === 'subscribers' ? '구독자 전용' : '전체 공개'}
+              </p>
+            </div>
+          </div>
+          <p className="post-text">{post.content}</p>
+        </div>
+
         <div className={post.images.length === 1 ? 'detail-photos single' : 'detail-photos'}>
           {post.images.map((image) => (
             <img key={image.src} src={image.src} alt={image.alt} />
@@ -132,7 +148,10 @@ export default function PostDetail({
           >
             <BookmarkIcon filled={post.bookmarked} />
           </button>
-          <p className="detail-date">작성일 {post.createdAt}</p>
+          <p className="detail-date">
+            작성 {post.createdAt}
+            {post.updatedAt ? ` · 수정 ${post.updatedAt}` : ''}
+          </p>
         </div>
 
         <section className="detail-comments" aria-label="댓글">

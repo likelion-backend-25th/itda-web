@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState, useSyncExternalStore } from 'react'
 import { fetchMyProfile, toFeedUser } from '@/api/member'
-import { categoryIdForUpdate, deletePost, fetchPostById, fetchPosts, imageUrlForUpdate, toFeedPost, updatePost, type PostFeedQuery } from '@/api/post'
+import { categoryIdForUpdate, categoryIdFromLabel, createPost, deletePost, fetchPostById, fetchPosts, imageUrlForUpdate, toFeedPost, updatePost, type PostFeedQuery } from '@/api/post'
 import EditPostModal from '@/components/feed/EditPostModal'
 import Header from '@/components/layout/Header'
 import PostCard from '@/components/feed/PostCard'
@@ -324,27 +324,23 @@ export default function HomePage() {
     )
   }
 
-  function publishPost(draft: PostDraft) {
-    const now = new Date()
-    const post: Post = {
-      id: `post-${now.getTime()}`,
-      author: user.name,
-      avatar: user.avatar,
-      time: '방금 전',
-      category: draft.category,
-      categoryLabel: draft.categoryLabel,
-      isMe: true,
+  async function publishPost(draft: PostDraft) {
+    if (!profile) throw new Error('로그인 후 글을 작성할 수 있습니다.')
+    const imageUrl = imageUrlForUpdate(draft.images, null)
+    const created = await createPost({
+      id: 0,
+      memberId: profile.id,
+      nickname: profile.nickname,
+      categoryId: categoryIdFromLabel(draft.categoryLabel),
+      categoryName: draft.categoryLabel,
       content: draft.content,
-      images: draft.images,
-      createdAt: formatDateTime(now),
-      comments: 0,
-      likes: 0,
-      liked: false,
-      views: 0,
-      bookmarked: false,
-      thread: [],
-    }
-    setPosts((current) => [post, ...current])
+      ...(imageUrl !== undefined ? { imageUrl } : {}),
+      likeCount: 0,
+      viewCount: 0,
+      subscriberOnly: draft.visibility === 'subscribers',
+    })
+    const mapped = toFeedPost(created, profile)
+    setPosts((current) => [mapped, ...current])
     setCategory((current) => (current === 'all' || current === draft.category ? current : 'all'))
     setWriting(false)
   }

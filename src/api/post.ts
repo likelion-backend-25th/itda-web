@@ -1,7 +1,7 @@
 import { categories, formatDateTime, type Post, type PostCategory } from '@/data/feed'
 import { apiFetch, apiJson, getApiOrigin } from '@/lib/apiClient'
 import type { MemberProfileResponse } from '@/types/member'
-import type { PostFeedResponse, PostResponse, PostUpdateRequest } from '@/types/post'
+import type { PostCreateRequest, PostFeedResponse, PostResponse, PostUpdateRequest } from '@/types/post'
 
 const DEFAULT_AVATAR = '/images/avatar-jieun.jpg'
 const PAGE_SIZE = 5
@@ -23,12 +23,17 @@ function categoryFromName(name: string): PostCategory {
   return 'etc'
 }
 
+/** 취미 카테고리 이름 → 시드 id. 맛집·여행·운동·게임은 서버에 없다. */
+export function categoryIdFromLabel(label: string): number {
+  const mapped = CATEGORY_ID_BY_LABEL[label]
+  if (mapped != null) return mapped
+  throw new Error('선택한 카테고리는 서버에 없습니다.')
+}
+
 /** 이름을 유지하면 글의 categoryId, 바꾸면 시드 이름에 맞는 id */
 export function categoryIdForUpdate(label: string, currentId: number | undefined, currentLabel: string): number {
   if (currentId != null && label === currentLabel) return currentId
-  const mapped = CATEGORY_ID_BY_LABEL[label]
-  if (mapped != null) return mapped
-  throw new Error('선택한 카테고리는 서버에서 수정할 수 없습니다.')
+  return categoryIdFromLabel(label)
 }
 
 export type PostFeedQuery = {
@@ -64,31 +69,34 @@ function formatRelativeTime(iso: string): string {
 
 /**
  * PostResponse → 피드 카드용 Post.
- * 응답에 닉네임이 없어, 본인 글만 프로필 닉네임을 쓰고 나머지는 회원 번호로 표시한다.
- * 카테고리명은 백엔드 categoryName 을 그대로 쓴다.
+ * 닉네임·카테고리명은 응답 값을 그대로 쓴다.
  */
 export function toFeedPost(dto: PostResponse, viewer: MemberProfileResponse | null): Post {
   const mine = viewer != null && viewer.id === dto.memberId
   const image = resolvePostImageUrl(dto.imageUrl)
   const created = new Date(dto.createdAt)
+  const updated = new Date(dto.updatedAt)
+  const categoryName = dto.categoryName?.trim() ?? ''
+  const nickname = dto.nickname?.trim() ?? ''
 
   return {
     id: String(dto.id),
     memberId: dto.memberId,
     categoryId: dto.categoryId,
     imageUrl: dto.imageUrl,
-    author: mine ? viewer.nickname : `회원 ${dto.memberId}`,
+    author: nickname || (mine && viewer ? viewer.nickname : `회원 ${dto.memberId}`),
     avatar:
       mine && viewer.profileImage?.trim()
         ? viewer.profileImage
         : DEFAULT_AVATAR,
     time: formatRelativeTime(dto.createdAt),
-    category: categoryFromName(dto.categoryName.trim()),
-    categoryLabel: dto.categoryName.trim(),
+    category: categoryFromName(categoryName),
+    categoryLabel: categoryName,
     isMe: mine,
     content: dto.content,
     images: image ? [{ src: image, alt: '게시글 이미지' }] : [],
     createdAt: Number.isNaN(created.getTime()) ? dto.createdAt : formatDateTime(created),
+    updatedAt: Number.isNaN(updated.getTime()) ? dto.updatedAt : formatDateTime(updated),
     comments: 0,
     likes: dto.likeCount,
     liked: false,
@@ -106,6 +114,14 @@ export function fetchPosts(query: PostFeedQuery = {}): Promise<PostFeedResponse>
   if (query.subscribedCursor != null) params.set('subscribedCursor', String(query.subscribedCursor))
   params.set('size', String(query.size ?? PAGE_SIZE))
   return apiJson<PostFeedResponse>(`/posts?${params}`)
+}
+
+/** 게시글 등록. 응답의 id·닉네임·시각으로 피드를 갱신한다. */
+export function createPost(body: PostCreateRequest): Promise<PostResponse> {
+  return apiJson<PostResponse>('/posts', {
+    method: 'POST',
+    body: JSON.stringify(body),
+  })
 }
 
 /** 게시글 단건. 상세를 열 때 최신 조회수·본문을 다시 받는다. */
