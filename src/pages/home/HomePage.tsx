@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState, useSyncExternalStore } from 'react'
 import { fetchMyProfile, toFeedUser } from '@/api/member'
-import { categoryIdForUpdate, fetchPostById, fetchPosts, imageUrlForUpdate, toFeedPost, updatePost, type PostFeedQuery } from '@/api/post'
+import { categoryIdForUpdate, deletePost, fetchPostById, fetchPosts, imageUrlForUpdate, toFeedPost, updatePost, type PostFeedQuery } from '@/api/post'
 import EditPostModal from '@/components/feed/EditPostModal'
 import Header from '@/components/layout/Header'
 import PostCard from '@/components/feed/PostCard'
@@ -247,6 +247,25 @@ export default function HomePage() {
     setMenuId(null)
   }
 
+  async function removePost(postId: string) {
+    const id = Number(postId)
+    if (!Number.isInteger(id)) return
+    setMenuId(null)
+    setFeedError('')
+    try {
+      await deletePost(id)
+      setPosts((current) => current.filter((item) => item.id !== postId))
+      setSelectedId((current) => (current === postId ? null : current))
+      setEditingPost((current) => (current?.id === postId ? null : current))
+    } catch (error: unknown) {
+      const message = error instanceof Error ? error.message : '글을 삭제하지 못했습니다.'
+      setFeedError(message)
+      if (error instanceof ApiError && error.status === 401 && loggedIn) {
+        setLoggedIn(false)
+      }
+    }
+  }
+
   function toEditable(post: Post): MyPost {
     const [title, ...rest] = post.content.split('\n')
     const body = rest.join('\n').trim()
@@ -420,9 +439,7 @@ export default function HomePage() {
                   onToggleMenu={() => setMenuId((current) => (current === post.id ? null : post.id))}
                   onEdit={() => openEditor(post)}
                   onDelete={() => {
-                    setPosts((current) => current.filter((item) => item.id !== post.id))
-                    setMenuId(null)
-                    if (selectedId === post.id) setSelectedId(null)
+                    void removePost(post.id)
                   }}
                   onToggleLike={toggleLike}
                   onToggleBookmark={toggleBookmark}

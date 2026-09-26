@@ -1,5 +1,5 @@
 import { categories, formatDateTime, type Post, type PostCategory } from '@/data/feed'
-import { apiJson, getApiOrigin } from '@/lib/apiClient'
+import { apiFetch, apiJson, getApiOrigin } from '@/lib/apiClient'
 import type { MemberProfileResponse } from '@/types/member'
 import type { PostFeedResponse, PostResponse, PostUpdateRequest } from '@/types/post'
 
@@ -111,6 +111,11 @@ export function fetchPosts(query: PostFeedQuery = {}): Promise<PostFeedResponse>
 /** 게시글 단건. 상세를 열 때 최신 조회수·본문을 다시 받는다. */
 export function fetchPostById(id: number): Promise<PostResponse> {
   return apiJson<PostResponse>(`/posts/${id}`)
+}
+
+/** 게시글 삭제. 성공 응답에는 본문이 없다. */
+export async function deletePost(id: number): Promise<void> {
+  await apiFetch(`/posts/${id}`, { method: 'DELETE' })
 }
 
 /** 게시글 수정. 응답으로 최신 본문·카테고리명을 다시 받는다. */
