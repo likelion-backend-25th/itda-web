@@ -87,8 +87,8 @@ export default function RegisterPage() {
         nickname: nickname.trim(),
       }
       await signup(account)
-      const { accessToken } = await login({ email: account.email, password: account.password })
-      applyAccessToken(accessToken)
+      const tokens = await login({ email: account.email, password: account.password })
+      applyAccessToken(tokens.accessToken, tokens.expiresIn)
       navigate('/')
     } catch (err: unknown) {
       const message = err instanceof Error ? err.message : '회원가입에 실패했습니다.'

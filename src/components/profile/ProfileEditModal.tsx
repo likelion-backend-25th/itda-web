@@ -1,8 +1,8 @@
 import { useEffect, useId, useRef, useState, useSyncExternalStore } from 'react'
 import { createPortal } from 'react-dom'
 import { useNavigate } from 'react-router'
+import { logout } from '@/api/auth'
 import { creatorSubscriberCount, getMemberships, subscribeMemberships } from '@/data/subscriptions'
-import { setLoggedIn } from '@/data/session'
 import WithdrawModal, { type WithdrawKind } from './WithdrawModal'
 import { CloseIcon } from '@/components/icons'
 
@@ -252,8 +252,7 @@ export default function ProfileEditModal({
           kind={withdrawKind}
           onClose={() => setWithdrawOpen(false)}
           onConfirm={() => {
-            setLoggedIn(false)
-            navigate('/')
+            void logout().then(() => navigate('/'))
           }}
         />
       )}

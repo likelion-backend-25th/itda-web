@@ -1,7 +1,8 @@
 import { useSyncExternalStore } from 'react'
 import { Link, useLocation, useNavigate } from 'react-router'
 import type { FeedUser } from '@/data/feed'
-import { getLoggedIn, setLoggedIn, subscribeSession } from '@/data/session'
+import { logout } from '@/api/auth'
+import { getLoggedIn, subscribeSession } from '@/data/session'
 import { BellIcon, ChevronDownIcon, LogoutIcon, SearchIcon } from '@/components/icons'
 
 type HeaderProps = {
@@ -61,8 +62,7 @@ export default function Header({ query, user, onQueryChange }: HeaderProps) {
               type="button"
               className="top-action"
               onClick={() => {
-                setLoggedIn(false)
-                navigate('/')
+                void logout().then(() => navigate('/'))
               }}
             >
               <LogoutIcon />

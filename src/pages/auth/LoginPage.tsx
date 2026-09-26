@@ -40,8 +40,8 @@ export default function LoginPage() {
     setLoading(true)
     setError('')
     try {
-      const { accessToken } = await login({ email: id, password })
-      applyAccessToken(accessToken)
+      const tokens = await login({ email: id, password })
+      applyAccessToken(tokens.accessToken, tokens.expiresIn)
       navigate('/')
     } catch (err: unknown) {
       const message = err instanceof Error ? err.message : '로그인에 실패했습니다.'
