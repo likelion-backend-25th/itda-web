@@ -6,21 +6,6 @@ import type { PostFeedResponse, PostResponse } from '@/types/post'
 const DEFAULT_AVATAR = '/images/avatar-jieun.jpg'
 const PAGE_SIZE = 5
 
-/** 취미 카테고리 시드 id. 피드 응답에는 이름 대신 categoryId만 온다. */
-const CATEGORY_NAME_BY_ID: Record<number, string> = {
-  8: '독서',
-  9: '음악',
-  10: '요리',
-  11: '공예',
-  12: '쥬얼리',
-  13: '그림',
-  14: '기타',
-}
-
-function categoryName(categoryId: number): string {
-  return CATEGORY_NAME_BY_ID[categoryId] ?? `카테고리 ${categoryId}`
-}
-
 export type PostFeedQuery = {
   publicCursor?: number | null
   subscribedCursor?: number | null
@@ -54,7 +39,8 @@ function formatRelativeTime(iso: string): string {
 
 /**
  * PostResponse → 피드 카드용 Post.
- * 응답에 닉네임·카테고리명이 없어, 본인 글만 프로필 닉네임을 쓰고 나머지는 회원 번호로 표시한다.
+ * 응답에 닉네임이 없어, 본인 글만 프로필 닉네임을 쓰고 나머지는 회원 번호로 표시한다.
+ * 카테고리명은 백엔드 categoryName 을 그대로 쓴다.
  */
 export function toFeedPost(dto: PostResponse, viewer: MemberProfileResponse | null): Post {
   const mine = viewer != null && viewer.id === dto.memberId
@@ -71,7 +57,7 @@ export function toFeedPost(dto: PostResponse, viewer: MemberProfileResponse | nu
         : DEFAULT_AVATAR,
     time: formatRelativeTime(dto.createdAt),
     category: 'etc',
-    categoryLabel: categoryName(dto.categoryId),
+    categoryLabel: dto.categoryName.trim(),
     isMe: mine,
     content: dto.content,
     images: image ? [{ src: image, alt: '게시글 이미지' }] : [],

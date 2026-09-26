@@ -270,8 +270,10 @@ export default function HomePage() {
 
   const visiblePosts = useMemo(() => {
     const keyword = query.trim().toLowerCase()
+    // API 글의 category 는 아직 'etc' 고정이라, 사이드바 한글 이름과 categoryName 을 비교한다.
+    const selectedLabel = categories.find((item) => item.id === category)?.label
     return posts.filter((post) => {
-      const categoryMatch = category === 'all' || post.category === category
+      const categoryMatch = category === 'all' || post.categoryLabel === selectedLabel
       const keywordMatch =
         keyword.length === 0 ||
         post.author.toLowerCase().includes(keyword) ||

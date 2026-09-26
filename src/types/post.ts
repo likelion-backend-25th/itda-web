@@ -3,6 +3,7 @@ export interface PostResponse {
   id: number
   memberId: number
   categoryId: number
+  categoryName: string
   content: string
   imageUrl: string | null
   likeCount: number
