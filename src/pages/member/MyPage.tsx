@@ -1,7 +1,8 @@
 import { useCallback, useEffect, useMemo, useState, useSyncExternalStore } from 'react'
 import { Link } from 'react-router'
+import { fetchMyFollowers, resolveMemberImageUrl } from '@/api/member'
 import EditPostModal from '@/components/feed/EditPostModal'
-import FollowList, { type FollowTab } from '@/components/profile/FollowList'
+import FollowList, { type FollowListItem, type FollowTab } from '@/components/profile/FollowList'
 import WritePostModal, { type PostDraft } from '@/components/feed/WritePostModal'
 import Header from '@/components/layout/Header'
 import MyPostCard from '@/components/feed/MyPostCard'
@@ -13,7 +14,11 @@ import ThemeShot from '@/components/theme/ThemeShot'
 import { GearIcon, HeadsetIcon } from '@/components/icons'
 import { formatDateTime, myPageCategories, type CategoryId, type Post } from '@/data/feed'
 import { getOwnedThemeIds, shopThemes, subscribeOwnedThemes } from '@/data/themes'
-import { getFollowingIds, myFollowerIds, setFollowing, subscribeFollows } from '@/data/follows'
+import { getFollowingIds, setFollowing, subscribeFollows } from '@/data/follows'
+import { followListItemsFromIds } from '@/data/members'
+import { getLoggedIn, subscribeSession } from '@/data/session'
+import { ApiError } from '@/lib/apiClient'
+import type { FollowerResponse } from '@/types/member'
 import {
   likedPosts,
   myPosts,
@@ -23,6 +28,15 @@ import {
   type MyPost,
   type OwnedTheme,
 } from '@/data/mypage'
+
+function toFollowerListItem(follower: FollowerResponse): FollowListItem {
+  return {
+    id: String(follower.id),
+    name: follower.nickname,
+    avatar: resolveMemberImageUrl(follower.profileImage),
+    href: null,
+  }
+}
 
 type MyTab = 'posts' | 'likes' | 'scraps' | 'themes'
 
@@ -63,7 +77,11 @@ export default function MyPage() {
   const [writing, setWriting] = useState(false)
   const [settingsOpen, setSettingsOpen] = useState(false)
   const [followTab, setFollowTab] = useState<FollowTab | null>(null)
+  const loggedIn = useSyncExternalStore(subscribeSession, getLoggedIn)
   const followedIds = useSyncExternalStore(subscribeFollows, getFollowingIds)
+  const [followers, setFollowers] = useState<FollowListItem[]>([])
+  const [followersLoading, setFollowersLoading] = useState(false)
+  const [followersError, setFollowersError] = useState<string | null>(null)
   const [profile, setProfile] = useState<ProfileForm>({
     name: pageProfile.name,
     bio: '카페 디저트와 여행 사진을 좋아합니다.',
@@ -76,6 +94,42 @@ export default function MyPage() {
     avatar: profile.avatar,
     bio: `소개글 - ${profile.bio}`,
   }
+
+  // GET /api/v1/member/followers — 나를 팔로우하는 사람
+  useEffect(() => {
+    if (!loggedIn) {
+      setFollowers([])
+      setFollowersError(null)
+      setFollowersLoading(false)
+      return
+    }
+
+    let cancelled = false
+    async function loadFollowers() {
+      setFollowersLoading(true)
+      setFollowersError(null)
+      try {
+        const list = await fetchMyFollowers()
+        if (cancelled) return
+        setFollowers(list.map(toFollowerListItem))
+      } catch (error: unknown) {
+        if (cancelled) return
+        const message = error instanceof Error ? error.message : '팔로워 목록을 불러오지 못했습니다.'
+        setFollowersError(message)
+        setFollowers([])
+        if (error instanceof ApiError && error.status === 401) {
+          // apiClient가 세션 정리 — 목록만 비움
+        }
+      } finally {
+        if (!cancelled) setFollowersLoading(false)
+      }
+    }
+
+    void loadFollowers()
+    return () => {
+      cancelled = true
+    }
+  }, [loggedIn])
 
   useEffect(() => {
     setThemes((current) => {
@@ -179,7 +233,7 @@ export default function MyPage() {
                     팔로잉 <b>{followedIds.size}</b>
                   </button>
                   <button type="button" className="count-link" onClick={() => setFollowTab('followers')}>
-                    팔로워 <b>{myFollowerIds().length}</b>
+                    팔로워 <b>{followersLoading ? '…' : followers.length}</b>
                   </button>
                   <span>
                     게시글 <b>{profileStats.posts}</b>
@@ -301,11 +355,13 @@ export default function MyPage() {
       {followTab && (
         <FollowList
           initialTab={followTab}
-          followers={myFollowerIds()}
-          following={[...followedIds]}
+          followers={followers}
+          following={followListItemsFromIds([...followedIds])}
           followedIds={followedIds}
           onToggle={setFollowing}
           onClose={() => setFollowTab(null)}
+          loading={followTab === 'followers' ? followersLoading : false}
+          error={followTab === 'followers' ? followersError : null}
         />
       )}
 

@@ -84,3 +84,19 @@ export function profilePath(name: string) {
   const member = members.find((item) => item.name === name)
   return member ? `/member/${member.id}` : null
 }
+
+/** 목 데이터 id → FollowList 표시용 */
+export function followListItemsFromIds(ids: string[]) {
+  return ids.flatMap((id) => {
+    const member = memberById(id)
+    if (!member) return []
+    return [
+      {
+        id: member.id,
+        name: member.name,
+        avatar: member.avatar,
+        href: profilePath(member.name),
+      },
+    ]
+  })
+}

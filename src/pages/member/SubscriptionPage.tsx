@@ -9,7 +9,7 @@ import WritePostModal from '@/components/feed/WritePostModal'
 import { GearIcon } from '@/components/icons'
 import { currentUser, myPageCategories, type CategoryId } from '@/data/feed'
 import { getFollowingIds, memberFollowIds, setFollowing, subscribeFollows } from '@/data/follows'
-import { memberById, profilePath } from '@/data/members'
+import { followListItemsFromIds, memberById, profilePath } from '@/data/members'
 import {
   creatorSubscriberCount,
   getMemberships,
@@ -253,8 +253,8 @@ export default function SubscriptionPage() {
       {followTarget && (
         <FollowList
           initialTab={followTarget.tab}
-          followers={memberFollowIds(followTarget.memberId).followers}
-          following={memberFollowIds(followTarget.memberId).following}
+          followers={followListItemsFromIds(memberFollowIds(followTarget.memberId).followers)}
+          following={followListItemsFromIds(memberFollowIds(followTarget.memberId).following)}
           followedIds={followedIds}
           onToggle={setFollowing}
           onClose={() => setFollowTarget(null)}

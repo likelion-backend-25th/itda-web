@@ -8,7 +8,7 @@ import WritePostModal from '@/components/feed/WritePostModal'
 import { BookmarkIcon, CommentIcon, CrownIcon, DotsIcon, EyeIcon, HeartIcon } from '@/components/icons'
 import { currentUser, formatDateTime, initialPosts, myPageCategories, type CategoryId, type Post } from '@/data/feed'
 import { getFollowingIds, memberFollowIds, setFollowing, subscribeFollows } from '@/data/follows'
-import { memberById } from '@/data/members'
+import { followListItemsFromIds, memberById } from '@/data/members'
 import { getSubscribedIds, setSubscribed, subscribeMemberships } from '@/data/subscriptions'
 
 export default function MemberPage() {
@@ -278,8 +278,8 @@ export default function MemberPage() {
       {member && followTab && (
         <FollowList
           initialTab={followTab}
-          followers={network.followers}
-          following={network.following}
+          followers={followListItemsFromIds(network.followers)}
+          following={followListItemsFromIds(network.following)}
           followedIds={followedIds}
           onToggle={setFollowing}
           onClose={() => setFollowTab(null)}

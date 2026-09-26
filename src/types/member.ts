@@ -9,3 +9,10 @@ export interface MemberProfileResponse {
   themeId: number
   createdAt: string
 }
+
+/** GET /api/v1/member/followers — 나를 팔로우하는 사람 */
+export interface FollowerResponse {
+  id: number
+  nickname: string
+  profileImage: string | null
+}
