@@ -719,6 +719,16 @@ a.comment-author {
   gap: 16px;
 }
 
+.feed-more {
+  min-height: 48px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--text-soft);
+  font-size: 14px;
+  font-weight: 600;
+}
+
 .post {
   position: relative;
   padding: 18px 20px 14px;

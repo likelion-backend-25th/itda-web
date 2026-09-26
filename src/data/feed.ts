@@ -28,6 +28,8 @@ export type Comment = {
 
 export type Post = {
   id: string
+  /** 백엔드 PostResponse.memberId. 목 데이터에는 없음 */
+  memberId?: number
   author: string
   avatar: string
   time: string

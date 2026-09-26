@@ -1,12 +1,13 @@
-import { useCallback, useEffect, useMemo, useState, useSyncExternalStore } from 'react'
+import { useCallback, useEffect, useMemo, useRef, useState, useSyncExternalStore } from 'react'
 import { fetchMyProfile, toFeedUser } from '@/api/member'
+import { fetchPostById, fetchPosts, toFeedPost, type PostFeedQuery } from '@/api/post'
 import EditPostModal from '@/components/feed/EditPostModal'
 import Header from '@/components/layout/Header'
 import PostCard from '@/components/feed/PostCard'
 import PostDetail from '@/components/feed/PostDetail'
 import Sidebar from '@/components/layout/Sidebar'
 import WritePostModal, { type PostDraft } from '@/components/feed/WritePostModal'
-import { categories, currentUser, formatDateTime, initialPosts, type CategoryId, type FeedUser, type Post } from '@/data/feed'
+import { categories, currentUser, formatDateTime, type CategoryId, type FeedUser, type Post } from '@/data/feed'
 import { getLoggedIn, setLoggedIn, subscribeSession } from '@/data/session'
 import { profilePath } from '@/data/members'
 import { ApiError } from '@/lib/apiClient'
@@ -25,13 +26,24 @@ export default function HomePage() {
   const [query, setQuery] = useState('')
   const [category, setCategory] = useState<CategoryId>('all')
   const [categoriesOpen, setCategoriesOpen] = useState(true)
-  const [posts, setPosts] = useState<Post[]>(initialPosts)
+  const [posts, setPosts] = useState<Post[]>([])
+  const [feedLoading, setFeedLoading] = useState(true)
+  const [loadingMore, setLoadingMore] = useState(false)
+  const [feedError, setFeedError] = useState('')
+  const [hasNext, setHasNext] = useState(false)
+  const feedCursorRef = useRef<PostFeedQuery>({})
+  const hasNextRef = useRef(false)
+  const loadingMoreRef = useRef(false)
+  const feedGenerationRef = useRef(0)
+  const sentinelRef = useRef<HTMLDivElement>(null)
   const [selectedId, setSelectedId] = useState<string | null>(null)
   const [writing, setWriting] = useState(false)
   const [menuId, setMenuId] = useState<string | null>(null)
   const [editingPost, setEditingPost] = useState<Post | null>(null)
   const [profile, setProfile] = useState<MemberProfileResponse | null>(null)
   const [profileError, setProfileError] = useState('')
+  const profileRef = useRef(profile)
+  profileRef.current = profile
   const closeDetail = useCallback(() => setSelectedId(null), [])
   const selectedPost = posts.find((post) => post.id === selectedId) ?? null
 
@@ -69,6 +81,157 @@ export default function HomePage() {
   }, [loggedIn])
 
   const user: FeedUser = profile ? toFeedUser(profile) : loggedIn ? currentUser : guestUser
+
+  // 로그인 상태가 바뀌면 구독 글 포함 여부가 달라지므로 피드를 처음부터 다시 받는다
+  useEffect(() => {
+    let cancelled = false
+
+    async function loadFeed() {
+      const generation = ++feedGenerationRef.current
+      hasNextRef.current = false
+      feedCursorRef.current = {}
+      loadingMoreRef.current = false
+      setFeedLoading(true)
+      setFeedError('')
+      try {
+        const result = await fetchPosts()
+        if (cancelled || generation !== feedGenerationRef.current) return
+        setPosts(result.posts.map((post) => toFeedPost(post, profileRef.current)))
+        feedCursorRef.current = {
+          publicCursor: result.nextPublicCursor,
+          subscribedCursor: result.nextSubscribedCursor,
+        }
+        hasNextRef.current = result.hasNext
+        setHasNext(result.hasNext)
+      } catch (error: unknown) {
+        if (cancelled || generation !== feedGenerationRef.current) return
+        const message = error instanceof Error ? error.message : '글을 불러오지 못했습니다.'
+        setFeedError(message)
+        setPosts([])
+        setHasNext(false)
+        if (error instanceof ApiError && error.status === 401 && loggedIn) {
+          setLoggedIn(false)
+        }
+      } finally {
+        if (!cancelled && generation === feedGenerationRef.current) setFeedLoading(false)
+      }
+    }
+
+    void loadFeed()
+    return () => {
+      cancelled = true
+    }
+  }, [loggedIn])
+
+  // 프로필이 늦게 도착해도 내 글 닉네임·아바타를 맞춘다
+  useEffect(() => {
+    if (!profile) return
+    const avatar = profile.profileImage?.trim() ? profile.profileImage : undefined
+    setPosts((current) =>
+      current.map((post) =>
+        post.memberId === profile.id
+          ? {
+              ...post,
+              author: profile.nickname,
+              avatar: avatar ?? post.avatar,
+              isMe: true,
+            }
+          : post,
+      ),
+    )
+  }, [profile])
+
+  // 카드를 열면 getPostById로 최신 본문·조회수를 받는다
+  useEffect(() => {
+    if (selectedId == null) return
+    const id = Number(selectedId)
+    if (!Number.isInteger(id)) return
+
+    let cancelled = false
+    async function loadDetail() {
+      try {
+        const detail = await fetchPostById(id)
+        if (cancelled) return
+        const next = toFeedPost(detail, profileRef.current)
+        setPosts((current) =>
+          current.map((post) =>
+            post.id === String(detail.id)
+              ? {
+                  ...next,
+                  liked: post.liked,
+                  likes: post.liked ? post.likes : next.likes,
+                  bookmarked: post.bookmarked,
+                  comments: post.comments,
+                  thread: post.thread,
+                }
+              : post,
+          ),
+        )
+      } catch (error: unknown) {
+        if (cancelled) return
+        if (error instanceof ApiError && error.status === 401 && loggedIn) {
+          setLoggedIn(false)
+        }
+      }
+    }
+
+    void loadDetail()
+    return () => {
+      cancelled = true
+    }
+  }, [loggedIn, selectedId])
+
+  const loadMore = useCallback(async () => {
+    if (!hasNextRef.current || loadingMoreRef.current) return
+    const generation = feedGenerationRef.current
+    loadingMoreRef.current = true
+    setLoadingMore(true)
+    setFeedError('')
+    try {
+      const result = await fetchPosts(feedCursorRef.current)
+      if (generation !== feedGenerationRef.current) return
+      const incoming = result.posts.map((post) => toFeedPost(post, profileRef.current))
+      setPosts((current) => {
+        const seen = new Set(current.map((post) => post.id))
+        return [...current, ...incoming.filter((post) => !seen.has(post.id))]
+      })
+      feedCursorRef.current = {
+        publicCursor: result.nextPublicCursor,
+        subscribedCursor: result.nextSubscribedCursor,
+      }
+      hasNextRef.current = result.hasNext
+      setHasNext(result.hasNext)
+    } catch (error: unknown) {
+      if (generation !== feedGenerationRef.current) return
+      const message = error instanceof Error ? error.message : '글을 더 불러오지 못했습니다.'
+      setFeedError(message)
+      if (error instanceof ApiError && error.status === 401 && loggedIn) {
+        setLoggedIn(false)
+      }
+    } finally {
+      if (generation === feedGenerationRef.current) {
+        loadingMoreRef.current = false
+        setLoadingMore(false)
+      }
+    }
+  }, [loggedIn])
+
+  // 피드 맨 아래가 보이면 nextPublicCursor / nextSubscribedCursor 로 다음 페이지를 붙인다
+  useEffect(() => {
+    const node = sentinelRef.current
+    if (!node || feedLoading || !hasNext) return
+
+    const observer = new IntersectionObserver(
+      (entries) => {
+        if (entries.some((entry) => entry.isIntersecting)) {
+          void loadMore()
+        }
+      },
+      { rootMargin: '240px' },
+    )
+    observer.observe(node)
+    return () => observer.disconnect()
+  }, [feedLoading, hasNext, loadMore, posts.length])
 
   useEffect(() => {
     if (!menuId) return
@@ -109,13 +272,12 @@ export default function HomePage() {
     const keyword = query.trim().toLowerCase()
     return posts.filter((post) => {
       const categoryMatch = category === 'all' || post.category === category
-      const publicPost = post.visibility !== 'subscribers'
       const keywordMatch =
         keyword.length === 0 ||
         post.author.toLowerCase().includes(keyword) ||
         post.categoryLabel.toLowerCase().includes(keyword) ||
         post.content.toLowerCase().includes(keyword)
-      return publicPost && categoryMatch && keywordMatch
+      return categoryMatch && keywordMatch
     })
   }, [category, posts, query])
 
@@ -234,14 +396,23 @@ export default function HomePage() {
                 {profileError}
               </div>
             )}
-            {visiblePosts.length === 0 ? (
+            {feedLoading && posts.length === 0 ? (
+              <div className="empty">글을 불러오는 중...</div>
+            ) : feedError && posts.length === 0 ? (
+              <div className="empty" role="alert">
+                {feedError}
+              </div>
+            ) : visiblePosts.length === 0 ? (
               <div className="empty">해당하는 글이 없습니다.</div>
             ) : (
               visiblePosts.map((post) => (
                 <PostCard
                   key={post.id}
                   post={post}
-                  canManage={loggedIn && post.author === user.name}
+                  canManage={
+                    loggedIn &&
+                    (post.memberId != null ? profile?.id === post.memberId : post.author === user.name)
+                  }
                   menuOpen={menuId === post.id}
                   onOpen={setSelectedId}
                   onToggleMenu={() => setMenuId((current) => (current === post.id ? null : post.id))}
@@ -256,6 +427,16 @@ export default function HomePage() {
                   profileHref={profilePath(post.author)}
                 />
               ))
+            )}
+            {posts.length > 0 && feedError && (
+              <div className="empty" role="alert">
+                {feedError}
+              </div>
+            )}
+            {hasNext && posts.length > 0 && (
+              <div ref={sentinelRef} className="feed-more" aria-live="polite">
+                {loadingMore ? '글을 불러오는 중...' : ''}
+              </div>
             )}
           </main>
         </div>
