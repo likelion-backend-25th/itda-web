@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState, useSyncExternalStore } from 'react'
 import { fetchMyProfile, toFeedUser } from '@/api/member'
-import { fetchPostById, fetchPosts, toFeedPost, type PostFeedQuery } from '@/api/post'
+import { categoryIdForUpdate, fetchPostById, fetchPosts, imageUrlForUpdate, toFeedPost, updatePost, type PostFeedQuery } from '@/api/post'
 import EditPostModal from '@/components/feed/EditPostModal'
 import Header from '@/components/layout/Header'
 import PostCard from '@/components/feed/PostCard'
@@ -448,17 +448,30 @@ export default function HomePage() {
           post={toEditable(editingPost)}
           categories={categories}
           onClose={() => setEditingPost(null)}
-          onSave={(next) => {
+          onSave={async (next) => {
+            const id = Number(editingPost.id)
+            if (!Number.isInteger(id) || editingPost.categoryId == null) {
+              throw new Error('수정할 수 없는 글입니다.')
+            }
+            const content = next.body ? `${next.title}\n${next.body}` : next.title
+            const imageUrl = imageUrlForUpdate(next.images, editingPost.imageUrl)
+            const updated = await updatePost(id, {
+              categoryId: categoryIdForUpdate(next.categoryLabel, editingPost.categoryId, editingPost.categoryLabel),
+              content,
+              ...(imageUrl !== undefined ? { imageUrl } : {}),
+              subscriberOnly: next.visibility === 'subscribers',
+            })
+            const mapped = toFeedPost(updated, profileRef.current)
             setPosts((current) =>
               current.map((item) =>
-                item.id === editingPost.id
+                item.id === String(updated.id)
                   ? {
-                      ...item,
-                      content: next.body ? `${next.title}\n${next.body}` : next.title,
-                      category: next.category,
-                      categoryLabel: next.categoryLabel,
-                      images: next.images,
-                      visibility: next.visibility,
+                      ...mapped,
+                      liked: item.liked,
+                      likes: item.liked ? item.likes : mapped.likes,
+                      bookmarked: item.bookmarked,
+                      comments: item.comments,
+                      thread: item.thread,
                     }
                   : item,
               ),

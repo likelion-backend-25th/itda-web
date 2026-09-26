@@ -3484,6 +3484,13 @@ img.sub-photo {
   font-weight: 600;
 }
 
+.editor-error {
+  margin: 0 0 8px;
+  color: #d14343;
+  font-size: 13px;
+  font-weight: 700;
+}
+
 .editor-footer {
   display: flex;
   align-items: center;

@@ -1,10 +1,35 @@
-import { formatDateTime, type Post } from '@/data/feed'
+import { categories, formatDateTime, type Post, type PostCategory } from '@/data/feed'
 import { apiJson, getApiOrigin } from '@/lib/apiClient'
 import type { MemberProfileResponse } from '@/types/member'
-import type { PostFeedResponse, PostResponse } from '@/types/post'
+import type { PostFeedResponse, PostResponse, PostUpdateRequest } from '@/types/post'
 
 const DEFAULT_AVATAR = '/images/avatar-jieun.jpg'
 const PAGE_SIZE = 5
+
+/** 수정 시 카테고리를 바꿀 때 쓰는 취미 카테고리 시드 id. 이름은 응답의 categoryName 을 따른다. */
+const CATEGORY_ID_BY_LABEL: Record<string, number> = {
+  독서: 8,
+  음악: 9,
+  요리: 10,
+  공예: 11,
+  쥬얼리: 12,
+  그림: 13,
+  기타: 14,
+}
+
+function categoryFromName(name: string): PostCategory {
+  const found = categories.find((item) => item.id !== 'all' && item.label === name)
+  if (found && found.id !== 'all') return found.id
+  return 'etc'
+}
+
+/** 이름을 유지하면 글의 categoryId, 바꾸면 시드 이름에 맞는 id */
+export function categoryIdForUpdate(label: string, currentId: number | undefined, currentLabel: string): number {
+  if (currentId != null && label === currentLabel) return currentId
+  const mapped = CATEGORY_ID_BY_LABEL[label]
+  if (mapped != null) return mapped
+  throw new Error('선택한 카테고리는 서버에서 수정할 수 없습니다.')
+}
 
 export type PostFeedQuery = {
   publicCursor?: number | null
@@ -50,13 +75,15 @@ export function toFeedPost(dto: PostResponse, viewer: MemberProfileResponse | nu
   return {
     id: String(dto.id),
     memberId: dto.memberId,
+    categoryId: dto.categoryId,
+    imageUrl: dto.imageUrl,
     author: mine ? viewer.nickname : `회원 ${dto.memberId}`,
     avatar:
       mine && viewer.profileImage?.trim()
         ? viewer.profileImage
         : DEFAULT_AVATAR,
     time: formatRelativeTime(dto.createdAt),
-    category: 'etc',
+    category: categoryFromName(dto.categoryName.trim()),
     categoryLabel: dto.categoryName.trim(),
     isMe: mine,
     content: dto.content,
@@ -84,4 +111,23 @@ export function fetchPosts(query: PostFeedQuery = {}): Promise<PostFeedResponse>
 /** 게시글 단건. 상세를 열 때 최신 조회수·본문을 다시 받는다. */
 export function fetchPostById(id: number): Promise<PostResponse> {
   return apiJson<PostResponse>(`/posts/${id}`)
+}
+
+/** 게시글 수정. 응답으로 최신 본문·카테고리명을 다시 받는다. */
+export function updatePost(id: number, body: PostUpdateRequest): Promise<PostResponse> {
+  return apiJson<PostResponse>(`/posts/${id}`, {
+    method: 'PUT',
+    body: JSON.stringify(body),
+  })
+}
+
+/** 화면의 첫 이미지가 서버 원본이면 그 경로를, 새 URL이면 그 값을 보낸다. */
+export function imageUrlForUpdate(
+  images: { src: string }[],
+  original: string | null | undefined,
+): string | undefined {
+  const src = images[0]?.src
+  if (!src || src.startsWith('data:')) return original?.trim() ? original : undefined
+  if (original && (src === original || src === resolvePostImageUrl(original))) return original
+  return src
 }

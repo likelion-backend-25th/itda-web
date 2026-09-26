@@ -13,6 +13,14 @@ export interface PostResponse {
   updatedAt: string
 }
 
+/** 백엔드 PostUpdateRequest. imageUrl 은 선택 */
+export interface PostUpdateRequest {
+  categoryId: number
+  content: string
+  imageUrl?: string
+  subscriberOnly: boolean
+}
+
 /** 백엔드 PostFeedResponse */
 export interface PostFeedResponse {
   posts: PostResponse[]

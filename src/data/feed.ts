@@ -30,6 +30,10 @@ export type Post = {
   id: string
   /** 백엔드 PostResponse.memberId. 목 데이터에는 없음 */
   memberId?: number
+  /** 백엔드 PostResponse.categoryId. 수정 PUT 에 다시 보낸다 */
+  categoryId?: number
+  /** 서버에 저장된 원본 이미지 경로. 화면용 절대 URL 과 구분한다 */
+  imageUrl?: string | null
   author: string
   avatar: string
   time: string

@@ -17,7 +17,7 @@ type EditPostModalProps = {
     categoryLabel: string
     images: FeedImage[]
     visibility: PostVisibility
-  }) => void
+  }) => void | Promise<void>
 }
 
 export default function EditPostModal({
@@ -33,12 +33,17 @@ export default function EditPostModal({
   const fileRef = useRef<HTMLInputElement>(null)
   const onCloseRef = useRef(onClose)
   onCloseRef.current = onClose
+  const matchedCategoryId = categoryOptions.find((item) => item.label === post.categoryLabel)?.id
   const [text, setText] = useState(post.body ? `${post.title}\n${post.body}` : post.title)
-  const [category, setCategory] = useState<PostCategory>(post.category)
+  const [category, setCategory] = useState<PostCategory>(matchedCategoryId ?? post.category)
+  const [keepServerLabel, setKeepServerLabel] = useState(matchedCategoryId == null)
   const [visibility, setVisibility] = useState<PostVisibility>(post.visibility ?? 'public')
   const [images, setImages] = useState<FeedImage[]>(post.images)
   const [categoryOpen, setCategoryOpen] = useState(false)
+  const [saving, setSaving] = useState(false)
+  const [saveError, setSaveError] = useState('')
   const selectedCategory = categoryOptions.find((item) => item.id === category)
+  const displayLabel = keepServerLabel ? post.categoryLabel : (selectedCategory?.label ?? '카테고리')
 
   useEffect(() => {
     const previousOverflow = document.body.style.overflow
@@ -66,19 +71,29 @@ export default function EditPostModal({
     })
   }
 
-  function save() {
+  async function save() {
     const trimmed = text.trim()
-    if (!trimmed || !selectedCategory) return
+    const categoryLabel = keepServerLabel ? post.categoryLabel : selectedCategory?.label
+    if (!trimmed || !categoryLabel || saving) return
     const [title, ...rest] = trimmed.split('\n')
     const body = rest.join('\n').trim()
-    onSave({
-      title,
-      body: body || undefined,
-      category: selectedCategory.id,
-      categoryLabel: selectedCategory.label,
-      images,
-      visibility,
-    })
+    setSaving(true)
+    setSaveError('')
+    try {
+      await onSave({
+        title,
+        body: body || undefined,
+        category: selectedCategory?.id ?? post.category,
+        categoryLabel,
+        images,
+        visibility,
+      })
+    } catch (error: unknown) {
+      const message = error instanceof Error ? error.message : '글을 수정하지 못했습니다.'
+      setSaveError(message)
+    } finally {
+      setSaving(false)
+    }
   }
 
   return createPortal(
@@ -99,20 +114,26 @@ export default function EditPostModal({
                 aria-expanded={categoryOpen}
                 onClick={() => setCategoryOpen((open) => !open)}
               >
-                <span>{selectedCategory?.label ?? '카테고리'}</span>
+                <span>{displayLabel}</span>
                 <ChevronDownIcon />
               </button>
               {categoryOpen && (
                 <div className="category-menu" role="listbox" aria-label="카테고리">
+                  {keepServerLabel && (
+                    <button type="button" role="option" aria-selected className="active" onClick={() => setCategoryOpen(false)}>
+                      {post.categoryLabel}
+                    </button>
+                  )}
                   {categoryOptions.map((item) => (
                     <button
                       key={item.id}
                       type="button"
                       role="option"
-                      aria-selected={item.id === category}
-                      className={item.id === category ? 'active' : undefined}
+                      aria-selected={!keepServerLabel && item.id === category}
+                      className={!keepServerLabel && item.id === category ? 'active' : undefined}
                       onClick={() => {
                         setCategory(item.id)
+                        setKeepServerLabel(false)
                         setCategoryOpen(false)
                       }}
                     >
@@ -173,6 +194,11 @@ export default function EditPostModal({
           </div>
         </div>
 
+        {saveError && (
+          <p className="editor-error" role="alert">
+            {saveError}
+          </p>
+        )}
         <footer className="editor-footer">
           <button type="button" className="add-image" onClick={() => fileRef.current?.click()}>
             <ImageIcon />
@@ -189,8 +215,8 @@ export default function EditPostModal({
               event.target.value = ''
             }}
           />
-          <button type="button" className="editor-save" disabled={text.trim().length === 0} onClick={save}>
-            수정
+          <button type="button" className="editor-save" disabled={saving || text.trim().length === 0} onClick={() => void save()}>
+            {saving ? '수정 중...' : '수정'}
           </button>
         </footer>
       </div>
