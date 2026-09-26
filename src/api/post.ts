@@ -6,6 +6,21 @@ import type { PostFeedResponse, PostResponse } from '@/types/post'
 const DEFAULT_AVATAR = '/images/avatar-jieun.jpg'
 const PAGE_SIZE = 5
 
+/** 취미 카테고리 시드 id. 피드 응답에는 이름 대신 categoryId만 온다. */
+const CATEGORY_NAME_BY_ID: Record<number, string> = {
+  8: '독서',
+  9: '음악',
+  10: '요리',
+  11: '공예',
+  12: '쥬얼리',
+  13: '그림',
+  14: '기타',
+}
+
+function categoryName(categoryId: number): string {
+  return CATEGORY_NAME_BY_ID[categoryId] ?? `카테고리 ${categoryId}`
+}
+
 export type PostFeedQuery = {
   publicCursor?: number | null
   subscribedCursor?: number | null
@@ -56,7 +71,7 @@ export function toFeedPost(dto: PostResponse, viewer: MemberProfileResponse | nu
         : DEFAULT_AVATAR,
     time: formatRelativeTime(dto.createdAt),
     category: 'etc',
-    categoryLabel: `카테고리 ${dto.categoryId}`,
+    categoryLabel: categoryName(dto.categoryId),
     isMe: mine,
     content: dto.content,
     images: image ? [{ src: image, alt: '게시글 이미지' }] : [],
