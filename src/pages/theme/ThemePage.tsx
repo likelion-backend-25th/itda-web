@@ -7,19 +7,45 @@ import Sidebar from '@/components/layout/Sidebar'
 import ThemeShot, { toneFromThemeCode } from '@/components/theme/ThemeShot'
 import WritePostModal from '@/components/feed/WritePostModal'
 import { BagIcon, CloseIcon, SearchIcon } from '@/components/icons'
+import { applyAppTheme, getAppliedTheme, resolveAppTheme, subscribeAppTheme } from '@/data/appTheme'
 import { currentUser, myPageCategories, type CategoryId } from '@/data/feed'
-import { formatThemePrice } from '@/data/themes'
+import {
+  exampleThemes,
+  formatThemePrice,
+  getOwnedThemeIds,
+  isExampleThemeId,
+  setThemeOwned,
+  subscribeOwnedThemes,
+} from '@/data/themes'
 import { getLoggedIn, setLoggedIn, subscribeSession } from '@/data/session'
+import PaymentCompleteDialog from '@/components/payment/PaymentCompleteDialog'
 import { usePortOneCheckout } from '@/hooks/payment/usePortOneCheckout'
 import { ApiError } from '@/lib/apiClient'
 import type { ThemeResponse } from '@/types/theme'
 
 const PAGE_SIZE = 6
 
+function presentTheme(
+  theme: ThemeResponse,
+  ownedIds: ReadonlySet<string>,
+  appliedId: number | null,
+  appliedPalette: string,
+): ThemeResponse {
+  const palette = resolveAppTheme(theme.themeCode)
+  const isOwned = theme.isOwned || ownedIds.has(palette) || ownedIds.has(theme.themeCode)
+  const isApplied =
+    appliedId != null
+      ? theme.id === appliedId
+      : isOwned && palette === appliedPalette && appliedPalette !== 'light'
+  return { ...theme, isOwned, isApplied }
+}
+
 export default function ThemePage() {
   const { themeId } = useParams()
   const navigate = useNavigate()
   const loggedIn = useSyncExternalStore(subscribeSession, getLoggedIn)
+  const applied = useSyncExternalStore(subscribeAppTheme, getAppliedTheme)
+  const ownedIds = useSyncExternalStore(subscribeOwnedThemes, getOwnedThemeIds)
   const [query, setQuery] = useState('')
   const [keyword, setKeyword] = useState('')
   const [draft, setDraft] = useState('')
@@ -32,7 +58,7 @@ export default function ThemePage() {
   const [loading, setLoading] = useState(false)
   const [listError, setListError] = useState('')
   const [loginHint, setLoginHint] = useState('')
-  const { startCheckout, busy, error, completedPaymentId, reset } = usePortOneCheckout()
+  const { startCheckout, busy, error, receipt, reset } = usePortOneCheckout()
 
   // 페이지별 로드한 테마를 모아 상세(/theme/:id)에서 찾는다
   const [themeCache, setThemeCache] = useState<Record<string, ThemeResponse>>({})
@@ -83,47 +109,101 @@ export default function ThemePage() {
     if (page > totalPages) setPage(totalPages)
   }, [page, totalPages])
 
+  // 서버에 같은 코드가 없으면 예시 3종을 앞에 붙인다. 목록이 비면 예시만 보여 준다
+  const usingExamples = !loading && themes.length === 0
+  const catalog = useMemo(() => {
+    const extras =
+      loading || page !== 1
+        ? []
+        : exampleThemes.filter(
+            (example) =>
+              !themes.some((theme) => theme.themeCode.trim().toLowerCase() === example.themeCode),
+          )
+    const source = loading ? themes : [...extras, ...themes]
+    return source.map((theme) => presentTheme(theme, ownedIds, applied.themeId, applied.palette))
+  }, [applied.palette, applied.themeId, loading, ownedIds, page, themes])
+
   const matched = useMemo(() => {
     const text = keyword.trim().toLowerCase()
-    if (!text) return themes
-    return themes.filter((theme) => theme.themeName.toLowerCase().includes(text))
-  }, [keyword, themes])
+    if (!text) return catalog
+    return catalog.filter((theme) => theme.themeName.toLowerCase().includes(text))
+  }, [catalog, keyword])
 
   // 검색은 현재 페이지 content만 필터 (서버 검색 API 없음)
   const visible = matched
   const currentPage = Math.min(page, totalPages)
-  const selected = themeId ? themeCache[themeId] : undefined
+  const cached = themeId ? themeCache[themeId] : undefined
+  const selected = themeId
+    ? (catalog.find((theme) => String(theme.id) === themeId) ??
+      (cached ? presentTheme(cached, ownedIds, applied.themeId, applied.palette) : undefined))
+    : undefined
 
   useEffect(() => {
     reset()
     setLoginHint('')
   }, [themeId, reset])
 
+  // 서버가 이미 적용 중이라고 알려 주면 화면 팔레트도 맞춘다
   useEffect(() => {
-    if (!themeId) return
+    const serverApplied = themes.find((theme) => theme.isApplied)
+    if (serverApplied) applyAppTheme(serverApplied.themeCode, serverApplied.id)
+  }, [themes])
+
+  useEffect(() => {
+    if (!themeId || receipt) return
     function onKeyDown(event: KeyboardEvent) {
       if (event.key === 'Escape') navigate('/theme')
     }
     window.addEventListener('keydown', onKeyDown)
     return () => window.removeEventListener('keydown', onKeyDown)
-  }, [navigate, themeId])
+  }, [navigate, receipt, themeId])
 
   function search(event: FormEvent<HTMLFormElement>) {
     event.preventDefault()
     setKeyword(draft)
   }
 
-  function handlePurchase(theme: ThemeResponse) {
+  function grantAndApply(theme: ThemeResponse) {
+    applyAppTheme(theme.themeCode, theme.id)
+    setThemeOwned(resolveAppTheme(theme.themeCode))
+    setThemes((current) =>
+      current.map((item) => ({
+        ...item,
+        isOwned: item.id === theme.id ? true : item.isOwned,
+        isApplied: item.id === theme.id,
+      })),
+    )
+    setThemeCache((prev) => {
+      const next: Record<string, ThemeResponse> = {}
+      for (const [key, item] of Object.entries(prev)) {
+        next[key] = {
+          ...item,
+          isOwned: item.id === theme.id ? true : item.isOwned,
+          isApplied: item.id === theme.id,
+        }
+      }
+      next[String(theme.id)] = { ...theme, isOwned: true, isApplied: true }
+      return next
+    })
+  }
+
+  async function handlePurchase(theme: ThemeResponse) {
+    // 예시 테마는 결제 없이 바로 입힌다. 상점 테마는 결제 성공 뒤에 입힌다
+    if (isExampleThemeId(theme.id)) {
+      grantAndApply(theme)
+      return
+    }
     if (!loggedIn) {
       setLoginHint('로그인이 필요합니다.')
       return
     }
     setLoginHint('')
-    void startCheckout({
+    const result = await startCheckout({
       paymentType: 'THEME',
       targetId: theme.id,
       orderName: theme.themeName,
     })
+    if (result) grantAndApply(theme)
   }
 
   return (
@@ -146,7 +226,11 @@ export default function ThemePage() {
             ) : (
               <>
                 <h2 className="shop-title">구매 가능한 테마 목록</h2>
-                <p className="shop-lead">다양한 테마로 나만의 특별한 ITDA를 만들어보세요.</p>
+                <p className="shop-lead">
+                  {usingExamples
+                    ? '예시 테마 3종입니다. 구매하면 화면 색이 바로 바뀝니다.'
+                    : '다양한 테마로 나만의 특별한 ITDA를 만들어보세요.'}
+                </p>
                 <form className="shop-search" onSubmit={search}>
                   <label>
                     <SearchIcon />
@@ -159,9 +243,12 @@ export default function ThemePage() {
                   </label>
                   <button type="submit">검색</button>
                 </form>
+                {usingExamples && listError && (
+                  <p className="shop-lead">{listError} 예시 테마로 적용을 확인할 수 있습니다.</p>
+                )}
                 {loading ? (
                   <div className="empty">테마를 불러오는 중…</div>
-                ) : listError ? (
+                ) : !usingExamples && listError ? (
                   <div className="empty">{listError}</div>
                 ) : visible.length === 0 ? (
                   <div className="empty">검색된 테마가 없습니다.</div>
@@ -175,12 +262,13 @@ export default function ThemePage() {
                         />
                         <span className="shop-card-foot">
                           <strong>{theme.themeName}</strong>
-                          <em>{theme.isOwned ? '보유 중' : formatThemePrice(theme.price)}</em>
+                          <em>{theme.isApplied ? '적용 중' : theme.isOwned ? '보유 중' : formatThemePrice(theme.price)}</em>
                         </span>
                       </Link>
                     ))}
                   </div>
                 )}
+                {!usingExamples && (
                 <nav className="shop-pages" aria-label="테마 목록 페이지">
                   <button
                     type="button"
@@ -214,6 +302,7 @@ export default function ThemePage() {
                     ›
                   </button>
                 </nav>
+                )}
               </>
             )}
           </main>
@@ -248,14 +337,17 @@ export default function ThemePage() {
                 <div className="shop-detail-copy">
                   <h2>{selected.themeName}</h2>
                   <p>테마 코드: {selected.themeCode}</p>
+                  {isExampleThemeId(selected.id) && <p>예시 테마는 결제 없이 바로 적용됩니다.</p>}
                   {selected.isApplied && <p className="shop-applied">현재 적용 중인 테마입니다.</p>}
                   <strong className="shop-price">{formatThemePrice(selected.price)}</strong>
-                  {selected.isOwned ? (
+                  {selected.isApplied ? (
                     <button type="button" className="shop-purchase" disabled>
-                      보유 중
+                      적용 중
                     </button>
-                  ) : completedPaymentId ? (
-                    <p className="shop-pay-done">결제창이 완료되었습니다. 서버 확인 후 테마가 반영됩니다.</p>
+                  ) : selected.isOwned ? (
+                    <button type="button" className="shop-purchase" onClick={() => grantAndApply(selected)}>
+                      적용
+                    </button>
                   ) : (
                     <>
                       <button
@@ -279,6 +371,14 @@ export default function ThemePage() {
             )}
           </div>
         </div>
+      )}
+      {receipt && (
+        <PaymentCompleteDialog
+          orderName={receipt.orderName}
+          amount={receipt.amount}
+          paymentId={receipt.paymentId}
+          onClose={reset}
+        />
       )}
       {writing && (
         <WritePostModal

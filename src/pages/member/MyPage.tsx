@@ -13,6 +13,7 @@ import ProfileEditModal, { type ProfileForm } from '@/components/profile/Profile
 import ThemeShot from '@/components/theme/ThemeShot'
 import { GearIcon, HeadsetIcon } from '@/components/icons'
 import { formatDateTime, myPageCategories, type CategoryId, type Post } from '@/data/feed'
+import { applyAppTheme, getAppliedTheme, resolveAppTheme, subscribeAppTheme } from '@/data/appTheme'
 import { getOwnedThemeIds, shopThemes, subscribeOwnedThemes } from '@/data/themes'
 import { getFollowingIds, setFollowing, subscribeFollows } from '@/data/follows'
 import { followListItemsFromIds } from '@/data/members'
@@ -49,7 +50,7 @@ function purchasedThemes(ids: ReadonlySet<string>): OwnedTheme[] {
       title: theme.name,
       subtitle: theme.description,
       tone: theme.tone,
-      active: theme.id === 'light',
+      active: false,
     }))
 }
 
@@ -68,6 +69,7 @@ export default function MyPage() {
   const [liked, setLiked] = useState<MyPost[]>(likedPosts)
   const [scraps, setScraps] = useState<MyPost[]>(scrappedPosts)
   const ownedIds = useSyncExternalStore(subscribeOwnedThemes, getOwnedThemeIds)
+  const applied = useSyncExternalStore(subscribeAppTheme, getAppliedTheme)
   const [themes, setThemes] = useState<OwnedTheme[]>(() => purchasedThemes(getOwnedThemeIds()))
   const [detailId, setDetailId] = useState<string | null>(null)
   const [menuId, setMenuId] = useState<string | null>(null)
@@ -148,7 +150,11 @@ export default function MyPage() {
     return () => window.removeEventListener('click', closeMenu)
   }, [menuId])
 
-  const detailTheme = themes.find((theme) => theme.id === detailId) ?? null
+  const visibleThemes = themes.map((theme) => ({
+    ...theme,
+    active: resolveAppTheme(theme.tone) === applied.palette && applied.palette !== 'light',
+  }))
+  const detailTheme = visibleThemes.find((theme) => theme.id === detailId) ?? null
   const selectedPost = [...posts, ...liked, ...scraps].find((post) => post.id === selectedId) ?? null
 
   function toDetailPost(post: MyPost): Post {
@@ -286,8 +292,11 @@ export default function MyPage() {
             </div>
 
             {tab === 'themes' ? (
+              visibleThemes.length === 0 ? (
+                <div className="empty">구매한 테마가 없습니다.</div>
+              ) : (
               <div className="theme-grid">
-                {themes.map((theme) => (
+                {visibleThemes.map((theme) => (
                   <button
                     key={theme.id}
                     type="button"
@@ -300,6 +309,7 @@ export default function MyPage() {
                   </button>
                 ))}
               </div>
+              )
             ) : (
               <>
                 <h3 className="my-heading">{tabCopy[tab]}</h3>
@@ -379,9 +389,7 @@ export default function MyPage() {
           theme={detailTheme}
           onClose={() => setDetailId(null)}
           onApply={() => {
-            setThemes((current) =>
-              current.map((item) => ({ ...item, active: item.id === detailTheme.id })),
-            )
+            applyAppTheme(detailTheme.tone)
             setDetailId(null)
           }}
         />
