@@ -1,6 +1,7 @@
 import { useEffect, useState, useSyncExternalStore } from 'react'
-import { Link, useParams } from 'react-router'
+import { Link, useNavigate, useParams } from 'react-router'
 import Header from '@/components/layout/Header'
+import PaymentCompleteDialog from '@/components/payment/PaymentCompleteDialog'
 import Sidebar from '@/components/layout/Sidebar'
 import WritePostModal from '@/components/feed/WritePostModal'
 import { currentUser, myPageCategories, type CategoryId } from '@/data/feed'
@@ -10,15 +11,15 @@ import { usePortOneCheckout } from '@/hooks/payment/usePortOneCheckout'
 
 export default function PayPage() {
   const { memberId = '' } = useParams()
+  const navigate = useNavigate()
   const member = memberById(memberId)
   const [query, setQuery] = useState('')
   const [category, setCategory] = useState<CategoryId>('all')
   const [categoriesOpen, setCategoriesOpen] = useState(true)
   const [writing, setWriting] = useState(false)
   const subscribedIds = useSyncExternalStore(subscribeMemberships, getSubscribedIds)
-  const { startCheckout, busy, error, completedPaymentId, reset } = usePortOneCheckout()
+  const { startCheckout, busy, error, receipt, reset } = usePortOneCheckout()
   const paid = member ? subscribedIds.has(member.id) : false
-  const checkoutDone = completedPaymentId !== null
 
   useEffect(() => {
     reset()
@@ -46,14 +47,6 @@ export default function PayPage() {
                 <>
                   <h2>결제가 완료되었습니다</h2>
                   <p>{member.name} 님 구독이 시작되었습니다.</p>
-                  <Link to={`/member/${member.id}`} className="pay-submit">
-                    프로필로 돌아가기
-                  </Link>
-                </>
-              ) : checkoutDone ? (
-                <>
-                  <h2>결제창이 완료되었습니다</h2>
-                  <p>서버에서 결제를 확인하면 {member.name} 님 구독이 반영됩니다.</p>
                   <Link to={`/member/${member.id}`} className="pay-submit">
                     프로필로 돌아가기
                   </Link>
@@ -91,6 +84,18 @@ export default function PayPage() {
           </main>
         </div>
       </div>
+      {receipt && (
+        <PaymentCompleteDialog
+          orderName={receipt.orderName}
+          amount={receipt.amount}
+          paymentId={receipt.paymentId}
+          confirmLabel="프로필로 돌아가기"
+          onClose={() => {
+            reset()
+            if (member) navigate(`/member/${member.id}`)
+          }}
+        />
+      )}
       {writing && (
         <WritePostModal
           user={currentUser}

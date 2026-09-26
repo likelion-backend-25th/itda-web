@@ -11,15 +11,21 @@ interface StartCheckoutInput {
   orderName: string
 }
 
+export type CheckoutReceipt = {
+  paymentId: string
+  orderName: string
+  amount: number
+}
+
 export function usePortOneCheckout() {
   const navigate = useNavigate()
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState('')
-  const [completedPaymentId, setCompletedPaymentId] = useState<string | null>(null)
+  const [receipt, setReceipt] = useState<CheckoutReceipt | null>(null)
 
   const reset = useCallback(() => {
     setError('')
-    setCompletedPaymentId(null)
+    setReceipt(null)
   }, [])
 
   const startCheckout = useCallback(
@@ -45,7 +51,11 @@ export function usePortOneCheckout() {
           setError(result.message)
           return null
         }
-        setCompletedPaymentId(result.paymentId)
+        setReceipt({
+          paymentId: result.paymentId,
+          orderName: input.orderName,
+          amount: prepared.amount,
+        })
         return result
       } catch (caught: unknown) {
         const message = caught instanceof Error ? caught.message : '결제를 시작하지 못했습니다.'
@@ -58,5 +68,5 @@ export function usePortOneCheckout() {
     [navigate],
   )
 
-  return { startCheckout, busy, error, completedPaymentId, reset }
+  return { startCheckout, busy, error, receipt, reset }
 }
