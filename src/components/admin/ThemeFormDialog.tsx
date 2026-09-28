@@ -8,9 +8,10 @@ type ThemeFormDialogProps = {
   onChange: (next: ThemeDraft) => void
   onClose: () => void
   onSubmit: () => void
+  error?: string | null
 }
 
-export function ThemeFormDialog({ mode, value, onChange, onClose, onSubmit }: ThemeFormDialogProps) {
+export function ThemeFormDialog({ mode, value, onChange, onClose, onSubmit, error }: ThemeFormDialogProps) {
   const fileRef = useRef<HTMLInputElement>(null)
 
   useEffect(() => {
@@ -112,11 +113,23 @@ export function ThemeFormDialog({ mode, value, onChange, onClose, onSubmit }: Th
           </label>
           <label>
             테마 코드
-            <input value={value.code} onChange={(event) => setField('code', event.target.value)} />
+            <input
+              value={value.code}
+              placeholder="사용 중이지 않은 코드"
+              onChange={(event) => setField('code', event.target.value)}
+            />
           </label>
         </div>
+        {error && (
+          <p className="theme-form-error" role="alert">
+            {error}
+          </p>
+        )}
         <div className="theme-form-submit">
-          <button type="submit" disabled={value.name.trim().length === 0}>
+          <button
+            type="submit"
+            disabled={value.name.trim().length === 0 || value.code.trim().length === 0}
+          >
             {mode === 'edit' ? '수정' : '등록'}
           </button>
         </div>

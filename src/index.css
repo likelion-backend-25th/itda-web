@@ -4452,6 +4452,13 @@ img.sub-photo {
   font-weight: 600;
 }
 
+.theme-form-error {
+  margin: 12px 0 0;
+  color: #d4534a;
+  font-size: 13px;
+  font-weight: 700;
+}
+
 .theme-form-submit {
   display: flex;
   justify-content: flex-end;

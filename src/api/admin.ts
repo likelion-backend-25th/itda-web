@@ -130,7 +130,8 @@ function toAdminTheme(record: Record<string, unknown>): AdminTheme | null {
     code: themeCode,
     image: resolveThemeThumbnailUrl(asString(record.thumbnailUrl) || null) ?? '',
     tone: toneFromThemeCode(themeCode),
-    active: status === 'ON_SALE' || status === 'ACTIVE' || status === '',
+    // ON_SALE = 활성화, HIDDEN = 비활성화
+    active: status === 'ON_SALE',
   }
 }
 
@@ -145,12 +146,19 @@ export async function fetchAdminThemes(): Promise<AdminTheme[]> {
   })
 }
 
+/** 로컬 파일 미리보기(data URL)는 255자 제한에 걸려 등록이 실패한다 */
+function thumbnailForRequest(image: string): string | null {
+  const trimmed = image.trim()
+  if (!trimmed || trimmed.startsWith('data:')) return null
+  return trimmed
+}
+
 function toThemeRequest(draft: ThemeDraft) {
   return {
     themeName: draft.name.trim(),
     description: draft.description.trim(),
     price: parsePrice(draft.price),
-    thumbnailUrl: draft.image.trim() || null,
+    thumbnailUrl: thumbnailForRequest(draft.image),
     themeCode: draft.code.trim(),
   }
 }
@@ -173,7 +181,7 @@ export async function updateAdminTheme(themeId: number, draft: ThemeDraft): Prom
   })
 }
 
-/** PATCH /api/v1/admin/themes/{themeId}/status */
+/** PATCH /api/v1/admin/themes/{themeId}/status — 활성화 ON_SALE, 비활성화 HIDDEN */
 export async function setAdminThemeStatus(themeId: number, active: boolean): Promise<void> {
   const status = active ? 'ON_SALE' : 'HIDDEN'
   await apiFetch(`/admin/themes/${themeId}/status?status=${status}`, { method: 'PATCH' })

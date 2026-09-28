@@ -5,8 +5,13 @@ import {
   setAccessToken,
 } from './authToken'
 
+interface ApiFieldError {
+  reason?: string
+}
+
 interface ApiErrorBody {
   message: string
+  errors?: ApiFieldError[]
 }
 
 export class ApiError extends Error {
@@ -30,6 +35,8 @@ function isApiErrorBody(body: unknown): body is ApiErrorBody {
 
 function readApiErrorMessage(body: unknown, status: number): string {
   if (isApiErrorBody(body) && body.message.trim() !== '') {
+    const reason = body.errors?.find((item) => item.reason && item.reason.trim() !== '')?.reason
+    if (reason && reason.trim() !== body.message.trim()) return reason.trim()
     return body.message
   }
   return `요청에 실패했습니다. (${status})`

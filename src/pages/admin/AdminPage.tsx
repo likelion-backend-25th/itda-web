@@ -117,7 +117,7 @@ const newTheme: ThemeDraft = {
   name: '봄날의 테마',
   description: '따뜻한 봄 분위기의 테마입니다.',
   price: '3,900',
-  code: 'sp01',
+  code: '',
   image: '',
 }
 
@@ -498,6 +498,7 @@ function AdminBoard({ section }: { section: SectionId }) {
             onClick={() => {
               setEditing(null)
               setThemeForm(newTheme)
+              setBoardError(null)
               setAdding(true)
             }}
           >
@@ -535,7 +536,7 @@ function AdminBoard({ section }: { section: SectionId }) {
                 <Cell label="member_id" value={item.memberId} />
                 <Cell label="target_id" value={item.targetId} />
                 <Cell label="결제일" value={item.paidOn} />
-                <Cell label="만료일" value={item.expiresOn} />
+                <Cell label="결제금액" value={formatAmount(item.amount)} />
                 <Cell label="결제 유형" value={item.payType} />
                 {section === 'payments' && (
                   <button type="button" className="admin-danger" onClick={() => setPayment(item)}>
@@ -657,12 +658,20 @@ function AdminBoard({ section }: { section: SectionId }) {
           onClose={() => {
             setEditing(null)
             setAdding(false)
+            setBoardError(null)
           }}
           onSubmit={saveTheme}
+          error={boardError}
         />
       )}
     </main>
   )
+}
+
+function formatAmount(amount: string): string {
+  const value = Number(amount)
+  if (!Number.isFinite(value)) return amount
+  return value.toLocaleString('ko-KR')
 }
 
 function Cell({ label, value }: { label: string; value: string }) {
