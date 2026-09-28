@@ -73,7 +73,6 @@ export default function ThemePage() {
   const [detail, setDetail] = useState<ThemeDetailResponse | null>(null)
   const [detailLoading, setDetailLoading] = useState(false)
   const [detailError, setDetailError] = useState('')
-  const { startCheckout, busy, error, receipt, reset } = usePortOneCheckout()
   const { startCheckout, busy, phase, error, receipt, reset } = usePortOneCheckout()
 
   // GET /themes — 판매 목록
