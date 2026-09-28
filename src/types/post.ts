@@ -9,6 +9,7 @@ export interface PostResponse {
   categoryName: string
   content: string
   imageUrl: string | null
+  replyCount: number
   likeCount: number
   viewCount: number
   subscriberOnly: boolean

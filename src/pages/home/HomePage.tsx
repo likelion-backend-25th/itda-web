@@ -158,7 +158,6 @@ export default function HomePage() {
             post.id === String(detail.id)
               ? {
                   ...next,
-                  comments: thread.length,
                   thread,
                 }
               : post,
@@ -523,7 +522,6 @@ export default function HomePage() {
                 item.id === String(updated.id)
                   ? {
                       ...mapped,
-                      comments: item.comments,
                       thread: item.thread,
                     }
                   : item,

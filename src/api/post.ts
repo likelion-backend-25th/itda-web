@@ -117,7 +117,7 @@ export function toFeedPost(dto: PostResponse, viewer: MemberProfileResponse | nu
     images: image ? [{ src: image, alt: '게시글 이미지' }] : [],
     createdAt: Number.isNaN(created.getTime()) ? dto.createdAt : formatDateTime(created),
     updatedAt: Number.isNaN(updated.getTime()) ? dto.updatedAt : formatDateTime(updated),
-    comments: 0,
+    comments: dto.replyCount ?? 0,
     likes: dto.likeCount,
     liked: dto.liked === true,
     views: dto.viewCount,
