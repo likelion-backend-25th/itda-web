@@ -1,6 +1,7 @@
-import type { ReactNode } from 'react'
+﻿import type { ReactNode } from 'react'
 import { useSyncExternalStore } from 'react'
 import { Link, NavLink } from 'react-router'
+import { DEFAULT_AVATAR } from '@/api/member'
 import { categories, type CategoryId, type FeedUser } from '@/data/feed'
 import { getLoggedIn, subscribeSession } from '@/data/session'
 import {
@@ -75,7 +76,13 @@ export default function Sidebar({
         </div>
       ) : compact ? (
         <div className="profile studio">
-          <img src={user.avatar} alt="" />
+          <img
+            src={user.avatar}
+            alt=""
+            onError={(event) => {
+              event.currentTarget.src = DEFAULT_AVATAR
+            }}
+          />
           <span className="profile-label">프로필</span>
           <button type="button" className="write-btn" onClick={onWrite}>
             <PencilIcon />
@@ -85,7 +92,13 @@ export default function Sidebar({
       ) : (
         <>
           <div className="profile">
-            <img src={user.avatar} alt="" />
+            <img
+              src={user.avatar}
+              alt=""
+              onError={(event) => {
+                event.currentTarget.src = DEFAULT_AVATAR
+              }}
+            />
             <div>
               <strong className="profile-name">{user.name}</strong>
               <p className="profile-handle">{user.handle}</p>

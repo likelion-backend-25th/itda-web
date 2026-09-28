@@ -2866,6 +2866,11 @@ img.sub-photo {
   line-height: 1.6;
 }
 
+.shop-detail-desc {
+  white-space: pre-wrap;
+  word-break: break-word;
+}
+
 .shop-refund {
   display: flex;
   align-items: center;

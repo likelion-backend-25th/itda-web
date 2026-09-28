@@ -1,6 +1,6 @@
-import { useEffect, useMemo, useState, useSyncExternalStore } from 'react'
+﻿import { useEffect, useMemo, useState, useSyncExternalStore } from 'react'
 import { Link, Navigate, useParams } from 'react-router'
-import { resolveMemberImageUrl } from '@/api/member'
+import { DEFAULT_AVATAR, resolveMemberImageUrl } from '@/api/member'
 import { cancelSubscription, fetchMonthlyIncome, fetchMySubscriptions, fetchSubscriberCount } from '@/api/subscription'
 import CategoryFeed from '@/components/feed/CategoryFeed'
 import Header from '@/components/layout/Header'
@@ -318,7 +318,7 @@ export default function SubscriptionPage() {
                             src={avatar}
                             alt=""
                             onError={(event) => {
-                              event.currentTarget.src = '/images/avatar-jieun.jpg'
+                              event.currentTarget.src = DEFAULT_AVATAR
                             }}
                           />
                         </Link>
@@ -328,7 +328,7 @@ export default function SubscriptionPage() {
                           src={avatar}
                           alt=""
                           onError={(event) => {
-                            event.currentTarget.src = '/images/avatar-jieun.jpg'
+                            event.currentTarget.src = DEFAULT_AVATAR
                           }}
                         />
                       )}

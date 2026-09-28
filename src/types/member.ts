@@ -1,23 +1,24 @@
-/** 백엔드 MemberProfileResponse 와 필드명 일치 */
+/** 백엔드 MemberProfileResponse */
 export interface MemberProfileResponse {
   id: number
   email: string
   nickname: string
+  /** S3 객체 키 또는 절대 URL */
   profileImage: string | null
   role: string
   introduction: string | null
-  themeId: number
+  themeId: number | null
   createdAt: string
 }
 
-/** GET /api/v1/member/{id}/followers — 해당 회원을 팔로우하는 사람 */
+/** GET /api/v1/member/{id}/followers */
 export interface FollowerResponse {
   id: number
   nickname: string
   profileImage: string | null
 }
 
-/** GET /api/v1/member/{id}/followings — 해당 회원이 팔로우하는 사람 */
+/** GET /api/v1/member/{id}/followings */
 export interface FollowingResponse {
   id: number
   nickname: string

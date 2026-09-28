@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState, useSyncExternalStore } from 'react'
-import { fetchMyProfile, toFeedUser } from '@/api/member'
+import { fetchMyProfile, resolveMemberImageUrl, toFeedUser } from '@/api/member'
 import { categoryIdForUpdate, categoryIdFromLabel, createPost, deletePost, fetchPostById, fetchPosts, imageUrlForUpdate, toFeedPost, updatePost, type PostFeedQuery } from '@/api/post'
 import EditPostModal from '@/components/feed/EditPostModal'
 import Header from '@/components/layout/Header'
@@ -126,14 +126,14 @@ export default function HomePage() {
   // 프로필이 늦게 도착해도 내 글 닉네임·아바타를 맞춘다
   useEffect(() => {
     if (!profile) return
-    const avatar = profile.profileImage?.trim() ? profile.profileImage : undefined
+    const avatar = resolveMemberImageUrl(profile.profileImage)
     setPosts((current) =>
       current.map((post) =>
         post.memberId === profile.id
           ? {
               ...post,
               author: profile.nickname,
-              avatar: avatar ?? post.avatar,
+              avatar,
               isMe: true,
             }
           : post,

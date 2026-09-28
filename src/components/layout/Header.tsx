@@ -1,7 +1,8 @@
-import { useSyncExternalStore } from 'react'
+﻿import { useSyncExternalStore } from 'react'
 import { Link, useLocation, useNavigate } from 'react-router'
-import type { FeedUser } from '@/data/feed'
 import { logout } from '@/api/auth'
+import { DEFAULT_AVATAR } from '@/api/member'
+import type { FeedUser } from '@/data/feed'
 import { getLoggedIn, subscribeSession } from '@/data/session'
 import { BellIcon, ChevronDownIcon, LogoutIcon, SearchIcon } from '@/components/icons'
 
@@ -54,7 +55,13 @@ export default function Header({ query, user, onQueryChange }: HeaderProps) {
               <span>알림</span>
             </button>
             <Link to="/mypage" className="top-action profile-action">
-              <img src={user.avatar} alt="" />
+              <img
+                src={user.avatar}
+                alt=""
+                onError={(event) => {
+                  event.currentTarget.src = DEFAULT_AVATAR
+                }}
+              />
               <span>프로필</span>
               <ChevronDownIcon />
             </Link>

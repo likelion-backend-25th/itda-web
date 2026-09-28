@@ -1,4 +1,4 @@
-import type { ThemeTone } from '@/components/theme/ThemeShot'
+﻿import type { ThemeTone } from '@/components/theme/ThemeShot'
 
 export type AdminMember = {
   id: string
@@ -68,12 +68,12 @@ export type AdminReport = {
 }
 
 const avatars = [
-  '/images/avatar-minsu.jpg',
-  '/images/avatar-haneul.jpg',
-  '/images/avatar-jieun.jpg',
-  '/images/avatar-minseo.jpg',
-  '/images/avatar-dohyun.jpg',
-  '/images/avatar-cat.jpg',
+  '/images/avatar-default.svg',
+  '/images/avatar-default.svg',
+  '/images/avatar-default.svg',
+  '/images/avatar-default.svg',
+  '/images/avatar-default.svg',
+  '/images/avatar-default.svg',
 ]
 
 const memberSeeds = [

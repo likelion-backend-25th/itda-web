@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useState, useSyncExternalStore } from 'react'
 import { Navigate, useNavigate, useParams } from 'react-router'
+import { fetchMemberProfile, resolveMemberImageUrl, toFeedUser } from '@/api/member'
 import { cancelSubscription, fetchSubscriptionStatus } from '@/api/subscription'
 import FollowList, { type FollowTab } from '@/components/profile/FollowList'
 import Header from '@/components/layout/Header'
@@ -9,14 +10,40 @@ import WritePostModal from '@/components/feed/WritePostModal'
 import { BookmarkIcon, CommentIcon, CrownIcon, DotsIcon, EyeIcon, HeartIcon } from '@/components/icons'
 import { currentUser, formatDateTime, initialPosts, myPageCategories, type CategoryId, type Post } from '@/data/feed'
 import { getFollowingIds, memberFollowIds, setFollowing, subscribeFollows } from '@/data/follows'
-import { followListItemsFromIds, memberById } from '@/data/members'
+import { followListItemsFromIds, memberById, type MemberProfile } from '@/data/members'
 import { setSubscribed } from '@/data/subscriptions'
-import { getLoggedIn, subscribeSession } from '@/data/session'
+import { getLoggedIn, setLoggedIn, subscribeSession } from '@/data/session'
+import { useMemberFollows } from '@/hooks/member/useMemberFollows'
+import { ApiError } from '@/lib/apiClient'
+
+function toMemberView(profile: {
+  id: number
+  nickname: string
+  bio: string
+  avatar: string
+}): MemberProfile {
+  return {
+    id: String(profile.id),
+    backendId: profile.id,
+    name: profile.nickname,
+    avatar: profile.avatar,
+    bio: profile.bio || '소개글이 없습니다.',
+    followers: 0,
+    following: 0,
+    posts: 0,
+  }
+}
 
 export default function MemberPage() {
   const { memberId = '' } = useParams()
   const navigate = useNavigate()
-  const member = memberById(memberId)
+  const numericId = Number(memberId)
+  const isNumericRoute = Number.isInteger(numericId) && numericId > 0
+  const mockMember = !isNumericRoute ? memberById(memberId) : undefined
+  const [apiMember, setApiMember] = useState<MemberProfile | null>(null)
+  const [profileLoading, setProfileLoading] = useState(isNumericRoute)
+  const [profileError, setProfileError] = useState('')
+  const member = apiMember ?? mockMember
   const [query, setQuery] = useState('')
   const [category, setCategory] = useState<CategoryId>('all')
   const [categoriesOpen, setCategoriesOpen] = useState(true)
@@ -33,6 +60,62 @@ export default function MemberPage() {
   const followedIds = useSyncExternalStore(subscribeFollows, getFollowingIds)
   const following = member ? followedIds.has(member.id) : false
   const network = member ? memberFollowIds(member.id) : { followers: [], following: [] }
+  const apiFollows = useMemberFollows(isNumericRoute ? numericId : (member?.backendId ?? null), Boolean(member) && loggedIn)
+  const followerItems = apiFollows.followers.items.length > 0
+    ? apiFollows.followers
+    : {
+        items: followListItemsFromIds(network.followers),
+        loading: apiFollows.followers.loading,
+        error: apiFollows.followers.error,
+      }
+  const followingItems = apiFollows.following.items.length > 0
+    ? apiFollows.following
+    : {
+        items: followListItemsFromIds(network.following),
+        loading: apiFollows.following.loading,
+        error: apiFollows.following.error,
+      }
+
+  // GET /member/{memberId}
+  useEffect(() => {
+    if (!isNumericRoute) {
+      setApiMember(null)
+      setProfileLoading(false)
+      setProfileError('')
+      return
+    }
+
+    let cancelled = false
+    async function loadProfile() {
+      setProfileLoading(true)
+      setProfileError('')
+      try {
+        const profile = await fetchMemberProfile(numericId)
+        if (cancelled) return
+        const feed = toFeedUser(profile)
+        setApiMember(
+          toMemberView({
+            id: profile.id,
+            nickname: feed.name,
+            bio: feed.bio,
+            avatar: resolveMemberImageUrl(profile.profileImage),
+          }),
+        )
+      } catch (error: unknown) {
+        if (cancelled) return
+        setApiMember(null)
+        setProfileError(error instanceof Error ? error.message : '프로필을 불러오지 못했습니다.')
+        if (error instanceof ApiError && error.status === 401 && loggedIn) setLoggedIn(false)
+      } finally {
+        if (!cancelled) setProfileLoading(false)
+      }
+    }
+
+    void loadProfile()
+    return () => {
+      cancelled = true
+    }
+  }, [isNumericRoute, loggedIn, numericId])
 
   useEffect(() => {
     setFollowTab(null)
@@ -194,8 +277,10 @@ export default function MemberPage() {
             onWrite={() => setWriting(true)}
           />
           <main className="my-main" aria-label="프로필">
-            {!member ? (
-              <div className="empty">프로필을 찾을 수 없습니다.</div>
+            {profileLoading ? (
+              <div className="empty">프로필을 불러오는 중…</div>
+            ) : !member ? (
+              <div className="empty">{profileError || '프로필을 찾을 수 없습니다.'}</div>
             ) : (
               <>
                 <section className="my-summary member-summary">
@@ -205,10 +290,10 @@ export default function MemberPage() {
                     <p className="my-intro">{member.bio}</p>
                     <p className="my-counts">
                       <button type="button" className="count-link" onClick={() => setFollowTab('followers')}>
-                        팔로워 <b>{network.followers.length}</b>
+                        팔로워 <b>{followerItems.items.length || network.followers.length}</b>
                       </button>
                       <button type="button" className="count-link" onClick={() => setFollowTab('following')}>
-                        팔로잉 <b>{network.following.length}</b>
+                        팔로잉 <b>{followingItems.items.length || network.following.length}</b>
                       </button>
                       <span>
                         게시글 <b>{member.posts}</b>
@@ -344,11 +429,15 @@ export default function MemberPage() {
       {member && followTab && (
         <FollowList
           initialTab={followTab}
-          followers={followListItemsFromIds(network.followers)}
-          following={followListItemsFromIds(network.following)}
+          followers={followerItems.items}
+          following={followingItems.items}
           followedIds={followedIds}
           onToggle={setFollowing}
           onClose={() => setFollowTab(null)}
+          followersLoading={followerItems.loading}
+          followersError={followerItems.error}
+          followingLoading={followingItems.loading}
+          followingError={followingItems.error}
         />
       )}
       {writing && (
