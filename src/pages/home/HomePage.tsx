@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState, useSyncExternalStore } from 'react'
 import { resolveMemberImageUrl } from '@/api/member'
 import { categoryIdForFeed, categoryIdForUpdate, deletePost, fetchPostById, fetchPosts, toFeedPost, togglePostLike, togglePostScrap, updatePost, type PostFeedQuery } from '@/api/post'
-import { createReply, toFeedComment } from '@/api/reply'
+import { createReply, deleteReply, fetchReplies, toFeedComment, updateReply } from '@/api/reply'
 import EditPostModal from '@/components/feed/EditPostModal'
 import Header from '@/components/layout/Header'
 import PostCard from '@/components/feed/PostCard'
@@ -15,6 +15,7 @@ import { profilePath } from '@/data/members'
 import { useViewerUser } from '@/hooks/member/useViewerUser'
 import { usePublishPost } from '@/hooks/post/usePublishPost'
 import { ApiError } from '@/lib/apiClient'
+import { hasAdminRole } from '@/lib/authToken'
 import type { MyPost } from '@/data/mypage'
 
 export default function HomePage() {
@@ -146,23 +147,27 @@ export default function HomePage() {
 
     let cancelled = false
     async function loadDetail() {
+      setActionError('')
       try {
-        const detail = await fetchPostById(id)
+        const [detail, replies] = await Promise.all([fetchPostById(id), fetchReplies(id)])
         if (cancelled) return
         const next = toFeedPost(detail, profileRef.current)
+        const thread = replies.map(toFeedComment)
         setPosts((current) =>
           current.map((post) =>
             post.id === String(detail.id)
               ? {
                   ...next,
-                  comments: post.comments,
-                  thread: post.thread,
+                  comments: thread.length,
+                  thread,
                 }
               : post,
           ),
         )
       } catch (error: unknown) {
         if (cancelled) return
+        const message = error instanceof Error ? error.message : '댓글을 불러오지 못했습니다.'
+        setActionError(message)
         if (error instanceof ApiError && error.status === 401 && loggedIn) {
           setLoggedIn(false)
         }
@@ -356,30 +361,51 @@ export default function HomePage() {
     setWriting(false)
   }
 
-  function updateComment(postId: string, commentId: string, content: string) {
-    setPosts((current) =>
-      current.map((post) =>
-        post.id === postId
-          ? {
-              ...post,
-              thread: post.thread.map((comment) =>
-                comment.id === commentId ? { ...comment, content } : comment,
-              ),
-            }
-          : post,
-      ),
-    )
+  async function updateComment(postId: string, commentId: string, content: string) {
+    const numericPostId = Number(postId)
+    const replyId = Number(commentId)
+    if (!Number.isInteger(numericPostId) || !Number.isInteger(replyId)) {
+      throw new Error('수정할 수 없는 댓글입니다.')
+    }
+    try {
+      const updated = await updateReply(numericPostId, replyId, { content })
+      const comment = toFeedComment(updated)
+      setPosts((current) =>
+        current.map((post) =>
+          post.id === postId
+            ? {
+                ...post,
+                thread: post.thread.map((item) => (item.id === commentId ? comment : item)),
+              }
+            : post,
+        ),
+      )
+    } catch (error: unknown) {
+      if (error instanceof ApiError && error.status === 401) setLoggedIn(false)
+      throw error instanceof Error ? error : new Error('댓글을 수정하지 못했습니다.')
+    }
   }
 
-  function deleteComment(postId: string, commentId: string) {
-    setPosts((current) =>
-      current.map((post) => {
-        if (post.id !== postId) return post
-        const thread = post.thread.filter((comment) => comment.id !== commentId)
-        if (thread.length === post.thread.length) return post
-        return { ...post, thread, comments: Math.max(0, post.comments - 1) }
-      }),
-    )
+  async function deleteComment(postId: string, commentId: string) {
+    const numericPostId = Number(postId)
+    const replyId = Number(commentId)
+    if (!Number.isInteger(numericPostId) || !Number.isInteger(replyId)) {
+      throw new Error('삭제할 수 없는 댓글입니다.')
+    }
+    try {
+      await deleteReply(numericPostId, replyId)
+      setPosts((current) =>
+        current.map((post) => {
+          if (post.id !== postId) return post
+          const thread = post.thread.filter((comment) => comment.id !== commentId)
+          if (thread.length === post.thread.length) return post
+          return { ...post, thread, comments: Math.max(0, post.comments - 1) }
+        }),
+      )
+    } catch (error: unknown) {
+      if (error instanceof ApiError && error.status === 401) setLoggedIn(false)
+      throw error instanceof Error ? error : new Error('댓글을 삭제하지 못했습니다.')
+    }
   }
 
   async function addComment(id: string, content: string) {
@@ -395,7 +421,7 @@ export default function HomePage() {
             ? {
                 ...post,
                 comments: post.comments + 1,
-                thread: [comment, ...post.thread],
+                thread: [...post.thread, comment],
               }
             : post,
         ),
@@ -527,6 +553,10 @@ export default function HomePage() {
             void toggleBookmark(id)
           }}
           notice={actionError}
+          viewerMemberId={profile?.id}
+          canModerateReplies={
+            profile?.role === 'ADMIN' || profile?.role === 'ROLE_ADMIN' || hasAdminRole()
+          }
           onAddComment={addComment}
           onUpdateComment={updateComment}
           onDeleteComment={deleteComment}

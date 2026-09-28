@@ -20,6 +20,8 @@ export type FeedImage = {
 
 export type Comment = {
   id: string
+  /** 백엔드 ReplyResponse.memberId. 목 댓글에는 없음 */
+  memberId?: number
   author: string
   avatar: string
   createdAt: string

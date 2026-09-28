@@ -12,9 +12,13 @@ type PostDetailProps = {
   onToggleLike: (id: string) => void
   onToggleBookmark: (id: string) => void
   notice?: string
+  /** 로그인한 회원 id. 댓글 memberId 와 같으면 수정·삭제할 수 있다. */
+  viewerMemberId?: number
+  /** ADMIN 이면 남의 댓글도 삭제할 수 있다. */
+  canModerateReplies?: boolean
   onAddComment: (id: string, content: string) => void | Promise<void>
-  onUpdateComment: (postId: string, commentId: string, content: string) => void
-  onDeleteComment: (postId: string, commentId: string) => void
+  onUpdateComment: (postId: string, commentId: string, content: string) => void | Promise<void>
+  onDeleteComment: (postId: string, commentId: string) => void | Promise<void>
 }
 
 export default function PostDetail({
@@ -24,6 +28,8 @@ export default function PostDetail({
   onToggleLike,
   onToggleBookmark,
   notice = '',
+  viewerMemberId,
+  canModerateReplies = false,
   onAddComment,
   onUpdateComment,
   onDeleteComment,
@@ -87,12 +93,37 @@ export default function PostDetail({
     }
   }
 
-  function saveComment(event: FormEvent<HTMLFormElement>) {
+  async function saveComment(event: FormEvent<HTMLFormElement>) {
     event.preventDefault()
     const content = editDraft.trim()
-    if (!editingId || !content) return
-    onUpdateComment(post.id, editingId, content)
-    setEditingId(null)
+    if (!editingId || !content || savingComment) return
+    setSavingComment(true)
+    setCommentError('')
+    try {
+      await onUpdateComment(post.id, editingId, content)
+      setEditingId(null)
+    } catch (error: unknown) {
+      const message = error instanceof Error ? error.message : '댓글을 수정하지 못했습니다.'
+      setCommentError(message)
+    } finally {
+      setSavingComment(false)
+    }
+  }
+
+  async function removeComment(commentId: string) {
+    if (savingComment) return
+    setSavingComment(true)
+    setCommentError('')
+    setMenuCommentId(null)
+    try {
+      await onDeleteComment(post.id, commentId)
+      if (editingId === commentId) setEditingId(null)
+    } catch (error: unknown) {
+      const message = error instanceof Error ? error.message : '댓글을 삭제하지 못했습니다.'
+      setCommentError(message)
+    } finally {
+      setSavingComment(false)
+    }
   }
 
   return createPortal(
@@ -198,7 +229,12 @@ export default function PostDetail({
           </div>
 
           {post.thread.map((comment) => {
-            const mine = comment.author === user.name
+            const isAuthor =
+              comment.memberId != null
+                ? viewerMemberId != null && comment.memberId === viewerMemberId
+                : comment.author === user.name
+            const canEdit = isAuthor
+            const canDelete = isAuthor || (canModerateReplies && comment.memberId != null)
             const editing = editingId === comment.id
             const href = profilePath(comment.author)
             return (
@@ -214,7 +250,7 @@ export default function PostDetail({
                       <strong>{comment.author}</strong>
                     )}
                     <time dateTime={comment.createdAt}>{comment.createdAt}</time>
-                    {mine && (
+                    {(canEdit || canDelete) && (
                       <button
                         type="button"
                         className="more"
@@ -230,14 +266,14 @@ export default function PostDetail({
                     )}
                   </div>
                   {editing ? (
-                    <form className="comment-edit" onSubmit={saveComment}>
+                    <form className="comment-edit" onSubmit={(event) => void saveComment(event)}>
                       <input
                         value={editDraft}
                         aria-label="댓글 수정"
                         onChange={(event) => setEditDraft(event.target.value)}
                       />
-                      <button type="submit" disabled={editDraft.trim().length === 0}>
-                        저장
+                      <button type="submit" disabled={savingComment || editDraft.trim().length === 0}>
+                        {savingComment ? '저장 중...' : '저장'}
                       </button>
                       <button type="button" onClick={() => setEditingId(null)}>
                         취소
@@ -247,28 +283,25 @@ export default function PostDetail({
                     <p>{comment.content}</p>
                   )}
                 </div>
-                {mine && menuCommentId === comment.id && (
+                {(canEdit || canDelete) && menuCommentId === comment.id && (
                   <div className="post-menu in-comment" onClick={(event) => event.stopPropagation()}>
-                    <button
-                      type="button"
-                      onClick={() => {
-                        setEditingId(comment.id)
-                        setEditDraft(comment.content)
-                        setMenuCommentId(null)
-                      }}
-                    >
-                      수정
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => {
-                        onDeleteComment(post.id, comment.id)
-                        setMenuCommentId(null)
-                        if (editingId === comment.id) setEditingId(null)
-                      }}
-                    >
-                      삭제
-                    </button>
+                    {canEdit && (
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setEditingId(comment.id)
+                          setEditDraft(comment.content)
+                          setMenuCommentId(null)
+                        }}
+                      >
+                        수정
+                      </button>
+                    )}
+                    {canDelete && (
+                      <button type="button" onClick={() => void removeComment(comment.id)}>
+                        삭제
+                      </button>
+                    )}
                   </div>
                 )}
               </article>

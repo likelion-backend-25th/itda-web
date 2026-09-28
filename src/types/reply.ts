@@ -3,6 +3,11 @@ export interface ReplyCreateRequest {
   content: string
 }
 
+/** 백엔드 ReplyUpdateRequest */
+export interface ReplyUpdateRequest {
+  content: string
+}
+
 /** 백엔드 ReplyResponse */
 export interface ReplyResponse {
   id: number
