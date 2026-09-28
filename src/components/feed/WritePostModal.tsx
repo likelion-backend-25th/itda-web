@@ -13,6 +13,8 @@ export type PostDraft = {
   category: PostCategory
   categoryLabel: string
   images: FeedImage[]
+  /** 서버 multipart 업로드용. 백엔드가 이미지 1장만 받으므로 첫 파일 */
+  imageFile?: File | null
   visibility: PostVisibility
 }
 
@@ -33,6 +35,7 @@ export default function WritePostModal({ user, categories, onClose, onPublish }:
   const [category, setCategory] = useState<PostCategory | null>(null)
   const [visibility, setVisibility] = useState<PostVisibility>('public')
   const [images, setImages] = useState<FeedImage[]>([])
+  const [imageFiles, setImageFiles] = useState<File[]>([])
   const [categoryOpen, setCategoryOpen] = useState(false)
   const [saving, setSaving] = useState(false)
   const [saveError, setSaveError] = useState('')
@@ -59,7 +62,10 @@ export default function WritePostModal({ user, categories, onClose, onPublish }:
 
   function addImages(fileList: FileList | null) {
     if (!fileList) return
-    Array.from(fileList).forEach((file) => {
+    const nextFiles = Array.from(fileList).filter((file) => file.type.startsWith('image/'))
+    if (nextFiles.length === 0) return
+    setImageFiles((current) => [...current, ...nextFiles])
+    nextFiles.forEach((file) => {
       const reader = new FileReader()
       reader.onload = () => {
         setImages((current) => [...current, { src: String(reader.result), alt: file.name }])
@@ -85,6 +91,7 @@ export default function WritePostModal({ user, categories, onClose, onPublish }:
         category: chosen.id,
         categoryLabel: chosen.label,
         images,
+        imageFile: imageFiles[0] ?? null,
         visibility,
       })
     } catch (error: unknown) {

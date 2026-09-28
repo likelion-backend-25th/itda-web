@@ -16,6 +16,8 @@ type EditPostModalProps = {
     category: PostCategory
     categoryLabel: string
     images: FeedImage[]
+    /** 새 이미지 파일. 없으면 서버가 기존 이미지 유지 */
+    imageFile?: File | null
     visibility: PostVisibility
   }) => void | Promise<void>
 }
@@ -39,6 +41,7 @@ export default function EditPostModal({
   const [keepServerLabel, setKeepServerLabel] = useState(matchedCategoryId == null)
   const [visibility, setVisibility] = useState<PostVisibility>(post.visibility ?? 'public')
   const [images, setImages] = useState<FeedImage[]>(post.images)
+  const [imageFile, setImageFile] = useState<File | null>(null)
   const [categoryOpen, setCategoryOpen] = useState(false)
   const [saving, setSaving] = useState(false)
   const [saveError, setSaveError] = useState('')
@@ -62,13 +65,16 @@ export default function EditPostModal({
 
   function addImages(fileList: FileList | null) {
     if (!fileList) return
-    Array.from(fileList).forEach((file) => {
-      const reader = new FileReader()
-      reader.onload = () => {
-        setImages((current) => [...current, { src: String(reader.result), alt: file.name }])
-      }
-      reader.readAsDataURL(file)
-    })
+    const nextFiles = Array.from(fileList).filter((file) => file.type.startsWith('image/'))
+    if (nextFiles.length === 0) return
+    // 백엔드가 이미지 1장만 받으므로 마지막(가장 최근) 선택만 업로드
+    const file = nextFiles[nextFiles.length - 1]
+    setImageFile(file)
+    const reader = new FileReader()
+    reader.onload = () => {
+      setImages([{ src: String(reader.result), alt: file.name }])
+    }
+    reader.readAsDataURL(file)
   }
 
   async function save() {
@@ -86,6 +92,7 @@ export default function EditPostModal({
         category: selectedCategory?.id ?? post.category,
         categoryLabel,
         images,
+        imageFile,
         visibility,
       })
     } catch (error: unknown) {

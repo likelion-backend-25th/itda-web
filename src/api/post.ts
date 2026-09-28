@@ -3,12 +3,12 @@ import { resolveMemberImageUrl } from '@/api/member'
 import { apiFetch, apiJson, getApiOrigin } from '@/lib/apiClient'
 import type { MemberProfileResponse } from '@/types/member'
 import type {
-  PostCreateRequest,
+  CreatePostPayload,
   PostFeedResponse,
   PostLikeResponse,
   PostResponse,
   PostScrapResponse,
-  PostUpdateRequest,
+  UpdatePostPayload,
 } from '@/types/post'
 
 const PAGE_SIZE = 5
@@ -137,11 +137,19 @@ export function fetchPosts(query: PostFeedQuery = {}): Promise<PostFeedResponse>
   return apiJson<PostFeedResponse>(`/posts?${params}`)
 }
 
-/** 게시글 등록. 응답의 id·닉네임·시각으로 피드를 갱신한다. */
-export function createPost(body: PostCreateRequest): Promise<PostResponse> {
+/**
+ * 게시글 등록.
+ * @RequestPart("request") JSON + @RequestPart("imageUrl") MultipartFile?
+ */
+export async function createPost({ request, image }: CreatePostPayload): Promise<PostResponse> {
+  const form = new FormData()
+  form.append('request', new Blob([JSON.stringify(request)], { type: 'application/json' }))
+  if (image && image.size > 0) {
+    form.append('imageUrl', image, image.name || 'post.png')
+  }
   return apiJson<PostResponse>('/posts', {
     method: 'POST',
-    body: JSON.stringify(body),
+    body: form,
   })
 }
 
@@ -165,11 +173,23 @@ export function togglePostScrap(id: number): Promise<PostScrapResponse> {
   return apiJson<PostScrapResponse>(`/posts/${id}/scrap`, { method: 'POST' })
 }
 
-/** 게시글 수정. 응답으로 최신 본문·카테고리명을 다시 받는다. */
-export function updatePost(id: number, body: PostUpdateRequest): Promise<PostResponse> {
+/**
+ * 게시글 수정.
+ * @RequestPart("request") JSON + @RequestPart("imageUrl") MultipartFile?
+ * 새 파일이 없으면 백엔드가 기존 이미지를 유지한다.
+ */
+export async function updatePost(
+  id: number,
+  { request, image }: UpdatePostPayload,
+): Promise<PostResponse> {
+  const form = new FormData()
+  form.append('request', new Blob([JSON.stringify(request)], { type: 'application/json' }))
+  if (image && image.size > 0) {
+    form.append('imageUrl', image, image.name || 'post.png')
+  }
   return apiJson<PostResponse>(`/posts/${id}`, {
     method: 'PUT',
-    body: JSON.stringify(body),
+    body: form,
   })
 }
 

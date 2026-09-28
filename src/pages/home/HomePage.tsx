@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState, useSyncExternalStore } from 'react'
 import { fetchMyProfile, resolveMemberImageUrl, toFeedUser } from '@/api/member'
-import { categoryIdForFeed, categoryIdForUpdate, categoryIdFromLabel, createPost, deletePost, fetchPostById, fetchPosts, imageUrlForUpdate, toFeedPost, togglePostLike, togglePostScrap, updatePost, type PostFeedQuery } from '@/api/post'
+import { categoryIdForFeed, categoryIdForUpdate, categoryIdFromLabel, createPost, deletePost, fetchPostById, fetchPosts, toFeedPost, togglePostLike, togglePostScrap, updatePost, type PostFeedQuery } from '@/api/post'
 import { createReply, toFeedComment } from '@/api/reply'
 import EditPostModal from '@/components/feed/EditPostModal'
 import Header from '@/components/layout/Header'
@@ -360,18 +360,13 @@ export default function HomePage() {
 
   async function publishPost(draft: PostDraft) {
     if (!profile) throw new Error('로그인 후 글을 작성할 수 있습니다.')
-    const imageUrl = imageUrlForUpdate(draft.images, null)
     const created = await createPost({
-      id: 0,
-      memberId: profile.id,
-      nickname: profile.nickname,
-      categoryId: categoryIdFromLabel(draft.categoryLabel),
-      categoryName: draft.categoryLabel,
-      content: draft.content,
-      ...(imageUrl !== undefined ? { imageUrl } : {}),
-      likeCount: 0,
-      viewCount: 0,
-      subscriberOnly: draft.visibility === 'subscribers',
+      request: {
+        categoryId: categoryIdFromLabel(draft.categoryLabel),
+        content: draft.content,
+        subscriberOnly: draft.visibility === 'subscribers',
+      },
+      image: draft.imageFile ?? null,
     })
     const mapped = toFeedPost(created, profile)
     setPosts((current) => [mapped, ...current])
@@ -502,12 +497,17 @@ export default function HomePage() {
               throw new Error('수정할 수 없는 글입니다.')
             }
             const content = next.body ? `${next.title}\n${next.body}` : next.title
-            const imageUrl = imageUrlForUpdate(next.images, editingPost.imageUrl)
             const updated = await updatePost(id, {
-              categoryId: categoryIdForUpdate(next.categoryLabel, editingPost.categoryId, editingPost.categoryLabel),
-              content,
-              ...(imageUrl !== undefined ? { imageUrl } : {}),
-              subscriberOnly: next.visibility === 'subscribers',
+              request: {
+                categoryId: categoryIdForUpdate(
+                  next.categoryLabel,
+                  editingPost.categoryId,
+                  editingPost.categoryLabel,
+                ),
+                content,
+                subscriberOnly: next.visibility === 'subscribers',
+              },
+              image: next.imageFile ?? null,
             })
             const mapped = toFeedPost(updated, profileRef.current)
             setPosts((current) =>
