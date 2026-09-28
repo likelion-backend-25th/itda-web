@@ -12,6 +12,10 @@ export interface PostResponse {
   likeCount: number
   viewCount: number
   subscriberOnly: boolean
+  /** 로그인한 회원이 이 글을 좋아요했는지 */
+  liked: boolean
+  /** 로그인한 회원이 이 글을 스크랩했는지 */
+  scrapped: boolean
   createdAt: string
   updatedAt: string
 }
@@ -39,6 +43,17 @@ export interface PostUpdateRequest {
   content: string
   imageUrl?: string
   subscriberOnly: boolean
+}
+
+/** POST /posts/{id}/like 응답. 카운트 필드명은 likesCount */
+export interface PostLikeResponse {
+  liked: boolean
+  likesCount: number
+}
+
+/** POST /posts/{id}/scrap 응답 */
+export interface PostScrapResponse {
+  scrapped: boolean
 }
 
 /** 백엔드 PostFeedResponse */

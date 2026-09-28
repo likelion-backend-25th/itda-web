@@ -1,13 +1,24 @@
-import { categories, formatDateTime, type Post, type PostCategory } from '@/data/feed'
+import { categories, formatDateTime, type CategoryId, type Post, type PostCategory } from '@/data/feed'
 import { resolveMemberImageUrl } from '@/api/member'
 import { apiFetch, apiJson, getApiOrigin } from '@/lib/apiClient'
 import type { MemberProfileResponse } from '@/types/member'
-import type { PostCreateRequest, PostFeedResponse, PostResponse, PostUpdateRequest } from '@/types/post'
+import type {
+  PostCreateRequest,
+  PostFeedResponse,
+  PostLikeResponse,
+  PostResponse,
+  PostScrapResponse,
+  PostUpdateRequest,
+} from '@/types/post'
 
 const PAGE_SIZE = 5
 
-/** 수정 시 카테고리를 바꿀 때 쓰는 취미 카테고리 시드 id. 이름은 응답의 categoryName 을 따른다. */
+/** 사이드바 한글 이름 → common_code id. 화면 이름은 응답 categoryName 을 쓴다. */
 const CATEGORY_ID_BY_LABEL: Record<string, number> = {
+  맛집: 1,
+  여행: 2,
+  운동: 3,
+  게임: 4,
   독서: 8,
   음악: 9,
   요리: 10,
@@ -23,7 +34,15 @@ function categoryFromName(name: string): PostCategory {
   return 'etc'
 }
 
-/** 취미 카테고리 이름 → 시드 id. 맛집·여행·운동·게임은 서버에 없다. */
+/** 사이드바 CategoryId → 피드 조회용 categoryId. 전체는 쿼리를 붙이지 않는다. */
+export function categoryIdForFeed(category: CategoryId): number | undefined {
+  if (category === 'all') return undefined
+  const label = categories.find((item) => item.id === category)?.label
+  if (!label) return undefined
+  return CATEGORY_ID_BY_LABEL[label]
+}
+
+/** 취미 카테고리 이름 → 시드 id. */
 export function categoryIdFromLabel(label: string): number {
   const mapped = CATEGORY_ID_BY_LABEL[label]
   if (mapped != null) return mapped
@@ -39,6 +58,7 @@ export function categoryIdForUpdate(label: string, currentId: number | undefined
 export type PostFeedQuery = {
   publicCursor?: number | null
   subscribedCursor?: number | null
+  categoryId?: number | null
   size?: number
 }
 
@@ -99,9 +119,9 @@ export function toFeedPost(dto: PostResponse, viewer: MemberProfileResponse | nu
     updatedAt: Number.isNaN(updated.getTime()) ? dto.updatedAt : formatDateTime(updated),
     comments: 0,
     likes: dto.likeCount,
-    liked: false,
+    liked: dto.liked === true,
     views: dto.viewCount,
-    bookmarked: false,
+    bookmarked: dto.scrapped === true,
     visibility: dto.subscriberOnly ? 'subscribers' : 'public',
     thread: [],
   }
@@ -112,6 +132,7 @@ export function fetchPosts(query: PostFeedQuery = {}): Promise<PostFeedResponse>
   const params = new URLSearchParams()
   if (query.publicCursor != null) params.set('publicCursor', String(query.publicCursor))
   if (query.subscribedCursor != null) params.set('subscribedCursor', String(query.subscribedCursor))
+  if (query.categoryId != null) params.set('categoryId', String(query.categoryId))
   params.set('size', String(query.size ?? PAGE_SIZE))
   return apiJson<PostFeedResponse>(`/posts?${params}`)
 }
@@ -132,6 +153,16 @@ export function fetchPostById(id: number): Promise<PostResponse> {
 /** 게시글 삭제. 성공 응답에는 본문이 없다. */
 export async function deletePost(id: number): Promise<void> {
   await apiFetch(`/posts/${id}`, { method: 'DELETE' })
+}
+
+/** 좋아요 토글. 다시 누르면 취소되고 likesCount 가 줄어든다. */
+export function togglePostLike(id: number): Promise<PostLikeResponse> {
+  return apiJson<PostLikeResponse>(`/posts/${id}/like`, { method: 'POST' })
+}
+
+/** 스크랩 토글. 다시 누르면 해제된다. */
+export function togglePostScrap(id: number): Promise<PostScrapResponse> {
+  return apiJson<PostScrapResponse>(`/posts/${id}/scrap`, { method: 'POST' })
 }
 
 /** 게시글 수정. 응답으로 최신 본문·카테고리명을 다시 받는다. */

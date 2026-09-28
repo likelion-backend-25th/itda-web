@@ -11,7 +11,8 @@ type PostDetailProps = {
   onClose: () => void
   onToggleLike: (id: string) => void
   onToggleBookmark: (id: string) => void
-  onAddComment: (id: string, content: string) => void
+  notice?: string
+  onAddComment: (id: string, content: string) => void | Promise<void>
   onUpdateComment: (postId: string, commentId: string, content: string) => void
   onDeleteComment: (postId: string, commentId: string) => void
 }
@@ -22,6 +23,7 @@ export default function PostDetail({
   onClose,
   onToggleLike,
   onToggleBookmark,
+  notice = '',
   onAddComment,
   onUpdateComment,
   onDeleteComment,
@@ -29,6 +31,8 @@ export default function PostDetail({
   const titleId = useId()
   const closeRef = useRef<HTMLButtonElement>(null)
   const [draft, setDraft] = useState('')
+  const [savingComment, setSavingComment] = useState(false)
+  const [commentError, setCommentError] = useState('')
   const [menuCommentId, setMenuCommentId] = useState<string | null>(null)
   const [editingId, setEditingId] = useState<string | null>(null)
   const [editDraft, setEditDraft] = useState('')
@@ -51,6 +55,7 @@ export default function PostDetail({
 
   useEffect(() => {
     setDraft('')
+    setCommentError('')
     setMenuCommentId(null)
     setEditingId(null)
     setEditDraft('')
@@ -65,12 +70,21 @@ export default function PostDetail({
     return () => window.removeEventListener('click', closeMenu)
   }, [menuCommentId])
 
-  function submitComment(event: FormEvent<HTMLFormElement>) {
+  async function submitComment(event: FormEvent<HTMLFormElement>) {
     event.preventDefault()
     const content = draft.trim()
-    if (!content) return
-    onAddComment(post.id, content)
-    setDraft('')
+    if (!content || savingComment) return
+    setSavingComment(true)
+    setCommentError('')
+    try {
+      await onAddComment(post.id, content)
+      setDraft('')
+    } catch (error: unknown) {
+      const message = error instanceof Error ? error.message : '댓글을 등록하지 못했습니다.'
+      setCommentError(message)
+    } finally {
+      setSavingComment(false)
+    }
   }
 
   function saveComment(event: FormEvent<HTMLFormElement>) {
@@ -121,6 +135,11 @@ export default function PostDetail({
           ))}
         </div>
 
+        {notice && (
+          <p className="editor-error" role="alert">
+            {notice}
+          </p>
+        )}
         <div className="detail-stats">
           <span className="detail-stat">
             <CommentIcon />
@@ -143,7 +162,7 @@ export default function PostDetail({
             type="button"
             className={post.bookmarked ? 'detail-bookmark on' : 'detail-bookmark'}
             aria-pressed={post.bookmarked}
-            aria-label={post.bookmarked ? '북마크 해제' : '북마크'}
+            aria-label={post.bookmarked ? '스크랩 해제' : '스크랩'}
             onClick={() => onToggleBookmark(post.id)}
           >
             <BookmarkIcon filled={post.bookmarked} />
@@ -159,16 +178,22 @@ export default function PostDetail({
             <img src={user.avatar} alt="" />
             <div>
               <strong>{user.name}</strong>
-              <form onSubmit={submitComment}>
+              <form onSubmit={(event) => void submitComment(event)}>
                 <input
                   value={draft}
                   placeholder="댓글을 남겨주세요 :)"
+                  disabled={savingComment}
                   onChange={(event) => setDraft(event.target.value)}
                 />
-                <button type="submit" disabled={draft.trim().length === 0}>
-                  작성
+                <button type="submit" disabled={savingComment || draft.trim().length === 0}>
+                  {savingComment ? '작성 중...' : '작성'}
                 </button>
               </form>
+              {commentError && (
+                <p className="editor-error" role="alert">
+                  {commentError}
+                </p>
+              )}
             </div>
           </div>
 
