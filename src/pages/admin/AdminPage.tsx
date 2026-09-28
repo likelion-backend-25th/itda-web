@@ -18,7 +18,6 @@ import {
   addTheme,
   adminPageSize,
   getAdminData,
-  markRefunded,
   removeMember,
   removePost,
   removeReport,
@@ -26,10 +25,14 @@ import {
   subscribeAdminData,
   updateTheme,
   type AdminPayment,
+  type AdminRefund,
   type AdminTheme,
   type ThemeDraft,
 } from '@/data/admin'
-import { getAdmin, setAdmin, subscribeAdmin } from '@/data/adminSession'
+import { fetchAdminPayments, fetchAdminRefunds, refundAdminPayment } from '@/api/adminPayment'
+import { logout } from '@/api/auth'
+import { getAdmin, subscribeAdmin } from '@/data/adminSession'
+import { getLoggedIn, subscribeSession } from '@/data/session'
 
 const sections = [
   { id: 'members', label: '회원 관리', icon: UsersIcon },
@@ -126,11 +129,13 @@ function isSection(value: string | undefined): value is SectionId {
 }
 
 export default function AdminPage() {
+  const loggedIn = useSyncExternalStore(subscribeSession, getLoggedIn)
   const admin = useSyncExternalStore(subscribeAdmin, getAdmin)
   const { section } = useParams()
   const navigate = useNavigate()
 
-  if (!admin) return <Navigate to="/login" replace />
+  if (!loggedIn) return <Navigate to="/login" replace />
+  if (!admin) return <Navigate to="/" replace />
   if (!isSection(section)) return <Navigate to="/admin/members" replace />
 
   return (
@@ -141,8 +146,7 @@ export default function AdminPage() {
           type="button"
           className="admin-logout"
           onClick={() => {
-            setAdmin(false)
-            navigate('/login')
+            void logout().then(() => navigate('/login'))
           }}
         >
           <LogoutIcon />
@@ -179,6 +183,42 @@ function AdminBoard({ section }: { section: SectionId }) {
   const [editing, setEditing] = useState<AdminTheme | null>(null)
   const [adding, setAdding] = useState(false)
   const [themeForm, setThemeForm] = useState<ThemeDraft>(newTheme)
+  const [apiPayments, setApiPayments] = useState<AdminPayment[]>([])
+  const [apiRefunds, setApiRefunds] = useState<AdminRefund[]>([])
+  const [payLoading, setPayLoading] = useState(false)
+  const [payError, setPayError] = useState<string | null>(null)
+  const [refundingId, setRefundingId] = useState<string | null>(null)
+
+  useEffect(() => {
+    if (section !== 'payments' && section !== 'refunds') return
+
+    let cancelled = false
+    setPayLoading(true)
+    setPayError(null)
+
+    async function loadPayments() {
+      try {
+        if (section === 'payments') {
+          const list = await fetchAdminPayments()
+          if (!cancelled) setApiPayments(list)
+        } else {
+          const list = await fetchAdminRefunds()
+          if (!cancelled) setApiRefunds(list)
+        }
+      } catch (error: unknown) {
+        if (cancelled) return
+        const message = error instanceof Error ? error.message : '결제 정보를 불러오지 못했습니다.'
+        setPayError(message)
+      } finally {
+        if (!cancelled) setPayLoading(false)
+      }
+    }
+
+    void loadPayments()
+    return () => {
+      cancelled = true
+    }
+  }, [section])
 
   useEffect(() => {
     setField('')
@@ -191,8 +231,11 @@ function AdminBoard({ section }: { section: SectionId }) {
   }, [section])
 
   const memberPage = slicePage(filterRows(data.members, field, keyword), page)
-  const paymentPage = slicePage(filterRows(data.payments, field, keyword), page)
-  const refundPage = slicePage(filterRows(data.refunds, field, keyword), page)
+  const paymentPage = slicePage(
+    filterRows(section === 'payments' ? apiPayments : data.payments, field, keyword),
+    page,
+  )
+  const refundPage = slicePage(filterRows(section === 'refunds' ? apiRefunds : data.refunds, field, keyword), page)
   const postPage = slicePage(filterRows(data.posts, field, keyword), page)
   const themePage = slicePage(filterRows(data.themes, field, keyword), page)
   const reportPage = slicePage(filterRows(data.reports, field, keyword), page)
@@ -208,6 +251,25 @@ function AdminBoard({ section }: { section: SectionId }) {
             : section === 'themes'
               ? themePage
               : reportPage
+
+  async function refundRow(item: AdminRefund) {
+    if (item.refunded || refundingId != null) return
+    const paymentId = Number(item.id)
+    if (!Number.isInteger(paymentId)) return
+    setRefundingId(item.id)
+    setPayError(null)
+    try {
+      await refundAdminPayment(paymentId)
+      setApiRefunds((current) =>
+        current.map((row) => (row.id === item.id ? { ...row, refunded: true } : row)),
+      )
+    } catch (error: unknown) {
+      const message = error instanceof Error ? error.message : '환불에 실패했습니다.'
+      setPayError(message)
+    } finally {
+      setRefundingId(null)
+    }
+  }
 
   function search(event: FormEvent<HTMLFormElement>) {
     event.preventDefault()
@@ -251,6 +313,11 @@ function AdminBoard({ section }: { section: SectionId }) {
       {section === 'subscriptions' && (
         <p className="admin-note">결제 후 7일 이내 전액 환불, 이후 남은 구독일 수에 따른 부분 환불(남은 구독일/30)</p>
       )}
+      {(section === 'payments' || section === 'refunds') && payError && active.visible.length > 0 && (
+        <p className="admin-note" role="alert">
+          {payError}
+        </p>
+      )}
       {section !== 'members' && (
         <header className="admin-head">
           <h1>
@@ -262,7 +329,11 @@ function AdminBoard({ section }: { section: SectionId }) {
         </header>
       )}
 
-      {active.visible.length === 0 ? (
+      {(section === 'payments' || section === 'refunds') && payLoading ? (
+        <p className="admin-empty">{section === 'refunds' ? '환불 내역을 불러오는 중…' : '결제 내역을 불러오는 중…'}</p>
+      ) : (section === 'payments' || section === 'refunds') && payError && active.visible.length === 0 ? (
+        <p className="admin-empty">{payError}</p>
+      ) : active.visible.length === 0 ? (
         <p className="admin-empty">검색 결과가 없습니다.</p>
       ) : section === 'themes' ? (
         <div className="admin-themes">
@@ -347,10 +418,12 @@ function AdminBoard({ section }: { section: SectionId }) {
                 <button
                   type="button"
                   className="admin-danger"
-                  disabled={item.refunded}
-                  onClick={() => markRefunded(item.id)}
+                  disabled={item.refunded || refundingId === item.id}
+                  onClick={() => {
+                    void refundRow(item)
+                  }}
                 >
-                  {item.refunded ? '완료' : '환불'}
+                  {item.refunded ? '완료' : refundingId === item.id ? '처리 중…' : '환불'}
                 </button>
               </article>
             ))}

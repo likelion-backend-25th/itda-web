@@ -1,21 +1,12 @@
-let admin = false
-const listeners = new Set<() => void>()
+import { subscribeSession } from '@/data/session'
+import { hasAdminRole } from '@/lib/authToken'
 
-function emit() {
-  listeners.forEach((listener) => listener())
-}
-
+/** 로그인 세션이 바뀔 때 관리자 여부도 다시 읽는다 */
 export function subscribeAdmin(listener: () => void) {
-  listeners.add(listener)
-  return () => listeners.delete(listener)
+  return subscribeSession(listener)
 }
 
+/** JWT roles의 ROLE_ADMIN */
 export function getAdmin() {
-  return admin
-}
-
-export function setAdmin(next: boolean) {
-  if (admin === next) return
-  admin = next
-  emit()
+  return hasAdminRole()
 }

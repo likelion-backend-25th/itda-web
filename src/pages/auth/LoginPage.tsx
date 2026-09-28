@@ -3,11 +3,8 @@ import { useLocation, useNavigate } from 'react-router'
 import { applyAccessToken, login } from '@/api/auth'
 import AuthCard, { AuthSwitch, GoogleMark, KakaoMark } from '@/components/auth/AuthCard'
 import { EyeIcon, EyeOffIcon, LockIcon, MailIcon } from '@/components/icons'
-import { setAdmin } from '@/data/adminSession'
 import { getApiOrigin } from '@/lib/apiClient'
-
-const adminId = 'admin@example.com'
-const adminPassword = '1111'
+import { hasAdminRole } from '@/lib/authToken'
 
 function redirectPathFromState(state: unknown): string {
   if (
@@ -41,23 +38,12 @@ export default function LoginPage() {
       return
     }
 
-    // 프론트 전용 관리자 진입 (백엔드 계정과 별개)
-    if (id === adminId) {
-      if (password !== adminPassword) {
-        setError('이메일 또는 비밀번호가 올바르지 않습니다.')
-        return
-      }
-      setAdmin(true)
-      navigate('/admin/members')
-      return
-    }
-
     setLoading(true)
     setError('')
     try {
       const tokens = await login({ email: id, password })
       applyAccessToken(tokens.accessToken, tokens.expiresIn)
-      navigate(redirectTo, { replace: true })
+      navigate(hasAdminRole() ? '/admin/members' : redirectTo, { replace: true })
     } catch (err: unknown) {
       const message = err instanceof Error ? err.message : '로그인에 실패했습니다.'
       setError(message)
