@@ -21,28 +21,32 @@ export interface PostResponse {
 }
 
 /**
- * 글쓰기 모달은 categoryName, content, imageUrl, subscriberOnly 만 받는다.
- * 작성·수정 시각은 DB DEFAULT 라서 보내지 않는다.
+ * 백엔드 PostCreateRequest (@RequestPart "request").
+ * 이미지는 MultipartFile 파트(imageUrl)로 별도 전송.
  */
 export interface PostCreateRequest {
-  id: number
-  memberId: number
-  nickname: string
   categoryId: number
-  categoryName: string
   content: string
-  imageUrl?: string
-  likeCount: number
-  viewCount: number
   subscriberOnly: boolean
 }
 
-/** 백엔드 PostUpdateRequest. imageUrl 은 선택 */
+/** PostController.createPost 요청 묶음 */
+export type CreatePostPayload = {
+  request: PostCreateRequest
+  image?: File | null
+}
+
+/** 백엔드 PostUpdateRequest (@RequestPart "request") */
 export interface PostUpdateRequest {
   categoryId: number
   content: string
-  imageUrl?: string
   subscriberOnly: boolean
+}
+
+/** PostController.updatePost 요청 묶음 */
+export type UpdatePostPayload = {
+  request: PostUpdateRequest
+  image?: File | null
 }
 
 /** POST /posts/{id}/like 응답. 카운트 필드명은 likesCount */
