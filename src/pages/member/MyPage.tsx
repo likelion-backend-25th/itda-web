@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useMemo, useState, useSyncExternalStore } from 'react'
 import { Link } from 'react-router'
 import { resolveMemberImageUrl, toFeedUser } from '@/api/member'
+import { resolvePostImageUrl } from '@/api/post'
 import { fetchOwnedThemeList } from '@/api/theme'
 import EditPostModal from '@/components/feed/EditPostModal'
 import FollowList, { type FollowTab } from '@/components/profile/FollowList'
@@ -14,8 +15,9 @@ import ProfileEditModal, { type ProfileForm } from '@/components/profile/Profile
 import ThemeShot, { toneFromThemeCode } from '@/components/theme/ThemeShot'
 import { GearIcon, HeadsetIcon } from '@/components/icons'
 import { formatDateTime, myPageCategories, type CategoryId, type Post } from '@/data/feed'
+import { usePublishPost } from '@/hooks/post/usePublishPost'
 import { applyAppTheme, getAppliedTheme, resolveAppTheme, subscribeAppTheme } from '@/data/appTheme'
-import { getOwnedThemeIds, setThemeOwned, shopThemes, subscribeOwnedThemes } from '@/data/themes'
+import { syncOwnedThemes } from '@/data/themes'
 import { getFollowingIds, setFollowing, subscribeFollows } from '@/data/follows'
 import { getLoggedIn, setLoggedIn, subscribeSession } from '@/data/session'
 import { ensureViewerLoaded, setViewerProfile } from '@/data/viewer'
@@ -34,19 +36,6 @@ import {
 } from '@/data/mypage'
 
 type MyTab = 'posts' | 'likes' | 'scraps' | 'themes'
-
-function purchasedThemes(ids: ReadonlySet<string>): OwnedTheme[] {
-  return shopThemes
-    .filter((theme) => ids.has(theme.id))
-    .map((theme) => ({
-      id: theme.id,
-      name: theme.name,
-      title: theme.name,
-      subtitle: theme.description,
-      tone: theme.tone,
-      active: false,
-    }))
-}
 
 function ownedFromApi(themes: ThemeResponse[], appliedId: number | null): OwnedTheme[] {
   return themes.map((theme) => {
@@ -76,12 +65,12 @@ export default function MyPage() {
   const [posts, setPosts] = useState<MyPost[]>(myPosts)
   const [liked, setLiked] = useState<MyPost[]>(likedPosts)
   const [scraps, setScraps] = useState<MyPost[]>(scrappedPosts)
-  const ownedIds = useSyncExternalStore(subscribeOwnedThemes, getOwnedThemeIds)
   const applied = useSyncExternalStore(subscribeAppTheme, getAppliedTheme)
-  const [themes, setThemes] = useState<OwnedTheme[]>(() => purchasedThemes(getOwnedThemeIds()))
+  const [themes, setThemes] = useState<OwnedTheme[]>([])
   const [detailId, setDetailId] = useState<string | null>(null)
   const [menuId, setMenuId] = useState<string | null>(null)
   const [editingPost, setEditingPost] = useState<MyPost | null>(null)
+  const { publish } = usePublishPost()
   const [selectedId, setSelectedId] = useState<string | null>(null)
   const closeDetail = useCallback(() => setSelectedId(null), [])
   const [writing, setWriting] = useState(false)
@@ -151,19 +140,13 @@ export default function MyPage() {
       try {
         const result = await fetchOwnedThemeList(1, 50)
         if (cancelled) return
+        syncOwnedThemes(result.content.map((theme) => theme.themeCode.trim().toLowerCase()))
         for (const theme of result.content) {
-          setThemeOwned(resolveAppTheme(theme.themeCode))
           if (theme.isApplied) applyAppTheme(theme.themeCode, theme.id)
         }
-        setThemes((current) => {
-          const fromApi = ownedFromApi(result.content, applied.themeId)
-          if (fromApi.length === 0) return current
-          const byId = new Map(current.map((theme) => [theme.id, theme]))
-          for (const theme of fromApi) byId.set(theme.id, theme)
-          return [...byId.values()]
-        })
+        setThemes(ownedFromApi(result.content, applied.themeId))
       } catch {
-        // 로컬 보유 목록으로 폴백
+        // 보유 목록 실패 시 빈 목록 유지
       }
     }
     void loadOwned()
@@ -171,14 +154,6 @@ export default function MyPage() {
       cancelled = true
     }
   }, [applied.themeId, loggedIn])
-
-  useEffect(() => {
-    setThemes((current) => {
-      const known = new Set(current.map((theme) => theme.id))
-      const added = purchasedThemes(ownedIds).filter((theme) => !known.has(theme.id))
-      return added.length === 0 ? current : [...current, ...added]
-    })
-  }, [ownedIds])
 
   useEffect(() => {
     if (!menuId) return
@@ -441,23 +416,28 @@ export default function MyPage() {
           user={viewer}
           categories={myPageCategories}
           onClose={() => setWriting(false)}
-          onPublish={(draft: PostDraft) => {
+          onPublish={async (draft: PostDraft) => {
+            const created = await publish(draft)
+            const image = resolvePostImageUrl(created.imageUrl)
+            const createdAt = new Date(created.createdAt)
             const post: MyPost = {
-              id: `my-${Date.now()}`,
+              id: String(created.id),
               author: viewer.name,
               avatar: viewer.avatar,
               intro: viewer.bio,
               category: draft.category,
-              categoryLabel: draft.categoryLabel,
+              categoryLabel: created.categoryName || draft.categoryLabel,
               title: draft.title,
               body: draft.body,
-              images: draft.images,
+              images: image ? [{ src: image, alt: '게시글 이미지' }] : [],
               comments: 0,
-              likes: 0,
-              liked: false,
-              views: 0,
-              visibility: draft.visibility,
-              createdAt: formatDateTime(new Date()),
+              likes: created.likeCount,
+              liked: created.liked === true,
+              views: created.viewCount,
+              visibility: created.subscriberOnly ? 'subscribers' : 'public',
+              createdAt: Number.isNaN(createdAt.getTime())
+                ? formatDateTime(new Date())
+                : formatDateTime(createdAt),
               thread: [],
             }
             setPosts((current) => [post, ...current])

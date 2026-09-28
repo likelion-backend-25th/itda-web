@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState, useSyncExternalStore } from 'react'
 import { resolveMemberImageUrl } from '@/api/member'
-import { categoryIdForFeed, categoryIdForUpdate, categoryIdFromLabel, createPost, deletePost, fetchPostById, fetchPosts, toFeedPost, togglePostLike, togglePostScrap, updatePost, type PostFeedQuery } from '@/api/post'
+import { categoryIdForFeed, categoryIdForUpdate, deletePost, fetchPostById, fetchPosts, toFeedPost, togglePostLike, togglePostScrap, updatePost, type PostFeedQuery } from '@/api/post'
 import { createReply, toFeedComment } from '@/api/reply'
 import EditPostModal from '@/components/feed/EditPostModal'
 import Header from '@/components/layout/Header'
@@ -13,6 +13,7 @@ import { getLoggedIn, setLoggedIn, subscribeSession } from '@/data/session'
 import { ensureViewerLoaded, getViewerProfile, subscribeViewer } from '@/data/viewer'
 import { profilePath } from '@/data/members'
 import { useViewerUser } from '@/hooks/member/useViewerUser'
+import { usePublishPost } from '@/hooks/post/usePublishPost'
 import { ApiError } from '@/lib/apiClient'
 import type { MyPost } from '@/data/mypage'
 
@@ -39,6 +40,7 @@ export default function HomePage() {
   const [editingPost, setEditingPost] = useState<Post | null>(null)
   const [profileError, setProfileError] = useState('')
   const user = useViewerUser()
+  const { publish } = usePublishPost()
   const profile = useSyncExternalStore(subscribeViewer, getViewerProfile)
   const profileRef = useRef(profile)
   profileRef.current = profile
@@ -347,14 +349,7 @@ export default function HomePage() {
 
   async function publishPost(draft: PostDraft) {
     if (!profile) throw new Error('로그인 후 글을 작성할 수 있습니다.')
-    const created = await createPost({
-      request: {
-        categoryId: categoryIdFromLabel(draft.categoryLabel),
-        content: draft.content,
-        subscriberOnly: draft.visibility === 'subscribers',
-      },
-      image: draft.imageFile ?? null,
-    })
+    const created = await publish(draft)
     const mapped = toFeedPost(created, profile)
     setPosts((current) => [mapped, ...current])
     setCategory((current) => (current === 'all' || current === draft.category ? current : 'all'))

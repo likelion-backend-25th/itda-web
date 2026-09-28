@@ -6,7 +6,7 @@ import FollowList, { type FollowTab } from '@/components/profile/FollowList'
 import Header from '@/components/layout/Header'
 import PostDetail from '@/components/feed/PostDetail'
 import Sidebar from '@/components/layout/Sidebar'
-import WritePostModal from '@/components/feed/WritePostModal'
+import WritePostModal, { type PostDraft } from '@/components/feed/WritePostModal'
 import { BookmarkIcon, CommentIcon, CrownIcon, DotsIcon, EyeIcon, HeartIcon } from '@/components/icons'
 import { formatDateTime, initialPosts, myPageCategories, type CategoryId, type Post } from '@/data/feed'
 import { getFollowingIds, memberFollowIds, setFollowing, subscribeFollows } from '@/data/follows'
@@ -15,6 +15,7 @@ import { setSubscribed } from '@/data/subscriptions'
 import { getLoggedIn, setLoggedIn, subscribeSession } from '@/data/session'
 import { useMemberFollows } from '@/hooks/member/useMemberFollows'
 import { useViewerUser } from '@/hooks/member/useViewerUser'
+import { usePublishPost } from '@/hooks/post/usePublishPost'
 import { ApiError } from '@/lib/apiClient'
 
 function toMemberView(profile: {
@@ -38,6 +39,7 @@ function toMemberView(profile: {
 export default function MemberPage() {
   const { memberId = '' } = useParams()
   const navigate = useNavigate()
+  const { publish } = usePublishPost()
   const numericId = Number(memberId)
   const isNumericRoute = Number.isInteger(numericId) && numericId > 0
   const mockMember = !isNumericRoute ? memberById(memberId) : undefined
@@ -447,7 +449,11 @@ export default function MemberPage() {
           user={viewer}
           categories={myPageCategories}
           onClose={() => setWriting(false)}
-          onPublish={() => setWriting(false)}
+          onPublish={async (draft: PostDraft) => {
+            await publish(draft)
+            setWriting(false)
+            navigate('/')
+          }}
         />
       )}
       {selectedPost && (

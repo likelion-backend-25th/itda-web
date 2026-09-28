@@ -2773,6 +2773,23 @@ img.sub-photo {
   display: grid;
   grid-template-columns: repeat(3, minmax(0, 1fr));
   gap: 16px;
+  align-content: start;
+}
+
+/* 페이지당 슬롯 높이를 맞춰 페이지네이션 위치를 고정 */
+.shop-catalog {
+  display: flex;
+  flex-direction: column;
+}
+
+.shop-catalog-body {
+  flex: 0 0 auto;
+}
+
+.shop-catalog-body .empty {
+  display: grid;
+  place-items: center;
+  min-height: 420px;
 }
 
 .shop-card {
@@ -2786,6 +2803,12 @@ img.sub-photo {
   box-shadow: var(--shadow);
   color: inherit;
   text-decoration: none;
+}
+
+.shop-card-slot {
+  visibility: hidden;
+  pointer-events: none;
+  box-shadow: none;
 }
 
 .shop-card-foot {
@@ -2812,6 +2835,7 @@ img.sub-photo {
   justify-content: center;
   gap: 8px;
   margin-top: 22px;
+  flex: 0 0 auto;
 }
 
 .shop-pages button {
@@ -3640,7 +3664,7 @@ img.sub-photo {
 
 .editor-body {
   display: grid;
-  grid-template-columns: 84px minmax(0, 1fr);
+  grid-template-columns: 72px minmax(0, 1fr);
   gap: 14px;
   margin-top: 16px;
   min-height: 0;
@@ -3648,10 +3672,12 @@ img.sub-photo {
 }
 
 .editor-avatar {
-  width: 84px;
-  height: 108px;
-  border-radius: 14px;
+  width: 72px;
+  height: 72px;
+  border-radius: 50%;
   object-fit: cover;
+  object-position: center;
+  flex-shrink: 0;
 }
 
 .editor-box {
@@ -3799,7 +3825,12 @@ img.sub-photo {
   }
 
   .editor-body {
-    grid-template-columns: 64px minmax(0, 1fr);
+    grid-template-columns: 56px minmax(0, 1fr);
+  }
+
+  .editor-avatar {
+    width: 56px;
+    height: 56px;
   }
 
   .theme-grid,

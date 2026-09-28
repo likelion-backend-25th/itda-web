@@ -15,20 +15,27 @@ import {
   UsersIcon,
 } from '@/components/icons'
 import {
-  addTheme,
   adminPageSize,
-  getAdminData,
-  removeMember,
-  removePost,
-  removeReport,
-  setThemeActive,
-  subscribeAdminData,
-  updateTheme,
+  type AdminMember,
   type AdminPayment,
+  type AdminPost,
   type AdminRefund,
+  type AdminReport,
   type AdminTheme,
   type ThemeDraft,
 } from '@/data/admin'
+import {
+  createAdminTheme,
+  deleteAdminPost,
+  deleteAdminReply,
+  fetchAdminMembers,
+  fetchAdminPosts,
+  fetchAdminReplies,
+  fetchAdminThemes,
+  setAdminThemeStatus,
+  suspendAdminMember,
+  updateAdminTheme,
+} from '@/api/admin'
 import { fetchAdminPayments, fetchAdminRefunds, refundAdminPayment } from '@/api/adminPayment'
 import { logout } from '@/api/auth'
 import { getAdmin, subscribeAdmin } from '@/data/adminSession'
@@ -174,7 +181,6 @@ export default function AdminPage() {
 }
 
 function AdminBoard({ section }: { section: SectionId }) {
-  const data = useSyncExternalStore(subscribeAdminData, getAdminData)
   const [field, setField] = useState('')
   const [draft, setDraft] = useState('')
   const [keyword, setKeyword] = useState('')
@@ -185,9 +191,15 @@ function AdminBoard({ section }: { section: SectionId }) {
   const [themeForm, setThemeForm] = useState<ThemeDraft>(newTheme)
   const [apiPayments, setApiPayments] = useState<AdminPayment[]>([])
   const [apiRefunds, setApiRefunds] = useState<AdminRefund[]>([])
+  const [apiMembers, setApiMembers] = useState<AdminMember[]>([])
+  const [apiPosts, setApiPosts] = useState<AdminPost[]>([])
+  const [apiThemes, setApiThemes] = useState<AdminTheme[]>([])
+  const [boardLoading, setBoardLoading] = useState(false)
+  const [boardError, setBoardError] = useState<string | null>(null)
   const [payLoading, setPayLoading] = useState(false)
   const [payError, setPayError] = useState<string | null>(null)
   const [refundingId, setRefundingId] = useState<string | null>(null)
+  const [busyId, setBusyId] = useState<string | null>(null)
 
   useEffect(() => {
     if (section !== 'payments' && section !== 'refunds') return
@@ -220,6 +232,41 @@ function AdminBoard({ section }: { section: SectionId }) {
     }
   }, [section])
 
+  // 회원·게시글/댓글·테마는 Swagger 관리자 API로 불러온다
+  useEffect(() => {
+    if (section !== 'members' && section !== 'posts' && section !== 'themes') return
+
+    let cancelled = false
+    setBoardLoading(true)
+    setBoardError(null)
+
+    async function loadBoard() {
+      try {
+        if (section === 'members') {
+          const list = await fetchAdminMembers()
+          if (!cancelled) setApiMembers(list)
+        } else if (section === 'posts') {
+          const [posts, replies] = await Promise.all([fetchAdminPosts(), fetchAdminReplies()])
+          if (!cancelled) setApiPosts([...posts, ...replies])
+        } else {
+          const list = await fetchAdminThemes()
+          if (!cancelled) setApiThemes(list)
+        }
+      } catch (error: unknown) {
+        if (cancelled) return
+        const message = error instanceof Error ? error.message : '관리 목록을 불러오지 못했습니다.'
+        setBoardError(message)
+      } finally {
+        if (!cancelled) setBoardLoading(false)
+      }
+    }
+
+    void loadBoard()
+    return () => {
+      cancelled = true
+    }
+  }, [section])
+
   useEffect(() => {
     setField('')
     setDraft('')
@@ -230,27 +277,27 @@ function AdminBoard({ section }: { section: SectionId }) {
     setAdding(false)
   }, [section])
 
-  const memberPage = slicePage(filterRows(data.members, field, keyword), page)
-  const paymentPage = slicePage(
-    filterRows(section === 'payments' ? apiPayments : data.payments, field, keyword),
-    page,
-  )
-  const refundPage = slicePage(filterRows(section === 'refunds' ? apiRefunds : data.refunds, field, keyword), page)
-  const postPage = slicePage(filterRows(data.posts, field, keyword), page)
-  const themePage = slicePage(filterRows(data.themes, field, keyword), page)
-  const reportPage = slicePage(filterRows(data.reports, field, keyword), page)
+  const memberPage = slicePage(filterRows(apiMembers, field, keyword), page)
+  const paymentPage = slicePage(filterRows(apiPayments, field, keyword), page)
+  const subscriptionPage = slicePage(filterRows([] as AdminPayment[], field, keyword), page)
+  const refundPage = slicePage(filterRows(apiRefunds, field, keyword), page)
+  const postPage = slicePage(filterRows(apiPosts, field, keyword), page)
+  const themePage = slicePage(filterRows(apiThemes, field, keyword), page)
+  const reportPage = slicePage(filterRows([] as AdminReport[], field, keyword), page)
   const active =
     section === 'members'
       ? memberPage
-      : section === 'payments' || section === 'subscriptions'
+      : section === 'payments'
         ? paymentPage
-        : section === 'refunds'
-          ? refundPage
-          : section === 'posts'
-            ? postPage
-            : section === 'themes'
-              ? themePage
-              : reportPage
+        : section === 'subscriptions'
+          ? subscriptionPage
+          : section === 'refunds'
+            ? refundPage
+            : section === 'posts'
+              ? postPage
+              : section === 'themes'
+                ? themePage
+                : reportPage
 
   async function refundRow(item: AdminRefund) {
     if (item.refunded || refundingId != null) return
@@ -271,20 +318,86 @@ function AdminBoard({ section }: { section: SectionId }) {
     }
   }
 
+  async function kickMember(item: AdminMember) {
+    const memberId = Number(item.id)
+    if (!Number.isInteger(memberId) || busyId != null) return
+    setBusyId(item.id)
+    setBoardError(null)
+    try {
+      await suspendAdminMember(memberId)
+      setApiMembers((current) => current.filter((row) => row.id !== item.id))
+    } catch (error: unknown) {
+      setBoardError(error instanceof Error ? error.message : '회원 상태 변경에 실패했습니다.')
+    } finally {
+      setBusyId(null)
+    }
+  }
+
+  async function removeBoardPost(item: AdminPost) {
+    if (busyId != null) return
+    setBusyId(item.id)
+    setBoardError(null)
+    try {
+      if (item.id.startsWith('reply-')) {
+        const replyId = Number(item.id.slice('reply-'.length))
+        if (!Number.isInteger(replyId)) return
+        await deleteAdminReply(replyId)
+      } else {
+        const postId = Number(item.id)
+        if (!Number.isInteger(postId)) return
+        await deleteAdminPost(postId)
+      }
+      setApiPosts((current) => current.filter((row) => row.id !== item.id))
+    } catch (error: unknown) {
+      setBoardError(error instanceof Error ? error.message : '삭제에 실패했습니다.')
+    } finally {
+      setBusyId(null)
+    }
+  }
+
+  async function toggleThemeActive(theme: AdminTheme) {
+    const themeId = Number(theme.id)
+    if (!Number.isInteger(themeId) || busyId != null) return
+    setBusyId(theme.id)
+    setBoardError(null)
+    try {
+      await setAdminThemeStatus(themeId, !theme.active)
+      setApiThemes((current) =>
+        current.map((row) => (row.id === theme.id ? { ...row, active: !theme.active } : row)),
+      )
+    } catch (error: unknown) {
+      setBoardError(error instanceof Error ? error.message : '테마 상태 변경에 실패했습니다.')
+    } finally {
+      setBusyId(null)
+    }
+  }
+
   function search(event: FormEvent<HTMLFormElement>) {
     event.preventDefault()
     setKeyword(draft)
     setPage(1)
   }
 
-  function saveTheme() {
+  async function saveTheme() {
     const name = themeForm.name.trim()
     if (!name) return
-    const draft = { ...themeForm, name }
-    if (editing) updateTheme(editing.id, draft)
-    else addTheme(draft)
-    setEditing(null)
-    setAdding(false)
+    const next = { ...themeForm, name }
+    setBoardError(null)
+    try {
+      if (editing) {
+        const themeId = Number(editing.id)
+        if (!Number.isInteger(themeId)) return
+        await updateAdminTheme(themeId, next)
+      } else {
+        await createAdminTheme(next)
+      }
+      const list = await fetchAdminThemes()
+      setApiThemes(list)
+      setEditing(null)
+      setAdding(false)
+    } catch (error: unknown) {
+      setBoardError(error instanceof Error ? error.message : '테마 저장에 실패했습니다.')
+    }
   }
 
   return (
@@ -311,11 +424,19 @@ function AdminBoard({ section }: { section: SectionId }) {
       </form>
 
       {section === 'subscriptions' && (
-        <p className="admin-note">결제 후 7일 이내 전액 환불, 이후 남은 구독일 수에 따른 부분 환불(남은 구독일/30)</p>
+        <p className="admin-note">구독 관리 API가 준비되면 이 목록에 표시됩니다. 결제 후 7일 이내 전액 환불, 이후 남은 구독일 수에 따른 부분 환불(남은 구독일/30)</p>
+      )}
+      {section === 'reports' && (
+        <p className="admin-note">신고 관리 API가 준비되면 이 목록에 표시됩니다.</p>
       )}
       {(section === 'payments' || section === 'refunds') && payError && active.visible.length > 0 && (
         <p className="admin-note" role="alert">
           {payError}
+        </p>
+      )}
+      {(section === 'members' || section === 'posts' || section === 'themes') && boardError && (
+        <p className="admin-note" role="alert">
+          {boardError}
         </p>
       )}
       {section !== 'members' && (
@@ -331,8 +452,14 @@ function AdminBoard({ section }: { section: SectionId }) {
 
       {(section === 'payments' || section === 'refunds') && payLoading ? (
         <p className="admin-empty">{section === 'refunds' ? '환불 내역을 불러오는 중…' : '결제 내역을 불러오는 중…'}</p>
+      ) : (section === 'members' || section === 'posts' || section === 'themes') && boardLoading ? (
+        <p className="admin-empty">목록을 불러오는 중…</p>
       ) : (section === 'payments' || section === 'refunds') && payError && active.visible.length === 0 ? (
         <p className="admin-empty">{payError}</p>
+      ) : (section === 'members' || section === 'posts' || section === 'themes') &&
+        boardError &&
+        active.visible.length === 0 ? (
+        <p className="admin-empty">{boardError}</p>
       ) : active.visible.length === 0 ? (
         <p className="admin-empty">검색 결과가 없습니다.</p>
       ) : section === 'themes' ? (
@@ -355,7 +482,10 @@ function AdminBoard({ section }: { section: SectionId }) {
                 <button
                   type="button"
                   className={theme.active ? undefined : 'theme-on'}
-                  onClick={() => setThemeActive(theme.id, !theme.active)}
+                  disabled={busyId === theme.id}
+                  onClick={() => {
+                    void toggleThemeActive(theme)
+                  }}
                 >
                   {theme.active ? '비활성화' : '활성화'}
                 </button>
@@ -386,12 +516,19 @@ function AdminBoard({ section }: { section: SectionId }) {
                 <Cell label="이메일" value={member.email} />
                 <Cell label="인증 방식" value={member.provider} />
                 <Cell label="가입년도" value={member.year} />
-                <button type="button" className="admin-danger" onClick={() => removeMember(member.id)}>
+                <button
+                  type="button"
+                  className="admin-danger"
+                  disabled={busyId === member.id}
+                  onClick={() => {
+                    void kickMember(member)
+                  }}
+                >
                   강퇴
                 </button>
               </article>
             ))}
-          {(section === 'payments' || section === 'subscriptions') &&
+          {section === 'payments' &&
             paymentPage.visible.map((item) => (
               <article key={item.id} className="admin-row pays">
                 <Cell label="결제 번호" value={item.orderNo} />
@@ -435,7 +572,14 @@ function AdminBoard({ section }: { section: SectionId }) {
                 <Cell label="이메일" value={item.email} />
                 <Cell label="내용" value={item.content} />
                 <Cell label="작성일시" value={item.createdAt} />
-                <button type="button" className="admin-danger" onClick={() => removePost(item.id)}>
+                <button
+                  type="button"
+                  className="admin-danger"
+                  disabled={busyId === item.id}
+                  onClick={() => {
+                    void removeBoardPost(item)
+                  }}
+                >
                   삭제
                 </button>
               </article>
@@ -448,9 +592,6 @@ function AdminBoard({ section }: { section: SectionId }) {
                 <Cell label="이메일" value={item.email} />
                 <Cell label="신고 내용" value={item.content} />
                 <Cell label="작성일시" value={item.createdAt} />
-                <button type="button" className="admin-danger" onClick={() => removeReport(item.id)}>
-                  삭제
-                </button>
               </article>
             ))}
         </div>

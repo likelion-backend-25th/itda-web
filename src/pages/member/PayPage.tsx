@@ -1,20 +1,46 @@
 import { useEffect, useState, useSyncExternalStore } from 'react'
 import { Link, useNavigate, useParams } from 'react-router'
+import { DEFAULT_AVATAR, fetchMemberProfile, resolveMemberImageUrl, toFeedUser } from '@/api/member'
 import Header from '@/components/layout/Header'
 import PaymentCompleteDialog from '@/components/payment/PaymentCompleteDialog'
 import Sidebar from '@/components/layout/Sidebar'
-import WritePostModal from '@/components/feed/WritePostModal'
+import WritePostModal, { type PostDraft } from '@/components/feed/WritePostModal'
 import { myPageCategories, type CategoryId } from '@/data/feed'
-import { memberById } from '@/data/members'
+import { memberById, type MemberProfile } from '@/data/members'
 import { getSubscribedIds, subscribeMemberships } from '@/data/subscriptions'
 import { usePortOneCheckout } from '@/hooks/payment/usePortOneCheckout'
 import { useViewerUser } from '@/hooks/member/useViewerUser'
+import { usePublishPost } from '@/hooks/post/usePublishPost'
+
+function toPayMember(profile: {
+  id: number
+  nickname: string
+  bio: string
+  avatar: string
+}): MemberProfile {
+  return {
+    id: String(profile.id),
+    backendId: profile.id,
+    name: profile.nickname,
+    avatar: profile.avatar,
+    bio: profile.bio || '소개글이 없습니다.',
+    followers: 0,
+    following: 0,
+    posts: 0,
+  }
+}
 
 export default function PayPage() {
   const { memberId = '' } = useParams()
   const navigate = useNavigate()
-  const member = memberById(memberId)
+  const numericId = /^\d+$/.test(memberId) ? Number(memberId) : null
+  const mockMember = numericId == null ? memberById(memberId) : undefined
+  const [apiMember, setApiMember] = useState<MemberProfile | null>(null)
+  const [loadError, setLoadError] = useState<string | null>(null)
+  const [loading, setLoading] = useState(numericId != null)
+  const member = apiMember ?? mockMember ?? null
   const viewer = useViewerUser()
+  const { publish } = usePublishPost()
   const [query, setQuery] = useState('')
   const [category, setCategory] = useState<CategoryId>('all')
   const [categoriesOpen, setCategoriesOpen] = useState(true)
@@ -26,6 +52,53 @@ export default function PayPage() {
   useEffect(() => {
     reset()
   }, [memberId, reset])
+
+  // 숫자 경로면 GET /member/{id} 로 결제 대상 프로필을 받는다
+  useEffect(() => {
+    if (numericId == null) {
+      setApiMember(null)
+      setLoading(false)
+      setLoadError(null)
+      return
+    }
+
+    let cancelled = false
+    setLoading(true)
+    setLoadError(null)
+
+    async function load() {
+      try {
+        const profile = await fetchMemberProfile(numericId!)
+        if (cancelled) return
+        const feed = toFeedUser(profile)
+        setApiMember(
+          toPayMember({
+            id: profile.id,
+            nickname: feed.name,
+            bio: feed.bio,
+            avatar: resolveMemberImageUrl(profile.profileImage) || DEFAULT_AVATAR,
+          }),
+        )
+      } catch (caught: unknown) {
+        if (cancelled) return
+        setApiMember(null)
+        setLoadError(caught instanceof Error ? caught.message : '결제 대상을 불러오지 못했습니다.')
+      } finally {
+        if (!cancelled) setLoading(false)
+      }
+    }
+
+    void load()
+    return () => {
+      cancelled = true
+    }
+  }, [numericId])
+
+  async function publishAndGoHome(draft: PostDraft) {
+    await publish(draft)
+    setWriting(false)
+    navigate('/')
+  }
 
   return (
     <div className="page">
@@ -43,7 +116,11 @@ export default function PayPage() {
           />
           <main className="my-main" aria-label="결제">
             <section className="pay-card">
-              {!member ? (
+              {loading ? (
+                <p>결제 정보를 불러오는 중…</p>
+              ) : loadError ? (
+                <p role="alert">{loadError}</p>
+              ) : !member ? (
                 <p>결제할 프로필을 찾을 수 없습니다.</p>
               ) : paid ? (
                 <>
@@ -103,7 +180,7 @@ export default function PayPage() {
           user={viewer}
           categories={myPageCategories}
           onClose={() => setWriting(false)}
-          onPublish={() => setWriting(false)}
+          onPublish={publishAndGoHome}
         />
       )}
     </div>

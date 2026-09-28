@@ -1,17 +1,19 @@
 ﻿import { useEffect, useMemo, useState, useSyncExternalStore } from 'react'
-import { Link, Navigate, useParams } from 'react-router'
+import { Link, Navigate, useNavigate, useParams } from 'react-router'
 import { DEFAULT_AVATAR, resolveMemberImageUrl } from '@/api/member'
 import { cancelSubscription, fetchMonthlyIncome, fetchMySubscriptions, fetchSubscriberCount } from '@/api/subscription'
 import CategoryFeed from '@/components/feed/CategoryFeed'
 import Header from '@/components/layout/Header'
 import ProfileEditModal, { type ProfileForm } from '@/components/profile/ProfileEditModal'
 import Sidebar from '@/components/layout/Sidebar'
-import WritePostModal from '@/components/feed/WritePostModal'
+import WritePostModal, { type PostDraft } from '@/components/feed/WritePostModal'
 import { GearIcon } from '@/components/icons'
 import { myPageCategories, type CategoryId } from '@/data/feed'
 import { getLoggedIn, subscribeSession } from '@/data/session'
-import { memberById, members } from '@/data/members'
+import { members } from '@/data/members'
+import { ensureViewerLoaded, getViewerProfile, subscribeViewer } from '@/data/viewer'
 import { useViewerUser } from '@/hooks/member/useViewerUser'
+import { usePublishPost } from '@/hooks/post/usePublishPost'
 import type { MySubscriptionResponse } from '@/types/subscription'
 
 type SubscriptionTab = 'users' | 'manage'
@@ -27,7 +29,8 @@ function subscriptionProfileHref(targetId: number): string | null {
 
 export default function SubscriptionPage() {
   const { memberId = '' } = useParams()
-  const owner = memberById('jieun')
+  const navigate = useNavigate()
+  const { publish } = usePublishPost()
   const [query, setQuery] = useState('')
   const [category, setCategory] = useState<CategoryId>('all')
   const [categoriesOpen, setCategoriesOpen] = useState(true)
@@ -38,14 +41,15 @@ export default function SubscriptionPage() {
   const [accountNumber, setAccountNumber] = useState('')
   const [accountError, setAccountError] = useState('')
   const [accountSaved, setAccountSaved] = useState(false)
-  const [profile, setProfile] = useState<ProfileForm>({
-    name: owner?.name ?? '',
-    bio: owner?.bio ?? '',
-    avatar: owner?.avatar ?? '',
-    interests: ['food', 'travel'],
-  })
   const loggedIn = useSyncExternalStore(subscribeSession, getLoggedIn)
   const viewer = useViewerUser()
+  const me = useSyncExternalStore(subscribeViewer, getViewerProfile)
+  const [profile, setProfile] = useState<ProfileForm>({
+    name: '',
+    bio: '',
+    avatar: DEFAULT_AVATAR,
+    interests: ['food', 'travel'],
+  })
   const [subscriptions, setSubscriptions] = useState<MySubscriptionResponse[]>([])
   const [subscriptionsLoading, setSubscriptionsLoading] = useState(false)
   const [subscriptionsError, setSubscriptionsError] = useState<string | null>(null)
@@ -55,9 +59,25 @@ export default function SubscriptionPage() {
   const [monthlyIncome, setMonthlyIncome] = useState<number | null>(null)
   const [monthlyIncomeError, setMonthlyIncomeError] = useState<string | null>(null)
 
-  // 구독 관리: 구독자 수(/count)와 이번 달 정산 금액(/income)
   useEffect(() => {
-    if (!owner || !loggedIn) {
+    if (!loggedIn) return
+    void ensureViewerLoaded()
+  }, [loggedIn])
+
+  // /me 프로필로 요약·설정 폼을 맞춘다
+  useEffect(() => {
+    if (!me) return
+    setProfile({
+      name: me.nickname || viewer.name,
+      bio: me.introduction?.trim() || viewer.bio,
+      avatar: resolveMemberImageUrl(me.profileImage) || viewer.avatar || DEFAULT_AVATAR,
+      interests: ['food', 'travel'],
+    })
+  }, [me, viewer.avatar, viewer.bio, viewer.name])
+
+  // 구독 관리: 내 memberId 기준 /count · /income
+  useEffect(() => {
+    if (!me || !loggedIn) {
       setSubscriberCount(null)
       setMonthlyIncome(null)
       const message = loggedIn ? null : '로그인 후 정산 금액과 구독자 수를 볼 수 있습니다.'
@@ -66,7 +86,7 @@ export default function SubscriptionPage() {
       return
     }
 
-    const targetId = owner.backendId
+    const targetId = me.id
     let cancelled = false
     setSubscriberCountError(null)
     setMonthlyIncomeError(null)
@@ -101,7 +121,7 @@ export default function SubscriptionPage() {
     return () => {
       cancelled = true
     }
-  }, [loggedIn, owner])
+  }, [loggedIn, me])
 
   // GET /api/v1/subscriptions/me — 내가 구독 중인 사용자
   useEffect(() => {
@@ -167,7 +187,9 @@ export default function SubscriptionPage() {
     setAccountSaved(true)
   }
 
-  if (memberId !== 'jieun') return <Navigate to="/subscription/jieun" replace />
+  if (memberId !== 'me' && !(me != null && memberId === String(me.id))) {
+    return <Navigate to="/subscription/me" replace />
+  }
 
   return (
     <div className="page">
@@ -195,13 +217,13 @@ export default function SubscriptionPage() {
                 <p className="my-intro">{profile.bio}</p>
                 <p className="my-counts">
                   <span>
-                    팔로워 <b>{owner?.followers ?? 100}</b>
+                    팔로워 <b>—</b>
                   </span>
                   <span>
-                    팔로잉 <b>{owner?.following ?? 100}</b>
+                    팔로잉 <b>—</b>
                   </span>
                   <span>
-                    게시글 <b>{owner?.posts ?? 100}</b>
+                    게시글 <b>—</b>
                   </span>
                 </p>
               </div>
@@ -370,7 +392,11 @@ export default function SubscriptionPage() {
           user={viewer}
           categories={myPageCategories}
           onClose={() => setWriting(false)}
-          onPublish={() => setWriting(false)}
+          onPublish={async (draft: PostDraft) => {
+            await publish(draft)
+            setWriting(false)
+            navigate('/')
+          }}
         />
       )}
       {settingsOpen && (

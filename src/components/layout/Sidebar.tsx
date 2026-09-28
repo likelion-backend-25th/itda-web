@@ -130,7 +130,7 @@ export default function Sidebar({
           <span>테마 구매</span>
         </NavLink>
         <NavLink
-          to="/subscription/jieun"
+          to="/subscription/me"
           className={({ isActive }) => (isActive ? 'nav-item active' : 'nav-item')}
         >
           <SubscribeIcon />
