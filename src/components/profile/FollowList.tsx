@@ -1,6 +1,13 @@
-import { useEffect, useId, useState } from 'react'
+import { useEffect, useId, useState, type SyntheticEvent } from 'react'
 import { Link } from 'react-router'
+import { DEFAULT_AVATAR } from '@/api/member'
 import { currentUser } from '@/data/feed'
+
+function fallbackAvatar(event: SyntheticEvent<HTMLImageElement>) {
+  const img = event.currentTarget
+  if (img.getAttribute('src') === DEFAULT_AVATAR) return
+  img.src = DEFAULT_AVATAR
+}
 
 export type FollowTab = 'followers' | 'following'
 
@@ -10,6 +17,8 @@ export type FollowListItem = {
   name: string
   avatar: string
   href: string | null
+  /** false면 팔로우/언팔로우 버튼을 숨긴다 (서버 팔로우 API 미연동 항목) */
+  toggleable?: boolean
 }
 
 type FollowListProps = {
@@ -19,8 +28,10 @@ type FollowListProps = {
   followedIds: Set<string>
   onToggle: (memberId: string, next: boolean) => void
   onClose: () => void
-  loading?: boolean
-  error?: string | null
+  followersLoading?: boolean
+  followersError?: string | null
+  followingLoading?: boolean
+  followingError?: string | null
 }
 
 export default function FollowList({
@@ -30,12 +41,16 @@ export default function FollowList({
   followedIds,
   onToggle,
   onClose,
-  loading = false,
-  error = null,
+  followersLoading = false,
+  followersError = null,
+  followingLoading = false,
+  followingError = null,
 }: FollowListProps) {
   const titleId = useId()
   const [tab, setTab] = useState<FollowTab>(initialTab)
   const people = tab === 'followers' ? followers : following
+  const loading = tab === 'followers' ? followersLoading : followingLoading
+  const error = tab === 'followers' ? followersError : followingError
 
   useEffect(() => {
     function onKeyDown(event: KeyboardEvent) {
@@ -89,16 +104,16 @@ export default function FollowList({
                 <li key={member.id}>
                   {member.href ? (
                     <Link to={member.href} className="follow-person" onClick={onClose}>
-                      <img src={member.avatar} alt="" />
+                      <img src={member.avatar} alt="" onError={fallbackAvatar} />
                       <strong>{member.name}</strong>
                     </Link>
                   ) : (
                     <span className="follow-person">
-                      <img src={member.avatar} alt="" />
+                      <img src={member.avatar} alt="" onError={fallbackAvatar} />
                       <strong>{member.name}</strong>
                     </span>
                   )}
-                  {!mine && (
+                  {!mine && member.toggleable !== false && (
                     <button
                       type="button"
                       className="follow-toggle"

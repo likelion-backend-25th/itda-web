@@ -16,3 +16,10 @@ export interface FollowerResponse {
   nickname: string
   profileImage: string | null
 }
+
+/** GET /api/v1/member/{id}/followings — 해당 회원이 팔로우하는 사람 */
+export interface FollowingResponse {
+  id: number
+  nickname: string
+  profileImage: string | null
+}

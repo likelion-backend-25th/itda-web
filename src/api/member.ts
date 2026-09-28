@@ -1,30 +1,33 @@
 import { apiJson, getApiOrigin } from '@/lib/apiClient'
 import type { FeedUser } from '@/data/feed'
-import type { FollowerResponse, MemberProfileResponse } from '@/types/member'
+import type { FollowerResponse, FollowingResponse, MemberProfileResponse } from '@/types/member'
 
-const DEFAULT_AVATAR = '/images/avatar-jieun.jpg'
+export const DEFAULT_AVATAR = '/images/avatar-jieun.jpg'
 
 export function fetchMyProfile(): Promise<MemberProfileResponse> {
   return apiJson<MemberProfileResponse>('/member/me')
 }
 
-/**
- * GET /api/v1/member/{id}/followers
- * 현재 로그인한 회원을 팔로우하는 사람 목록.
- * id 없는 /member/followers 는 컨트롤러가 없어 404가 난다.
- * OpenAPI 스키마가 Id(대문자)로 올 수 있어 정규화한다.
- */
-export async function fetchMyFollowers(): Promise<FollowerResponse[]> {
-  const me = await fetchMyProfile()
-  const raw = await apiJson<unknown>(`/member/${me.id}/followers`)
+/** GET /api/v1/member/{id}/followers — 해당 회원을 팔로우하는 사람 목록 (인증 필요) */
+export async function fetchFollowers(memberId: number): Promise<FollowerResponse[]> {
+  return fetchFollowMembers(`/member/${memberId}/followers`)
+}
+
+/** GET /api/v1/member/{id}/followings — 해당 회원이 팔로우하는 사람 목록 (인증 필요) */
+export async function fetchFollowings(memberId: number): Promise<FollowingResponse[]> {
+  return fetchFollowMembers(`/member/${memberId}/followings`)
+}
+
+async function fetchFollowMembers(path: string): Promise<FollowerResponse[]> {
+  const raw = await apiJson<unknown>(path)
   if (!Array.isArray(raw)) return []
   return raw.flatMap((item) => {
-    const normalized = normalizeFollower(item)
+    const normalized = normalizeFollowMember(item)
     return normalized ? [normalized] : []
   })
 }
 
-function normalizeFollower(item: unknown): FollowerResponse | null {
+function normalizeFollowMember(item: unknown): FollowerResponse | null {
   if (typeof item !== 'object' || item === null) return null
   const record = item as Record<string, unknown>
   const idRaw = record.id ?? record.Id
