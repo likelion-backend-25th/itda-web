@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useMemo, useState, useSyncExternalStore } from 'react'
 import { Link } from 'react-router'
-import { fetchMyProfile, resolveMemberImageUrl, toFeedUser } from '@/api/member'
+import { resolveMemberImageUrl, toFeedUser } from '@/api/member'
 import { fetchOwnedThemeList } from '@/api/theme'
 import EditPostModal from '@/components/feed/EditPostModal'
 import FollowList, { type FollowTab } from '@/components/profile/FollowList'
@@ -18,7 +18,9 @@ import { applyAppTheme, getAppliedTheme, resolveAppTheme, subscribeAppTheme } fr
 import { getOwnedThemeIds, setThemeOwned, shopThemes, subscribeOwnedThemes } from '@/data/themes'
 import { getFollowingIds, setFollowing, subscribeFollows } from '@/data/follows'
 import { getLoggedIn, setLoggedIn, subscribeSession } from '@/data/session'
+import { ensureViewerLoaded, setViewerProfile } from '@/data/viewer'
 import { useMyFollows } from '@/hooks/member/useMyFollows'
+import { useViewerUser } from '@/hooks/member/useViewerUser'
 import { ApiError } from '@/lib/apiClient'
 import type { ThemeResponse } from '@/types/theme'
 import {
@@ -88,27 +90,30 @@ export default function MyPage() {
   const loggedIn = useSyncExternalStore(subscribeSession, getLoggedIn)
   const followedIds = useSyncExternalStore(subscribeFollows, getFollowingIds)
   const { followers, following } = useMyFollows(loggedIn)
-  const [profile, setProfile] = useState<ProfileForm>({
-    name: pageProfile.name,
-    bio: '카페 디저트와 여행 사진을 좋아합니다.',
-    avatar: pageProfile.avatar,
+  const cachedViewer = useViewerUser()
+  const [profile, setProfile] = useState<ProfileForm>(() => ({
+    name: cachedViewer.name || '',
+    bio: cachedViewer.bio || '',
+    avatar: cachedViewer.avatar || '',
     interests: ['food', 'travel', 'cooking', 'game'],
-  })
+  }))
   const viewer = {
-    name: profile.name,
-    handle: pageProfile.handle,
-    avatar: profile.avatar,
-    bio: `소개글 - ${profile.bio}`,
+    name: profile.name || cachedViewer.name,
+    handle: cachedViewer.handle || pageProfile.handle,
+    avatar: profile.avatar || cachedViewer.avatar,
+    bio: profile.bio ? `소개글 - ${profile.bio}` : cachedViewer.bio,
   }
 
-  // GET /member/me — 닉네임·소개·프로필 이미지
+  // GET /member/me — 캐시 공유. 있으면 즉시 반영, 없으면 한 번만 조회
   useEffect(() => {
     if (!loggedIn) return
     let cancelled = false
+
     async function loadMe() {
       try {
-        const me = await fetchMyProfile()
-        if (cancelled) return
+        const me = await ensureViewerLoaded()
+        if (cancelled || !me) return
+        setViewerProfile(me)
         const feed = toFeedUser(me)
         const avatar = resolveMemberImageUrl(me.profileImage)
         setProfile((current) => ({
@@ -117,7 +122,6 @@ export default function MyPage() {
           bio: feed.bio || current.bio,
           avatar,
         }))
-        // 목 게시글에도 내 아바타·닉네임 반영
         const patchMine = (items: MyPost[]) =>
           items.map((post) =>
             post.author === pageProfile.name || post.author === feed.name
@@ -132,6 +136,7 @@ export default function MyPage() {
         if (error instanceof ApiError && error.status === 401) setLoggedIn(false)
       }
     }
+
     void loadMe()
     return () => {
       cancelled = true

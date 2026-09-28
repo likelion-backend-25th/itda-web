@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState, useSyncExternalStore } from 'react'
-import { fetchMyProfile, resolveMemberImageUrl, toFeedUser } from '@/api/member'
+import { resolveMemberImageUrl } from '@/api/member'
 import { categoryIdForFeed, categoryIdForUpdate, categoryIdFromLabel, createPost, deletePost, fetchPostById, fetchPosts, toFeedPost, togglePostLike, togglePostScrap, updatePost, type PostFeedQuery } from '@/api/post'
 import { createReply, toFeedComment } from '@/api/reply'
 import EditPostModal from '@/components/feed/EditPostModal'
@@ -8,19 +8,13 @@ import PostCard from '@/components/feed/PostCard'
 import PostDetail from '@/components/feed/PostDetail'
 import Sidebar from '@/components/layout/Sidebar'
 import WritePostModal, { type PostDraft } from '@/components/feed/WritePostModal'
-import { categories, currentUser, type CategoryId, type FeedUser, type Post } from '@/data/feed'
+import { categories, type CategoryId, type Post } from '@/data/feed'
 import { getLoggedIn, setLoggedIn, subscribeSession } from '@/data/session'
+import { ensureViewerLoaded, getViewerProfile, subscribeViewer } from '@/data/viewer'
 import { profilePath } from '@/data/members'
+import { useViewerUser } from '@/hooks/member/useViewerUser'
 import { ApiError } from '@/lib/apiClient'
 import type { MyPost } from '@/data/mypage'
-import type { MemberProfileResponse } from '@/types/member'
-
-const guestUser: FeedUser = {
-  name: '',
-  handle: '',
-  bio: '',
-  avatar: '',
-}
 
 export default function HomePage() {
   const loggedIn = useSyncExternalStore(subscribeSession, getLoggedIn)
@@ -43,8 +37,9 @@ export default function HomePage() {
   const [writing, setWriting] = useState(false)
   const [menuId, setMenuId] = useState<string | null>(null)
   const [editingPost, setEditingPost] = useState<Post | null>(null)
-  const [profile, setProfile] = useState<MemberProfileResponse | null>(null)
   const [profileError, setProfileError] = useState('')
+  const user = useViewerUser()
+  const profile = useSyncExternalStore(subscribeViewer, getViewerProfile)
   const profileRef = useRef(profile)
   profileRef.current = profile
   const closeDetail = useCallback(() => {
@@ -53,40 +48,32 @@ export default function HomePage() {
   }, [])
   const selectedPost = posts.find((post) => post.id === selectedId) ?? null
 
-  // 로그인 후 JWT로 내 프로필(/member/me) 조회
+  // 로그인 후 내 프로필은 viewer 캐시로 공유 (페이지 이동 시 목 사용자 깜빡임 방지)
   useEffect(() => {
     if (!loggedIn) {
-      setProfile(null)
       setProfileError('')
       return
     }
 
     let cancelled = false
-    async function loadProfile() {
-      try {
-        const me = await fetchMyProfile()
+    void ensureViewerLoaded()
+      .then((me) => {
         if (cancelled) return
-        setProfile(me)
-        setProfileError('')
-      } catch (error: unknown) {
+        setProfileError(me ? '' : '프로필을 불러오지 못했습니다.')
+      })
+      .catch((error: unknown) => {
         if (cancelled) return
         const message = error instanceof Error ? error.message : '프로필을 불러오지 못했습니다.'
         setProfileError(message)
-        setProfile(null)
-        // 토큰 만료·무효면 로그아웃 처리
         if (error instanceof ApiError && error.status === 401) {
           setLoggedIn(false)
         }
-      }
-    }
+      })
 
-    void loadProfile()
     return () => {
       cancelled = true
     }
   }, [loggedIn])
-
-  const user: FeedUser = profile ? toFeedUser(profile) : loggedIn ? currentUser : guestUser
 
   // 로그인 상태가 바뀌면 구독 글 포함 여부가 달라지므로 피드를 처음부터 다시 받는다
   useEffect(() => {

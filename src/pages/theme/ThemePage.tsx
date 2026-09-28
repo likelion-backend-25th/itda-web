@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState, useSyncExternalStore, type FormEvent } from 'react'
+﻿import { useEffect, useMemo, useState, useSyncExternalStore, type FormEvent } from 'react'
 import { Link, useNavigate, useParams } from 'react-router'
 import { fetchOwnedThemeList, fetchThemeDetail, fetchThemeList } from '@/api/theme'
 import CategoryFeed from '@/components/feed/CategoryFeed'
@@ -8,7 +8,7 @@ import ThemeShot, { toneFromThemeCode } from '@/components/theme/ThemeShot'
 import WritePostModal from '@/components/feed/WritePostModal'
 import { BagIcon, CloseIcon, SearchIcon } from '@/components/icons'
 import { applyAppTheme, getAppliedTheme, resolveAppTheme, subscribeAppTheme } from '@/data/appTheme'
-import { currentUser, myPageCategories, type CategoryId } from '@/data/feed'
+import { myPageCategories, type CategoryId } from '@/data/feed'
 import {
   exampleThemes,
   formatThemePrice,
@@ -18,6 +18,7 @@ import {
   subscribeOwnedThemes,
 } from '@/data/themes'
 import { getLoggedIn, setLoggedIn, subscribeSession } from '@/data/session'
+import { useViewerUser } from '@/hooks/member/useViewerUser'
 import PaymentCompleteDialog from '@/components/payment/PaymentCompleteDialog'
 import { usePortOneCheckout } from '@/hooks/payment/usePortOneCheckout'
 import { ApiError } from '@/lib/apiClient'
@@ -56,6 +57,7 @@ export default function ThemePage() {
   const { themeId } = useParams()
   const navigate = useNavigate()
   const loggedIn = useSyncExternalStore(subscribeSession, getLoggedIn)
+  const viewer = useViewerUser()
   const applied = useSyncExternalStore(subscribeAppTheme, getAppliedTheme)
   const ownedIds = useSyncExternalStore(subscribeOwnedThemes, getOwnedThemeIds)
   const [query, setQuery] = useState('')
@@ -294,10 +296,10 @@ export default function ThemePage() {
   return (
     <div className="page">
       <div className="shell">
-        <Header query={query} user={currentUser} onQueryChange={setQuery} />
+        <Header query={query} user={viewer} onQueryChange={setQuery} />
         <div className="layout">
           <Sidebar
-            user={currentUser}
+            user={viewer}
             category={category}
             categories={myPageCategories}
             categoriesOpen={categoriesOpen}
@@ -478,7 +480,7 @@ export default function ThemePage() {
       )}
       {writing && (
         <WritePostModal
-          user={currentUser}
+          user={viewer}
           categories={myPageCategories}
           onClose={() => setWriting(false)}
           onPublish={() => setWriting(false)}

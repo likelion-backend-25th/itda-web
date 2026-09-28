@@ -8,9 +8,10 @@ import ProfileEditModal, { type ProfileForm } from '@/components/profile/Profile
 import Sidebar from '@/components/layout/Sidebar'
 import WritePostModal from '@/components/feed/WritePostModal'
 import { GearIcon } from '@/components/icons'
-import { currentUser, myPageCategories, type CategoryId } from '@/data/feed'
+import { myPageCategories, type CategoryId } from '@/data/feed'
 import { getLoggedIn, subscribeSession } from '@/data/session'
 import { memberById, members } from '@/data/members'
+import { useViewerUser } from '@/hooks/member/useViewerUser'
 import type { MySubscriptionResponse } from '@/types/subscription'
 
 type SubscriptionTab = 'users' | 'manage'
@@ -38,12 +39,13 @@ export default function SubscriptionPage() {
   const [accountError, setAccountError] = useState('')
   const [accountSaved, setAccountSaved] = useState(false)
   const [profile, setProfile] = useState<ProfileForm>({
-    name: owner?.name ?? currentUser.name,
-    bio: owner?.bio ?? currentUser.bio,
-    avatar: owner?.avatar ?? currentUser.avatar,
+    name: owner?.name ?? '',
+    bio: owner?.bio ?? '',
+    avatar: owner?.avatar ?? '',
     interests: ['food', 'travel'],
   })
   const loggedIn = useSyncExternalStore(subscribeSession, getLoggedIn)
+  const viewer = useViewerUser()
   const [subscriptions, setSubscriptions] = useState<MySubscriptionResponse[]>([])
   const [subscriptionsLoading, setSubscriptionsLoading] = useState(false)
   const [subscriptionsError, setSubscriptionsError] = useState<string | null>(null)
@@ -170,10 +172,10 @@ export default function SubscriptionPage() {
   return (
     <div className="page">
       <div className="shell">
-        <Header query={query} user={currentUser} onQueryChange={setQuery} />
+        <Header query={query} user={viewer} onQueryChange={setQuery} />
         <div className="layout">
           <Sidebar
-            user={currentUser}
+            user={viewer}
             category={category}
             categories={myPageCategories}
             categoriesOpen={categoriesOpen}
@@ -365,7 +367,7 @@ export default function SubscriptionPage() {
       </div>
       {writing && (
         <WritePostModal
-          user={currentUser}
+          user={viewer}
           categories={myPageCategories}
           onClose={() => setWriting(false)}
           onPublish={() => setWriting(false)}

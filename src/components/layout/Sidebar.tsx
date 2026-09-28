@@ -83,7 +83,10 @@ export default function Sidebar({
               event.currentTarget.src = DEFAULT_AVATAR
             }}
           />
-          <span className="profile-label">프로필</span>
+          <div className="profile-copy">
+            <strong className="profile-name">{user.name || '프로필'}</strong>
+            {user.handle ? <p className="profile-handle">{user.handle}</p> : null}
+          </div>
           <button type="button" className="write-btn" onClick={onWrite}>
             <PencilIcon />
             글쓰기

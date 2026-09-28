@@ -692,6 +692,18 @@ a.guest-auth {
   font-weight: 700;
 }
 
+.profile.studio .profile-copy {
+  margin-top: 10px;
+}
+
+.profile.studio .profile-name {
+  font-size: 15px;
+}
+
+.profile.studio .profile-handle {
+  margin-top: 2px;
+}
+
 .profile.studio .write-btn {
   margin-top: 14px;
 }
@@ -1360,9 +1372,10 @@ button.stat {
 
 .my-summary img {
   width: 112px;
-  height: 136px;
+  height: 112px;
   border-radius: 18px;
   object-fit: cover;
+  flex: 0 0 auto;
 }
 
 .my-summary h2 {

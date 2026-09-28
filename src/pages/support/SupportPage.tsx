@@ -2,10 +2,12 @@ import { useState } from 'react'
 import Header from '@/components/layout/Header'
 import Sidebar from '@/components/layout/Sidebar'
 import WritePostModal from '@/components/feed/WritePostModal'
-import { currentUser, myPageCategories, type CategoryId } from '@/data/feed'
+import { myPageCategories, type CategoryId } from '@/data/feed'
 import { refundPurchases } from '@/data/refunds'
+import { useViewerUser } from '@/hooks/member/useViewerUser'
 
 export default function SupportPage() {
+  const viewer = useViewerUser()
   const [query, setQuery] = useState('')
   const [category, setCategory] = useState<CategoryId>('all')
   const [categoriesOpen, setCategoriesOpen] = useState(true)
@@ -19,10 +21,10 @@ export default function SupportPage() {
   return (
     <div className="page">
       <div className="shell">
-        <Header query={query} user={currentUser} onQueryChange={setQuery} />
+        <Header query={query} user={viewer} onQueryChange={setQuery} />
         <div className="layout">
           <Sidebar
-            user={currentUser}
+            user={viewer}
             category={category}
             categories={myPageCategories}
             categoriesOpen={categoriesOpen}
@@ -61,7 +63,7 @@ export default function SupportPage() {
       </div>
       {writing && (
         <WritePostModal
-          user={currentUser}
+          user={viewer}
           categories={myPageCategories}
           onClose={() => setWriting(false)}
           onPublish={() => setWriting(false)}

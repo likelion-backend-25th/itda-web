@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState, useSyncExternalStore } from 'react'
+﻿import { useEffect, useMemo, useState, useSyncExternalStore } from 'react'
 import { Navigate, useNavigate, useParams } from 'react-router'
 import { fetchMemberProfile, resolveMemberImageUrl, toFeedUser } from '@/api/member'
 import { cancelSubscription, fetchSubscriptionStatus } from '@/api/subscription'
@@ -8,12 +8,13 @@ import PostDetail from '@/components/feed/PostDetail'
 import Sidebar from '@/components/layout/Sidebar'
 import WritePostModal from '@/components/feed/WritePostModal'
 import { BookmarkIcon, CommentIcon, CrownIcon, DotsIcon, EyeIcon, HeartIcon } from '@/components/icons'
-import { currentUser, formatDateTime, initialPosts, myPageCategories, type CategoryId, type Post } from '@/data/feed'
+import { formatDateTime, initialPosts, myPageCategories, type CategoryId, type Post } from '@/data/feed'
 import { getFollowingIds, memberFollowIds, setFollowing, subscribeFollows } from '@/data/follows'
 import { followListItemsFromIds, memberById, type MemberProfile } from '@/data/members'
 import { setSubscribed } from '@/data/subscriptions'
 import { getLoggedIn, setLoggedIn, subscribeSession } from '@/data/session'
 import { useMemberFollows } from '@/hooks/member/useMemberFollows'
+import { useViewerUser } from '@/hooks/member/useViewerUser'
 import { ApiError } from '@/lib/apiClient'
 
 function toMemberView(profile: {
@@ -57,6 +58,7 @@ export default function MemberPage() {
   const [subscribeBusy, setSubscribeBusy] = useState(false)
   const [subscribeError, setSubscribeError] = useState<string | null>(null)
   const loggedIn = useSyncExternalStore(subscribeSession, getLoggedIn)
+  const viewer = useViewerUser()
   const followedIds = useSyncExternalStore(subscribeFollows, getFollowingIds)
   const following = member ? followedIds.has(member.id) : false
   const network = member ? memberFollowIds(member.id) : { followers: [], following: [] }
@@ -195,7 +197,7 @@ export default function MemberPage() {
 
   const selectedPost = posts.find((post) => post.id === selectedId) ?? null
 
-  if (member?.name === currentUser.name) return <Navigate to="/mypage" replace />
+  if (member?.name === viewer.name) return <Navigate to="/mypage" replace />
 
   function toggleLike(id: string) {
     setPosts((current) =>
@@ -249,8 +251,8 @@ export default function MemberPage() {
               thread: [
                 {
                   id: `comment-${Date.now()}`,
-                  author: currentUser.name,
-                  avatar: currentUser.avatar,
+                  author: viewer.name,
+                  avatar: viewer.avatar,
                   createdAt: formatDateTime(new Date()),
                   content,
                 },
@@ -265,10 +267,10 @@ export default function MemberPage() {
   return (
     <div className="page">
       <div className="shell">
-        <Header query={query} user={currentUser} onQueryChange={setQuery} />
+        <Header query={query} user={viewer} onQueryChange={setQuery} />
         <div className="layout">
           <Sidebar
-            user={currentUser}
+            user={viewer}
             category={category}
             categories={myPageCategories}
             categoriesOpen={categoriesOpen}
@@ -442,7 +444,7 @@ export default function MemberPage() {
       )}
       {writing && (
         <WritePostModal
-          user={currentUser}
+          user={viewer}
           categories={myPageCategories}
           onClose={() => setWriting(false)}
           onPublish={() => setWriting(false)}
@@ -451,7 +453,7 @@ export default function MemberPage() {
       {selectedPost && (
         <PostDetail
           post={selectedPost}
-          user={currentUser}
+          user={viewer}
           onClose={() => setSelectedId(null)}
           onToggleLike={toggleLike}
           onToggleBookmark={toggleBookmark}
