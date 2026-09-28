@@ -1,6 +1,6 @@
 import { useCallback, useState } from 'react'
 import { useNavigate } from 'react-router'
-import { preparePayment } from '@/api/payment'
+import { completePayment, preparePayment } from '@/api/payment'
 import { getLoggedIn } from '@/data/session'
 import { openPortOneCheckout } from '@/lib/portone'
 import type { PaymentType } from '@/types/payment'
@@ -17,9 +17,12 @@ export type CheckoutReceipt = {
   amount: number
 }
 
+export type CheckoutPhase = 'idle' | 'window' | 'confirm'
+
 export function usePortOneCheckout() {
   const navigate = useNavigate()
   const [busy, setBusy] = useState(false)
+  const [phase, setPhase] = useState<CheckoutPhase>('idle')
   const [error, setError] = useState('')
   const [receipt, setReceipt] = useState<CheckoutReceipt | null>(null)
 
@@ -36,6 +39,7 @@ export function usePortOneCheckout() {
       }
 
       setBusy(true)
+      setPhase('window')
       setError('')
       try {
         const prepared = await preparePayment({
@@ -51,10 +55,13 @@ export function usePortOneCheckout() {
           setError(result.message)
           return null
         }
+        // 결제창 성공만으로는 서버에 기록되지 않는다. complete 가 completePayment()를 실행한다
+        setPhase('confirm')
+        const completed = await completePayment({ paymentId: result.paymentId })
         setReceipt({
-          paymentId: result.paymentId,
+          paymentId: completed.paymentId || result.paymentId,
           orderName: input.orderName,
-          amount: prepared.amount,
+          amount: typeof completed.amount === 'number' ? completed.amount : prepared.amount,
         })
         return result
       } catch (caught: unknown) {
@@ -63,10 +70,11 @@ export function usePortOneCheckout() {
         return null
       } finally {
         setBusy(false)
+        setPhase('idle')
       }
     },
     [navigate],
   )
 
-  return { startCheckout, busy, error, receipt, reset }
+  return { startCheckout, busy, phase, error, receipt, reset }
 }

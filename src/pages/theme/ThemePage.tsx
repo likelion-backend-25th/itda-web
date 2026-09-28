@@ -74,6 +74,7 @@ export default function ThemePage() {
   const [detailLoading, setDetailLoading] = useState(false)
   const [detailError, setDetailError] = useState('')
   const { startCheckout, busy, error, receipt, reset } = usePortOneCheckout()
+  const { startCheckout, busy, phase, error, receipt, reset } = usePortOneCheckout()
 
   // GET /themes — 판매 목록
   useEffect(() => {
@@ -453,7 +454,7 @@ export default function ThemePage() {
                         onClick={() => handlePurchase(selected)}
                       >
                         <BagIcon />
-                        {busy ? '결제창 여는 중…' : '구매'}
+                        {busy ? (phase === 'confirm' ? '결제 확인 중…' : '결제창 여는 중…') : '구매'}
                       </button>
                       {(loginHint || error) && (
                         <p className="shop-pay-error" role="alert">
