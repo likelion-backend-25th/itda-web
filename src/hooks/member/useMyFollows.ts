@@ -22,7 +22,7 @@ function toFollowListItem(member: FollowerResponse | FollowingResponse): FollowL
     id: String(member.id),
     name: member.nickname,
     avatar: resolveMemberImageUrl(member.profileImage),
-    href: null,
+    href: `/member/${member.id}`,
     // 팔로우 등록/취소 API가 아직 없어 버튼을 숨긴다
     toggleable: false,
   }

@@ -1,5 +1,6 @@
-import type { MouseEvent } from 'react'
+﻿import type { MouseEvent } from 'react'
 import { Link } from 'react-router'
+import { DEFAULT_AVATAR } from '@/api/member'
 import type { Post } from '@/data/feed'
 import { BookmarkIcon, CommentIcon, DotsIcon, EyeIcon, HeartIcon } from '@/components/icons'
 
@@ -40,7 +41,13 @@ export default function PostCard({
       <header className="post-head">
         {profileHref ? (
           <Link to={profileHref} className="author" onClick={keepOnCard}>
-            <img src={post.avatar} alt="" />
+            <img
+              src={post.avatar}
+              alt=""
+              onError={(event) => {
+                event.currentTarget.src = DEFAULT_AVATAR
+              }}
+            />
             <div>
               <div className="author-name">
                 <strong>{post.author}</strong>
@@ -55,7 +62,13 @@ export default function PostCard({
           </Link>
         ) : (
           <div className="author">
-            <img src={post.avatar} alt="" />
+            <img
+              src={post.avatar}
+              alt=""
+              onError={(event) => {
+                event.currentTarget.src = DEFAULT_AVATAR
+              }}
+            />
             <div>
               <div className="author-name">
                 <strong>{post.author}</strong>

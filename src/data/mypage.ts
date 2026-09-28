@@ -1,4 +1,4 @@
-import type { ThemeTone } from '@/components/theme/ThemeShot'
+﻿import type { ThemeTone } from '@/components/theme/ThemeShot'
 import type { Comment, FeedImage, PostCategory } from './feed'
 
 export type PostVisibility = 'public' | 'subscribers'
@@ -43,7 +43,7 @@ export const myPosts: MyPost[] = [
   {
     id: 'my-jeju',
     author: '지은',
-    avatar: '/images/avatar-jieun.jpg',
+    avatar: '/images/avatar-default.svg',
     intro,
     category: 'travel',
     categoryLabel: '여행',
@@ -62,7 +62,7 @@ export const myPosts: MyPost[] = [
       {
         id: 'my-jeju-1',
         author: '민수',
-        avatar: '/images/avatar-minsu.jpg',
+        avatar: '/images/avatar-default.svg',
         createdAt: '2024. 03. 16. 13:05',
         content: '사진만 봐도 바람이 느껴져요. 다음에 같이 가요!',
       },
@@ -71,7 +71,7 @@ export const myPosts: MyPost[] = [
   {
     id: 'my-cafe',
     author: '지은',
-    avatar: '/images/avatar-jieun.jpg',
+    avatar: '/images/avatar-default.svg',
     intro,
     category: 'cooking',
     categoryLabel: '요리',
@@ -86,7 +86,7 @@ export const myPosts: MyPost[] = [
       {
         id: 'my-cafe-1',
         author: '하늘',
-        avatar: '/images/avatar-haneul.jpg',
+        avatar: '/images/avatar-default.svg',
         createdAt: '2024. 03. 15. 18:02',
         content: '홈카페 분위기 너무 좋아요. 레시피도 궁금해요!',
       },
@@ -98,7 +98,7 @@ export const likedPosts: MyPost[] = [
   {
     id: 'liked-workout',
     author: '민수',
-    avatar: '/images/avatar-minsu.jpg',
+    avatar: '/images/avatar-default.svg',
     intro: '소개글 : 오늘도 운동 완료.',
     category: 'workout',
     categoryLabel: '운동',
@@ -114,7 +114,7 @@ export const likedPosts: MyPost[] = [
       {
         id: 'liked-workout-1',
         author: '하늘',
-        avatar: '/images/avatar-haneul.jpg',
+        avatar: '/images/avatar-default.svg',
         createdAt: '2024. 03. 16. 09:40',
         content: '꾸준함이 정말 멋있어요. 오늘도 화이팅!',
       },
@@ -126,7 +126,7 @@ export const scrappedPosts: MyPost[] = [
   {
     id: 'scrap-cafe',
     author: '하늘',
-    avatar: '/images/avatar-haneul.jpg',
+    avatar: '/images/avatar-default.svg',
     intro: '소개글 : 주말엔 카페 탐방.',
     category: 'food',
     categoryLabel: '맛집',
@@ -142,7 +142,7 @@ export const scrappedPosts: MyPost[] = [
       {
         id: 'scrap-cafe-1',
         author: '민서',
-        avatar: '/images/avatar-minseo.jpg',
+        avatar: '/images/avatar-default.svg',
         createdAt: '2024. 03. 15. 19:10',
         content: '주말에 가보고 싶어요. 자리 여유로워요?',
       },
@@ -154,5 +154,5 @@ export const pageProfile = {
   name: '하늘님',
   handle: '@haneul',
   bio: '소개글 - 카페 디저트와 사진을 좋아합니다.',
-  avatar: '/images/avatar-minseo.jpg',
+  avatar: '/images/avatar-default.svg',
 }

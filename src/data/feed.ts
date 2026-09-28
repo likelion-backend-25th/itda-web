@@ -1,4 +1,4 @@
-export type CategoryId =
+﻿export type CategoryId =
   | 'all'
   | 'food'
   | 'travel'
@@ -96,14 +96,14 @@ export const currentUser: FeedUser = {
   name: '지은',
   handle: '@jieun',
   bio: '오늘도 좋은 하루,\n좋은 사람들과 💙',
-  avatar: '/images/avatar-jieun.jpg',
+  avatar: '/images/avatar-default.svg',
 }
 
 export const initialPosts: Post[] = [
   {
     id: 'jeju',
     author: '지은',
-    avatar: '/images/avatar-jieun.jpg',
+    avatar: '/images/avatar-default.svg',
     time: '2시간 전',
     category: 'travel',
     categoryLabel: '여행',
@@ -125,7 +125,7 @@ export const initialPosts: Post[] = [
       {
         id: 'jeju-1',
         author: '민수',
-        avatar: '/images/avatar-minsu.jpg',
+        avatar: '/images/avatar-default.svg',
         createdAt: '2024. 03. 16. 13:05',
         content: '사진만 봐도 바람이 느껴져요. 다음에 같이 가요!',
       },
@@ -134,7 +134,7 @@ export const initialPosts: Post[] = [
   {
     id: 'workout',
     author: '민수',
-    avatar: '/images/avatar-minsu.jpg',
+    avatar: '/images/avatar-default.svg',
     time: '5시간 전',
     category: 'workout',
     categoryLabel: '운동',
@@ -151,7 +151,7 @@ export const initialPosts: Post[] = [
       {
         id: 'workout-1',
         author: '하늘',
-        avatar: '/images/avatar-haneul.jpg',
+        avatar: '/images/avatar-default.svg',
         createdAt: '2024. 03. 16. 09:40',
         content: '꾸준함이 정말 멋있어요. 오늘도 화이팅!',
       },
@@ -160,7 +160,7 @@ export const initialPosts: Post[] = [
   {
     id: 'cafe',
     author: '하늘',
-    avatar: '/images/avatar-haneul.jpg',
+    avatar: '/images/avatar-default.svg',
     time: '1일 전',
     category: 'food',
     categoryLabel: '맛집',
@@ -177,7 +177,7 @@ export const initialPosts: Post[] = [
       {
         id: 'cafe-1',
         author: '도현',
-        avatar: '/images/avatar-dohyun.jpg',
+        avatar: '/images/avatar-default.svg',
         createdAt: '2024. 03. 15. 18:12',
         content: '서촌 카페 리스트에 추가해 둘게요.',
       },
@@ -186,7 +186,7 @@ export const initialPosts: Post[] = [
   {
     id: 'cake',
     author: '민서',
-    avatar: '/images/avatar-minseo.jpg',
+    avatar: '/images/avatar-default.svg',
     time: '3일 전',
     category: 'cooking',
     categoryLabel: '요리',
@@ -205,7 +205,7 @@ export const initialPosts: Post[] = [
       {
         id: 'cake-1',
         author: '하늘냥',
-        avatar: '/images/avatar-cat.jpg',
+        avatar: '/images/avatar-default.svg',
         createdAt: '2024. 03. 14. 16:27',
         content:
           '와 정말 맛있어 보여요! 🍓\n어디 카페인지 궁금하네요. 다음에 꼭 가보고 싶어요!',
@@ -215,7 +215,7 @@ export const initialPosts: Post[] = [
   {
     id: 'book',
     author: '도현',
-    avatar: '/images/avatar-dohyun.jpg',
+    avatar: '/images/avatar-default.svg',
     time: '1일 전',
     category: 'reading',
     categoryLabel: '독서',
@@ -232,7 +232,7 @@ export const initialPosts: Post[] = [
       {
         id: 'book-1',
         author: '지은',
-        avatar: '/images/avatar-jieun.jpg',
+        avatar: '/images/avatar-default.svg',
         createdAt: '2024. 03. 15. 10:18',
         content: '요즘은 에세이를 읽고 있어요. 추천해 주세요!',
       },
@@ -241,7 +241,7 @@ export const initialPosts: Post[] = [
   {
     id: 'minsu-sub',
     author: '민수',
-    avatar: '/images/avatar-minsu.jpg',
+    avatar: '/images/avatar-default.svg',
     time: '3시간 전',
     category: 'workout',
     categoryLabel: '운동',
@@ -259,7 +259,7 @@ export const initialPosts: Post[] = [
   {
     id: 'haneul-sub',
     author: '하늘',
-    avatar: '/images/avatar-haneul.jpg',
+    avatar: '/images/avatar-default.svg',
     time: '6시간 전',
     category: 'food',
     categoryLabel: '맛집',
@@ -277,7 +277,7 @@ export const initialPosts: Post[] = [
   {
     id: 'minseo-sub',
     author: '민서',
-    avatar: '/images/avatar-minseo.jpg',
+    avatar: '/images/avatar-default.svg',
     time: '1일 전',
     category: 'cooking',
     categoryLabel: '요리',
@@ -295,7 +295,7 @@ export const initialPosts: Post[] = [
   {
     id: 'dohyun-sub',
     author: '도현',
-    avatar: '/images/avatar-dohyun.jpg',
+    avatar: '/images/avatar-default.svg',
     time: '2일 전',
     category: 'reading',
     categoryLabel: '독서',

@@ -1,5 +1,7 @@
 import { useCallback, useEffect, useMemo, useState, useSyncExternalStore } from 'react'
 import { Link } from 'react-router'
+import { fetchMyProfile, resolveMemberImageUrl, toFeedUser } from '@/api/member'
+import { fetchOwnedThemeList } from '@/api/theme'
 import EditPostModal from '@/components/feed/EditPostModal'
 import FollowList, { type FollowTab } from '@/components/profile/FollowList'
 import WritePostModal, { type PostDraft } from '@/components/feed/WritePostModal'
@@ -9,14 +11,16 @@ import PostDetail from '@/components/feed/PostDetail'
 import Sidebar from '@/components/layout/Sidebar'
 import ThemeDetail from '@/components/theme/ThemeDetail'
 import ProfileEditModal, { type ProfileForm } from '@/components/profile/ProfileEditModal'
-import ThemeShot from '@/components/theme/ThemeShot'
+import ThemeShot, { toneFromThemeCode } from '@/components/theme/ThemeShot'
 import { GearIcon, HeadsetIcon } from '@/components/icons'
 import { formatDateTime, myPageCategories, type CategoryId, type Post } from '@/data/feed'
 import { applyAppTheme, getAppliedTheme, resolveAppTheme, subscribeAppTheme } from '@/data/appTheme'
-import { getOwnedThemeIds, shopThemes, subscribeOwnedThemes } from '@/data/themes'
+import { getOwnedThemeIds, setThemeOwned, shopThemes, subscribeOwnedThemes } from '@/data/themes'
 import { getFollowingIds, setFollowing, subscribeFollows } from '@/data/follows'
-import { getLoggedIn, subscribeSession } from '@/data/session'
+import { getLoggedIn, setLoggedIn, subscribeSession } from '@/data/session'
 import { useMyFollows } from '@/hooks/member/useMyFollows'
+import { ApiError } from '@/lib/apiClient'
+import type { ThemeResponse } from '@/types/theme'
 import {
   likedPosts,
   myPosts,
@@ -40,6 +44,20 @@ function purchasedThemes(ids: ReadonlySet<string>): OwnedTheme[] {
       tone: theme.tone,
       active: false,
     }))
+}
+
+function ownedFromApi(themes: ThemeResponse[], appliedId: number | null): OwnedTheme[] {
+  return themes.map((theme) => {
+    const tone = toneFromThemeCode(theme.themeCode)
+    return {
+      id: resolveAppTheme(theme.themeCode),
+      name: theme.themeName,
+      title: theme.themeName,
+      subtitle: theme.themeCode,
+      tone,
+      active: appliedId != null ? theme.id === appliedId : theme.isApplied,
+    }
+  })
 }
 
 const tabCopy: Record<Exclude<MyTab, 'themes'>, string> = {
@@ -82,6 +100,72 @@ export default function MyPage() {
     avatar: profile.avatar,
     bio: `소개글 - ${profile.bio}`,
   }
+
+  // GET /member/me — 닉네임·소개·프로필 이미지
+  useEffect(() => {
+    if (!loggedIn) return
+    let cancelled = false
+    async function loadMe() {
+      try {
+        const me = await fetchMyProfile()
+        if (cancelled) return
+        const feed = toFeedUser(me)
+        const avatar = resolveMemberImageUrl(me.profileImage)
+        setProfile((current) => ({
+          ...current,
+          name: feed.name,
+          bio: feed.bio || current.bio,
+          avatar,
+        }))
+        // 목 게시글에도 내 아바타·닉네임 반영
+        const patchMine = (items: MyPost[]) =>
+          items.map((post) =>
+            post.author === pageProfile.name || post.author === feed.name
+              ? { ...post, author: feed.name, avatar }
+              : post,
+          )
+        setPosts((current) => patchMine(current))
+        setLiked((current) => patchMine(current))
+        setScraps((current) => patchMine(current))
+      } catch (error: unknown) {
+        if (cancelled) return
+        if (error instanceof ApiError && error.status === 401) setLoggedIn(false)
+      }
+    }
+    void loadMe()
+    return () => {
+      cancelled = true
+    }
+  }, [loggedIn])
+
+  // GET /themes/owned — 마이페이지 보유 테마
+  useEffect(() => {
+    if (!loggedIn) return
+    let cancelled = false
+    async function loadOwned() {
+      try {
+        const result = await fetchOwnedThemeList(1, 50)
+        if (cancelled) return
+        for (const theme of result.content) {
+          setThemeOwned(resolveAppTheme(theme.themeCode))
+          if (theme.isApplied) applyAppTheme(theme.themeCode, theme.id)
+        }
+        setThemes((current) => {
+          const fromApi = ownedFromApi(result.content, applied.themeId)
+          if (fromApi.length === 0) return current
+          const byId = new Map(current.map((theme) => [theme.id, theme]))
+          for (const theme of fromApi) byId.set(theme.id, theme)
+          return [...byId.values()]
+        })
+      } catch {
+        // 로컬 보유 목록으로 폴백
+      }
+    }
+    void loadOwned()
+    return () => {
+      cancelled = true
+    }
+  }, [applied.themeId, loggedIn])
 
   useEffect(() => {
     setThemes((current) => {

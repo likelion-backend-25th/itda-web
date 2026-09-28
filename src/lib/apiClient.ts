@@ -127,7 +127,7 @@ export async function apiFetch(path: string, options: ApiFetchOptions = {}): Pro
     }
   }
 
-  if (rest.body !== undefined && !headers.has('Content-Type')) {
+  if (rest.body !== undefined && !headers.has('Content-Type') && !(rest.body instanceof FormData)) {
     headers.set('Content-Type', 'application/json')
   }
 

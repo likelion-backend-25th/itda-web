@@ -1,4 +1,4 @@
-import { useEffect, useId, useRef } from 'react'
+﻿import { useEffect, useId, useRef } from 'react'
 import { createPortal } from 'react-dom'
 import type { ThemeTone } from './ThemeShot'
 import type { OwnedTheme } from '@/data/mypage'
@@ -13,10 +13,10 @@ const previewPhotos = [
 ]
 
 const people = [
-  { name: '여행하는지은', handle: '@jieun_travel', avatar: '/images/avatar-jieun.jpg' },
-  { name: '김라떼', handle: '@latte_daily', avatar: '/images/avatar-haneul.jpg' },
-  { name: '오늘도작은행복', handle: '@happy_day2', avatar: '/images/avatar-minsu.jpg' },
-  { name: '풍경수집가', handle: '@scenery_pic', avatar: '/images/avatar-dohyun.jpg' },
+  { name: '여행하는지은', handle: '@jieun_travel', avatar: '/images/avatar-default.svg' },
+  { name: '김라떼', handle: '@latte_daily', avatar: '/images/avatar-default.svg' },
+  { name: '오늘도작은행복', handle: '@happy_day2', avatar: '/images/avatar-default.svg' },
+  { name: '풍경수집가', handle: '@scenery_pic', avatar: '/images/avatar-default.svg' },
 ]
 
 type ThemeDetailProps = {

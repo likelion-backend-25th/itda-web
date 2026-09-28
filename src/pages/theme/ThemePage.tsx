@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState, useSyncExternalStore, type FormEvent } from 'react'
 import { Link, useNavigate, useParams } from 'react-router'
-import { fetchThemeList } from '@/api/theme'
+import { fetchOwnedThemeList, fetchThemeDetail, fetchThemeList } from '@/api/theme'
 import CategoryFeed from '@/components/feed/CategoryFeed'
 import Header from '@/components/layout/Header'
 import Sidebar from '@/components/layout/Sidebar'
@@ -21,7 +21,7 @@ import { getLoggedIn, setLoggedIn, subscribeSession } from '@/data/session'
 import PaymentCompleteDialog from '@/components/payment/PaymentCompleteDialog'
 import { usePortOneCheckout } from '@/hooks/payment/usePortOneCheckout'
 import { ApiError } from '@/lib/apiClient'
-import type { ThemeResponse } from '@/types/theme'
+import type { ThemeDetailResponse, ThemeResponse } from '@/types/theme'
 
 const PAGE_SIZE = 6
 
@@ -38,6 +38,18 @@ function presentTheme(
       ? theme.id === appliedId
       : isOwned && palette === appliedPalette && appliedPalette !== 'light'
   return { ...theme, isOwned, isApplied }
+}
+
+function presentDetail(
+  theme: ThemeDetailResponse,
+  ownedIds: ReadonlySet<string>,
+  appliedId: number | null,
+  appliedPalette: string,
+): ThemeDetailResponse {
+  return {
+    ...theme,
+    ...presentTheme(theme, ownedIds, appliedId, appliedPalette),
+  }
 }
 
 export default function ThemePage() {
@@ -58,17 +70,12 @@ export default function ThemePage() {
   const [loading, setLoading] = useState(false)
   const [listError, setListError] = useState('')
   const [loginHint, setLoginHint] = useState('')
+  const [detail, setDetail] = useState<ThemeDetailResponse | null>(null)
+  const [detailLoading, setDetailLoading] = useState(false)
+  const [detailError, setDetailError] = useState('')
   const { startCheckout, busy, phase, error, receipt, reset } = usePortOneCheckout()
 
-  // 페이지별 로드한 테마를 모아 상세(/theme/:id)에서 찾는다
-  const [themeCache, setThemeCache] = useState<Record<string, ThemeResponse>>({})
-
-  // 로그인/로그아웃 시 보유·적용 플래그가 바뀌므로 캐시 초기화
-  useEffect(() => {
-    setThemeCache({})
-  }, [loggedIn])
-
-  // 로그인 여부가 바뀌면 보유/적용 플래그가 달라지므로 목록을 다시 받는다
+  // GET /themes — 판매 목록
   useEffect(() => {
     let cancelled = false
     async function loadThemes() {
@@ -79,13 +86,6 @@ export default function ThemePage() {
         if (cancelled) return
         setThemes(result.content)
         setTotalPages(Math.max(1, result.totalPages))
-        setThemeCache((prev) => {
-          const next = { ...prev }
-          for (const theme of result.content) {
-            next[String(theme.id)] = theme
-          }
-          return next
-        })
       } catch (caught: unknown) {
         if (cancelled) return
         const message = caught instanceof Error ? caught.message : '테마 목록을 불러오지 못했습니다.'
@@ -105,11 +105,99 @@ export default function ThemePage() {
     }
   }, [loggedIn, page])
 
+  // GET /themes/owned — 보유 테마로 로컬 owned/적용 상태 동기화
+  useEffect(() => {
+    if (!loggedIn) return
+    let cancelled = false
+
+    async function loadOwned() {
+      try {
+        const result = await fetchOwnedThemeList(1, 50)
+        if (cancelled) return
+        for (const theme of result.content) {
+          setThemeOwned(resolveAppTheme(theme.themeCode))
+          if (theme.isApplied) applyAppTheme(theme.themeCode, theme.id)
+        }
+        // 목록 카드의 isOwned/isApplied도 서버 값으로 보강
+        setThemes((current) =>
+          current.map((item) => {
+            const owned = result.content.find((theme) => theme.id === item.id)
+            if (!owned) return item
+            return {
+              ...item,
+              isOwned: true,
+              isApplied: owned.isApplied,
+              themeCode: owned.themeCode || item.themeCode,
+            }
+          }),
+        )
+      } catch {
+        // 보유 목록 실패는 상점 목록을 막지 않는다
+      }
+    }
+
+    void loadOwned()
+    return () => {
+      cancelled = true
+    }
+  }, [loggedIn])
+
+  // GET /themes/{themeId} — 상세 모달
+  useEffect(() => {
+    if (!themeId) {
+      setDetail(null)
+      setDetailError('')
+      setDetailLoading(false)
+      return
+    }
+
+    const id = Number(themeId)
+    if (!Number.isInteger(id) || id <= 0) {
+      // 예시 테마(음수 id)는 로컬 카탈로그만 사용
+      if (isExampleThemeId(id)) {
+        setDetail(null)
+        setDetailError('')
+        setDetailLoading(false)
+        return
+      }
+      setDetail(null)
+      setDetailError('잘못된 테마입니다.')
+      setDetailLoading(false)
+      return
+    }
+
+    let cancelled = false
+    async function loadDetail() {
+      setDetailLoading(true)
+      setDetailError('')
+      try {
+        const result = await fetchThemeDetail(id)
+        if (cancelled) return
+        setDetail(result)
+        if (result.isApplied) applyAppTheme(result.themeCode, result.id)
+        if (result.isOwned) setThemeOwned(resolveAppTheme(result.themeCode))
+      } catch (caught: unknown) {
+        if (cancelled) return
+        setDetail(null)
+        setDetailError(caught instanceof Error ? caught.message : '테마 상세를 불러오지 못했습니다.')
+        if (caught instanceof ApiError && caught.status === 401 && loggedIn) {
+          setLoggedIn(false)
+        }
+      } finally {
+        if (!cancelled) setDetailLoading(false)
+      }
+    }
+
+    void loadDetail()
+    return () => {
+      cancelled = true
+    }
+  }, [themeId, loggedIn])
+
   useEffect(() => {
     if (page > totalPages) setPage(totalPages)
   }, [page, totalPages])
 
-  // 서버에 같은 코드가 없으면 예시 3종을 앞에 붙인다. 목록이 비면 예시만 보여 준다
   const usingExamples = !loading && themes.length === 0
   const catalog = useMemo(() => {
     const extras =
@@ -129,25 +217,26 @@ export default function ThemePage() {
     return catalog.filter((theme) => theme.themeName.toLowerCase().includes(text))
   }, [catalog, keyword])
 
-  // 검색은 현재 페이지 content만 필터 (서버 검색 API 없음)
   const visible = matched
   const currentPage = Math.min(page, totalPages)
-  const cached = themeId ? themeCache[themeId] : undefined
-  const selected = themeId
-    ? (catalog.find((theme) => String(theme.id) === themeId) ??
-      (cached ? presentTheme(cached, ownedIds, applied.themeId, applied.palette) : undefined))
-    : undefined
+
+  const selected = useMemo(() => {
+    if (!themeId) return undefined
+    if (detail && String(detail.id) === themeId) {
+      return presentDetail(detail, ownedIds, applied.themeId, applied.palette)
+    }
+    return catalog.find((theme) => String(theme.id) === themeId)
+  }, [applied.palette, applied.themeId, catalog, detail, ownedIds, themeId])
 
   useEffect(() => {
     reset()
     setLoginHint('')
   }, [themeId, reset])
 
-  // 서버가 이미 적용 중이라고 알려 주면 화면 팔레트도 맞춘다
   useEffect(() => {
-    const serverApplied = themes.find((theme) => theme.isApplied)
+    const serverApplied = themes.find((theme) => theme.isApplied) ?? (detail?.isApplied ? detail : undefined)
     if (serverApplied) applyAppTheme(serverApplied.themeCode, serverApplied.id)
-  }, [themes])
+  }, [detail, themes])
 
   useEffect(() => {
     if (!themeId || receipt) return
@@ -173,22 +262,18 @@ export default function ThemePage() {
         isApplied: item.id === theme.id,
       })),
     )
-    setThemeCache((prev) => {
-      const next: Record<string, ThemeResponse> = {}
-      for (const [key, item] of Object.entries(prev)) {
-        next[key] = {
-          ...item,
-          isOwned: item.id === theme.id ? true : item.isOwned,
-          isApplied: item.id === theme.id,
-        }
-      }
-      next[String(theme.id)] = { ...theme, isOwned: true, isApplied: true }
-      return next
-    })
+    setDetail((current) =>
+      current
+        ? {
+            ...current,
+            isOwned: current.id === theme.id ? true : current.isOwned,
+            isApplied: current.id === theme.id,
+          }
+        : current,
+    )
   }
 
   async function handlePurchase(theme: ThemeResponse) {
-    // 예시 테마는 결제 없이 바로 입힌다. 상점 테마는 결제 성공 뒤에 입힌다
     if (isExampleThemeId(theme.id)) {
       grantAndApply(theme)
       return
@@ -262,46 +347,52 @@ export default function ThemePage() {
                         />
                         <span className="shop-card-foot">
                           <strong>{theme.themeName}</strong>
-                          <em>{theme.isApplied ? '적용 중' : theme.isOwned ? '보유 중' : formatThemePrice(theme.price)}</em>
+                          <em>
+                            {theme.isApplied
+                              ? '적용 중'
+                              : theme.isOwned
+                                ? '보유 중'
+                                : formatThemePrice(theme.price)}
+                          </em>
                         </span>
                       </Link>
                     ))}
                   </div>
                 )}
                 {!usingExamples && (
-                <nav className="shop-pages" aria-label="테마 목록 페이지">
-                  <button
-                    type="button"
-                    aria-label="이전 페이지"
-                    disabled={currentPage === 1 || loading}
-                    onClick={() => setPage(currentPage - 1)}
-                  >
-                    ‹
-                  </button>
-                  {Array.from({ length: totalPages }, (_, index) => {
-                    const number = index + 1
-                    return (
-                      <button
-                        key={number}
-                        type="button"
-                        className={number === currentPage ? 'on' : undefined}
-                        aria-current={number === currentPage ? 'page' : undefined}
-                        disabled={loading}
-                        onClick={() => setPage(number)}
-                      >
-                        {number}
-                      </button>
-                    )
-                  })}
-                  <button
-                    type="button"
-                    aria-label="다음 페이지"
-                    disabled={currentPage === totalPages || loading}
-                    onClick={() => setPage(currentPage + 1)}
-                  >
-                    ›
-                  </button>
-                </nav>
+                  <nav className="shop-pages" aria-label="테마 목록 페이지">
+                    <button
+                      type="button"
+                      aria-label="이전 페이지"
+                      disabled={currentPage === 1 || loading}
+                      onClick={() => setPage(currentPage - 1)}
+                    >
+                      ‹
+                    </button>
+                    {Array.from({ length: totalPages }, (_, index) => {
+                      const number = index + 1
+                      return (
+                        <button
+                          key={number}
+                          type="button"
+                          className={number === currentPage ? 'on' : undefined}
+                          aria-current={number === currentPage ? 'page' : undefined}
+                          disabled={loading}
+                          onClick={() => setPage(number)}
+                        >
+                          {number}
+                        </button>
+                      )
+                    })}
+                    <button
+                      type="button"
+                      aria-label="다음 페이지"
+                      disabled={currentPage === totalPages || loading}
+                      onClick={() => setPage(currentPage + 1)}
+                    >
+                      ›
+                    </button>
+                  </nav>
                 )}
               </>
             )}
@@ -320,8 +411,10 @@ export default function ThemePage() {
             <button type="button" className="detail-close" aria-label="닫기" onClick={() => navigate('/theme')}>
               <CloseIcon />
             </button>
-            {!selected ? (
-              <p className="shop-missing">테마를 찾을 수 없습니다.</p>
+            {detailLoading && !selected ? (
+              <p className="shop-missing">테마를 불러오는 중…</p>
+            ) : !selected ? (
+              <p className="shop-missing">{detailError || '테마를 찾을 수 없습니다.'}</p>
             ) : (
               <>
                 <div className="shop-preview">
@@ -336,6 +429,9 @@ export default function ThemePage() {
                 </div>
                 <div className="shop-detail-copy">
                   <h2>{selected.themeName}</h2>
+                  {detail?.id === selected.id && detail.description ? (
+                    <p className="shop-detail-desc">{detail.description}</p>
+                  ) : null}
                   <p>테마 코드: {selected.themeCode}</p>
                   {isExampleThemeId(selected.id) && <p>예시 테마는 결제 없이 바로 적용됩니다.</p>}
                   {selected.isApplied && <p className="shop-applied">현재 적용 중인 테마입니다.</p>}

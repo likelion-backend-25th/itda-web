@@ -18,6 +18,20 @@ import {
   UserIcon,
 } from '@/components/icons'
 
+/** UI 관심사 → 백엔드 interestCategoryIds */
+const INTEREST_CATEGORY_ID: Record<InterestId, number> = {
+  food: 1,
+  travel: 2,
+  workout: 3,
+  reading: 8,
+  cooking: 10,
+  music: 9,
+  craft: 11,
+  drawing: 13,
+  game: 4,
+  etc: 14,
+}
+
 const interests: { id: InterestId; label: string; Icon: ComponentType }[] = [
   { id: 'food', label: '맛집', Icon: ForkKnifeIcon },
   { id: 'travel', label: '여행', Icon: FlightIcon },
@@ -39,12 +53,14 @@ export default function RegisterPage() {
   const [interest, setInterest] = useState<InterestId | null>(null)
   const [error, setError] = useState('')
   const [preview, setPreview] = useState('')
+  const [profileFile, setProfileFile] = useState<File | null>(null)
   const [loading, setLoading] = useState(false)
 
   function pickImage(event: ChangeEvent<HTMLInputElement>) {
     const file = event.target.files?.[0]
     event.target.value = ''
     if (!file || !file.type.startsWith('image/')) return
+    setProfileFile(file)
     const reader = new FileReader()
     reader.onload = () => {
       if (typeof reader.result === 'string') setPreview(reader.result)
@@ -77,17 +93,26 @@ export default function RegisterPage() {
       return
     }
 
-    // 마지막 단계: 회원가입 API → 바로 로그인
+    if (!interest) {
+      setError('관심사를 하나 선택해 주세요.')
+      return
+    }
+
+    // multipart: request(JSON) + profileImage(파일?) → 201 후 로그인
     setLoading(true)
     setError('')
     try {
-      const account = {
-        email: email.trim(),
-        password,
-        nickname: nickname.trim(),
-      }
-      await signup(account)
-      const tokens = await login({ email: account.email, password: account.password })
+      const trimmedEmail = email.trim()
+      await signup({
+        request: {
+          email: trimmedEmail,
+          password,
+          nickname: nickname.trim(),
+          interestCategoryIds: [INTEREST_CATEGORY_ID[interest]],
+        },
+        profileImage: profileFile,
+      })
+      const tokens = await login({ email: trimmedEmail, password })
       applyAccessToken(tokens.accessToken, tokens.expiresIn)
       navigate('/')
     } catch (err: unknown) {
@@ -193,7 +218,7 @@ export default function RegisterPage() {
               </>
             )}
           </label>
-          <p className="profile-picker-note">미선택 시 기본 프로필 적용</p>
+          <p className="profile-picker-note">미선택 시 기본 프로필 · 선택 시 서버가 S3에 저장합니다</p>
           {error && <p className="auth-error">{error}</p>}
           <button type="submit" className="auth-submit" disabled={loading}>
             {loading ? '가입 중…' : '회원가입'}

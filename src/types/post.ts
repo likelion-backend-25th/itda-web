@@ -3,6 +3,8 @@ export interface PostResponse {
   id: number
   memberId: number
   nickname: string
+  /** 작성자 프로필 프리사인 URL (없으면 null) */
+  profileImage?: string | null
   categoryId: number
   categoryName: string
   content: string

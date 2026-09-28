@@ -1,9 +1,9 @@
 import { categories, formatDateTime, type Post, type PostCategory } from '@/data/feed'
+import { resolveMemberImageUrl } from '@/api/member'
 import { apiFetch, apiJson, getApiOrigin } from '@/lib/apiClient'
 import type { MemberProfileResponse } from '@/types/member'
 import type { PostCreateRequest, PostFeedResponse, PostResponse, PostUpdateRequest } from '@/types/post'
 
-const DEFAULT_AVATAR = '/images/avatar-jieun.jpg'
 const PAGE_SIZE = 5
 
 /** 수정 시 카테고리를 바꿀 때 쓰는 취미 카테고리 시드 id. 이름은 응답의 categoryName 을 따른다. */
@@ -85,10 +85,10 @@ export function toFeedPost(dto: PostResponse, viewer: MemberProfileResponse | nu
     categoryId: dto.categoryId,
     imageUrl: dto.imageUrl,
     author: nickname || (mine && viewer ? viewer.nickname : `회원 ${dto.memberId}`),
-    avatar:
-      mine && viewer.profileImage?.trim()
-        ? viewer.profileImage
-        : DEFAULT_AVATAR,
+    // 작성자 아바타: 게시글 응답의 프리사인 URL 우선, 내 글이면 /me 프로필로 보강
+    avatar: resolveMemberImageUrl(
+      dto.profileImage ?? (mine && viewer ? viewer.profileImage : null),
+    ),
     time: formatRelativeTime(dto.createdAt),
     category: categoryFromName(categoryName),
     categoryLabel: categoryName,
