@@ -14,6 +14,30 @@ export function getAccessToken(): string | null {
   return localStorage.getItem(ACCESS_TOKEN_KEY)
 }
 
+function decodeJwtPayload(token: string): Record<string, unknown> | null {
+  const segment = token.split('.')[1]
+  if (!segment) return null
+  try {
+    const base64 = segment.replace(/-/g, '+').replace(/_/g, '/')
+    const padded = base64.padEnd(base64.length + ((4 - (base64.length % 4)) % 4), '=')
+    const binary = atob(padded)
+    const bytes = Uint8Array.from(binary, (char) => char.charCodeAt(0))
+    const parsed: unknown = JSON.parse(new TextDecoder().decode(bytes))
+    if (typeof parsed !== 'object' || parsed === null) return null
+    return parsed as Record<string, unknown>
+  } catch {
+    return null
+  }
+}
+
+/** access 토큰의 roles에 ROLE_ADMIN이 있는지 */
+export function hasAdminRole(): boolean {
+  const token = getAccessToken()
+  if (!token) return false
+  const roles = decodeJwtPayload(token)?.roles
+  return Array.isArray(roles) && roles.some((role) => role === 'ROLE_ADMIN')
+}
+
 export function getAccessTokenExpiresAt(): number | null {
   const raw = localStorage.getItem(EXPIRES_AT_KEY)
   if (!raw) return null
