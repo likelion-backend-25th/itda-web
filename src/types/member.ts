@@ -10,7 +10,7 @@ export interface MemberProfileResponse {
   createdAt: string
 }
 
-/** GET /api/v1/member/followers — 나를 팔로우하는 사람 */
+/** GET /api/v1/member/{id}/followers — 해당 회원을 팔로우하는 사람 */
 export interface FollowerResponse {
   id: number
   nickname: string

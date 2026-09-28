@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useState, useSyncExternalStore } from 'react'
-import { Link, Navigate, useParams } from 'react-router'
+import { Navigate, useNavigate, useParams } from 'react-router'
+import { cancelSubscription, fetchSubscriptionStatus } from '@/api/subscription'
 import FollowList, { type FollowTab } from '@/components/profile/FollowList'
 import Header from '@/components/layout/Header'
 import PostDetail from '@/components/feed/PostDetail'
@@ -9,10 +10,12 @@ import { BookmarkIcon, CommentIcon, CrownIcon, DotsIcon, EyeIcon, HeartIcon } fr
 import { currentUser, formatDateTime, initialPosts, myPageCategories, type CategoryId, type Post } from '@/data/feed'
 import { getFollowingIds, memberFollowIds, setFollowing, subscribeFollows } from '@/data/follows'
 import { followListItemsFromIds, memberById } from '@/data/members'
-import { getSubscribedIds, setSubscribed, subscribeMemberships } from '@/data/subscriptions'
+import { setSubscribed } from '@/data/subscriptions'
+import { getLoggedIn, subscribeSession } from '@/data/session'
 
 export default function MemberPage() {
   const { memberId = '' } = useParams()
+  const navigate = useNavigate()
   const member = memberById(memberId)
   const [query, setQuery] = useState('')
   const [category, setCategory] = useState<CategoryId>('all')
@@ -22,9 +25,12 @@ export default function MemberPage() {
   const [posts, setPosts] = useState<Post[]>([])
   const [selectedId, setSelectedId] = useState<string | null>(null)
   const [writing, setWriting] = useState(false)
-  const subscribedIds = useSyncExternalStore(subscribeMemberships, getSubscribedIds)
+  const [subscribed, setSubscribedFlag] = useState(false)
+  const [statusReady, setStatusReady] = useState(false)
+  const [subscribeBusy, setSubscribeBusy] = useState(false)
+  const [subscribeError, setSubscribeError] = useState<string | null>(null)
+  const loggedIn = useSyncExternalStore(subscribeSession, getLoggedIn)
   const followedIds = useSyncExternalStore(subscribeFollows, getFollowingIds)
-  const subscribed = member ? subscribedIds.has(member.id) : false
   const following = member ? followedIds.has(member.id) : false
   const network = member ? memberFollowIds(member.id) : { followers: [], following: [] }
 
@@ -35,6 +41,60 @@ export default function MemberPage() {
     setSelectedId(null)
     setPosts(member ? initialPosts.filter((post) => post.author === member.name) : [])
   }, [member])
+
+  // GET /api/v1/subscriptions/{targetId} — subscribed로 버튼 문구를 정한다
+  useEffect(() => {
+    if (!member || !loggedIn) {
+      setSubscribedFlag(false)
+      setStatusReady(true)
+      setSubscribeError(null)
+      return
+    }
+
+    const targetId = member.backendId
+    const localId = member.id
+    let cancelled = false
+    setStatusReady(false)
+    setSubscribeError(null)
+
+    async function loadStatus() {
+      try {
+        const status = await fetchSubscriptionStatus(targetId)
+        if (cancelled) return
+        setSubscribedFlag(status.subscribed)
+        setSubscribed(localId, status.subscribed)
+      } catch (error: unknown) {
+        if (cancelled) return
+        setSubscribedFlag(false)
+        const message = error instanceof Error ? error.message : '구독 상태를 불러오지 못했습니다.'
+        setSubscribeError(message)
+      } finally {
+        if (!cancelled) setStatusReady(true)
+      }
+    }
+
+    void loadStatus()
+    return () => {
+      cancelled = true
+    }
+  }, [loggedIn, member])
+
+  async function cancelMembership() {
+    if (!member || subscribeBusy) return
+    setSubscribeBusy(true)
+    setSubscribeError(null)
+    try {
+      await cancelSubscription(member.backendId)
+      setSubscribedFlag(false)
+      setSubscribed(member.id, false)
+      setTab('public')
+    } catch (error: unknown) {
+      const message = error instanceof Error ? error.message : '구독 취소에 실패했습니다.'
+      setSubscribeError(message)
+    } finally {
+      setSubscribeBusy(false)
+    }
+  }
 
   const visiblePosts = useMemo(() => {
     const keyword = query.trim().toLowerCase()
@@ -154,6 +214,11 @@ export default function MemberPage() {
                         게시글 <b>{member.posts}</b>
                       </span>
                     </p>
+                    {subscribeError && (
+                      <p className="pay-error" role="alert">
+                        {subscribeError}
+                      </p>
+                    )}
                   </div>
                   <div className="member-actions">
                     <button
@@ -164,24 +229,25 @@ export default function MemberPage() {
                     >
                       {following ? '팔로잉' : '팔로우'}
                     </button>
-                    {subscribed ? (
-                      <button
-                        type="button"
-                        className="member-subscribe"
-                        onClick={() => {
-                          setSubscribed(member.id, false)
-                          setTab('public')
-                        }}
-                      >
-                        <CrownIcon />
-                        구독취소
-                      </button>
-                    ) : (
-                      <Link to={`/member/${member.id}/pay`} className="member-subscribe">
-                        <CrownIcon />
-                        구독
-                      </Link>
-                    )}
+                    <button
+                      type="button"
+                      className="member-subscribe"
+                      disabled={!statusReady || subscribeBusy}
+                      onClick={() => {
+                        if (!loggedIn) {
+                          navigate('/login')
+                          return
+                        }
+                        if (subscribed) {
+                          void cancelMembership()
+                          return
+                        }
+                        navigate(`/member/${member.id}/pay`)
+                      }}
+                    >
+                      <CrownIcon />
+                      {subscribed ? '구독 취소' : '구독'}
+                    </button>
                   </div>
                 </section>
 

@@ -1507,6 +1507,11 @@ button.stat {
   height: 16px;
 }
 
+.member-subscribe:disabled {
+  opacity: 0.65;
+  cursor: default;
+}
+
 .member-post {
   background: var(--surface);
   border: 1px solid var(--line);

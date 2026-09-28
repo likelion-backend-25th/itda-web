@@ -9,12 +9,14 @@ export function fetchMyProfile(): Promise<MemberProfileResponse> {
 }
 
 /**
- * GET /api/v1/member/followers
+ * GET /api/v1/member/{id}/followers
  * 현재 로그인한 회원을 팔로우하는 사람 목록.
+ * id 없는 /member/followers 는 컨트롤러가 없어 404가 난다.
  * OpenAPI 스키마가 Id(대문자)로 올 수 있어 정규화한다.
  */
 export async function fetchMyFollowers(): Promise<FollowerResponse[]> {
-  const raw = await apiJson<unknown>('/member/followers')
+  const me = await fetchMyProfile()
+  const raw = await apiJson<unknown>(`/member/${me.id}/followers`)
   if (!Array.isArray(raw)) return []
   return raw.flatMap((item) => {
     const normalized = normalizeFollower(item)

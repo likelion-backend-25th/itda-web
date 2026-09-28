@@ -1,26 +1,28 @@
-import { useMemo, useState, useSyncExternalStore } from 'react'
+import { useEffect, useMemo, useState, useSyncExternalStore } from 'react'
 import { Link, Navigate, useParams } from 'react-router'
+import { resolveMemberImageUrl } from '@/api/member'
+import { cancelSubscription, fetchMonthlyIncome, fetchMySubscriptions, fetchSubscriberCount } from '@/api/subscription'
 import CategoryFeed from '@/components/feed/CategoryFeed'
-import FollowList, { type FollowTab } from '@/components/profile/FollowList'
 import Header from '@/components/layout/Header'
 import ProfileEditModal, { type ProfileForm } from '@/components/profile/ProfileEditModal'
 import Sidebar from '@/components/layout/Sidebar'
 import WritePostModal from '@/components/feed/WritePostModal'
 import { GearIcon } from '@/components/icons'
 import { currentUser, myPageCategories, type CategoryId } from '@/data/feed'
-import { getFollowingIds, memberFollowIds, setFollowing, subscribeFollows } from '@/data/follows'
-import { followListItemsFromIds, memberById, profilePath } from '@/data/members'
-import {
-  creatorSubscriberCount,
-  getMemberships,
-  setSubscribed,
-  settlementAmount,
-  subscribeMemberships,
-} from '@/data/subscriptions'
+import { getLoggedIn, subscribeSession } from '@/data/session'
+import { memberById, members } from '@/data/members'
+import type { MySubscriptionResponse } from '@/types/subscription'
 
 type SubscriptionTab = 'users' | 'manage'
 
 const banks = ['국민', '신한', '우리', '하나', '농협', '기업', '카카오뱅크', '토스뱅크']
+
+/** 백엔드 회원 id가 목 프로필 하나와만 맞을 때 프로필로 이동 */
+function subscriptionProfileHref(targetId: number): string | null {
+  const matched = members.filter((member) => member.backendId === targetId)
+  if (matched.length !== 1) return null
+  return `/member/${matched[0].id}`
+}
 
 export default function SubscriptionPage() {
   const { memberId = '' } = useParams()
@@ -31,7 +33,6 @@ export default function SubscriptionPage() {
   const [tab, setTab] = useState<SubscriptionTab>('users')
   const [writing, setWriting] = useState(false)
   const [settingsOpen, setSettingsOpen] = useState(false)
-  const [followTarget, setFollowTarget] = useState<{ memberId: string; tab: FollowTab } | null>(null)
   const [bank, setBank] = useState('')
   const [accountNumber, setAccountNumber] = useState('')
   const [accountError, setAccountError] = useState('')
@@ -42,21 +43,117 @@ export default function SubscriptionPage() {
     avatar: owner?.avatar ?? currentUser.avatar,
     interests: ['food', 'travel'],
   })
-  const memberships = useSyncExternalStore(subscribeMemberships, getMemberships)
-  const followedIds = useSyncExternalStore(subscribeFollows, getFollowingIds)
+  const loggedIn = useSyncExternalStore(subscribeSession, getLoggedIn)
+  const [subscriptions, setSubscriptions] = useState<MySubscriptionResponse[]>([])
+  const [subscriptionsLoading, setSubscriptionsLoading] = useState(false)
+  const [subscriptionsError, setSubscriptionsError] = useState<string | null>(null)
+  const [cancelingId, setCancelingId] = useState<number | null>(null)
+  const [subscriberCount, setSubscriberCount] = useState<number | null>(null)
+  const [subscriberCountError, setSubscriberCountError] = useState<string | null>(null)
+  const [monthlyIncome, setMonthlyIncome] = useState<number | null>(null)
+  const [monthlyIncomeError, setMonthlyIncomeError] = useState<string | null>(null)
+
+  // 구독 관리: 구독자 수(/count)와 이번 달 정산 금액(/income)
+  useEffect(() => {
+    if (!owner || !loggedIn) {
+      setSubscriberCount(null)
+      setMonthlyIncome(null)
+      const message = loggedIn ? null : '로그인 후 정산 금액과 구독자 수를 볼 수 있습니다.'
+      setSubscriberCountError(message)
+      setMonthlyIncomeError(message)
+      return
+    }
+
+    const targetId = owner.backendId
+    let cancelled = false
+    setSubscriberCountError(null)
+    setMonthlyIncomeError(null)
+
+    async function loadManage() {
+      const [countResult, incomeResult] = await Promise.allSettled([
+        fetchSubscriberCount(targetId),
+        fetchMonthlyIncome(targetId),
+      ])
+      if (cancelled) return
+
+      if (countResult.status === 'fulfilled') {
+        setSubscriberCount(countResult.value.subscriberCount)
+      } else {
+        setSubscriberCount(null)
+        const reason: unknown = countResult.reason
+        const message = reason instanceof Error ? reason.message : '구독자 수를 불러오지 못했습니다.'
+        setSubscriberCountError(message)
+      }
+
+      if (incomeResult.status === 'fulfilled') {
+        setMonthlyIncome(incomeResult.value.monthlyIncome)
+      } else {
+        setMonthlyIncome(null)
+        const reason: unknown = incomeResult.reason
+        const message = reason instanceof Error ? reason.message : '정산 금액을 불러오지 못했습니다.'
+        setMonthlyIncomeError(message)
+      }
+    }
+
+    void loadManage()
+    return () => {
+      cancelled = true
+    }
+  }, [loggedIn, owner])
+
+  // GET /api/v1/subscriptions/me — 내가 구독 중인 사용자
+  useEffect(() => {
+    if (!loggedIn) {
+      setSubscriptions([])
+      setSubscriptionsLoading(false)
+      setSubscriptionsError('로그인 후 구독한 사용자를 볼 수 있습니다.')
+      return
+    }
+
+    let cancelled = false
+    setSubscriptionsLoading(true)
+    setSubscriptionsError(null)
+
+    async function loadSubscriptions() {
+      try {
+        const list = await fetchMySubscriptions()
+        if (!cancelled) setSubscriptions(list)
+      } catch (error: unknown) {
+        if (cancelled) return
+        setSubscriptions([])
+        const message = error instanceof Error ? error.message : '구독 목록을 불러오지 못했습니다.'
+        setSubscriptionsError(message)
+      } finally {
+        if (!cancelled) setSubscriptionsLoading(false)
+      }
+    }
+
+    void loadSubscriptions()
+    return () => {
+      cancelled = true
+    }
+  }, [loggedIn])
 
   const visible = useMemo(() => {
     const keyword = query.trim().toLowerCase()
-    return memberships.flatMap((membership) => {
-      const member = memberById(membership.memberId)
-      if (!member) return []
-      const matched =
-        keyword.length === 0 ||
-        member.name.toLowerCase().includes(keyword) ||
-        member.bio.toLowerCase().includes(keyword)
-      return matched ? [{ membership, member }] : []
-    })
-  }, [memberships, query])
+    if (keyword.length === 0) return subscriptions
+    return subscriptions.filter((item) => item.nickname.toLowerCase().includes(keyword))
+  }, [query, subscriptions])
+
+  async function unsubscribe(item: MySubscriptionResponse) {
+    if (cancelingId != null) return
+    setCancelingId(item.subscriptionId)
+    setSubscriptionsError(null)
+    try {
+      await cancelSubscription(item.targetId)
+      setSubscriptions((current) => current.filter((row) => row.subscriptionId !== item.subscriptionId))
+    } catch (error: unknown) {
+      const message = error instanceof Error ? error.message : '구독 해제에 실패했습니다.'
+      setSubscriptionsError(message)
+    } finally {
+      setCancelingId(null)
+    }
+  }
 
   function saveAccount() {
     if (!bank || accountNumber.trim().length === 0) {
@@ -137,12 +234,24 @@ export default function SubscriptionPage() {
               <section className="settle" aria-label="구독 관리">
                 <div className="settle-row">
                   <span>이번 달 정산 금액</span>
-                  <strong className="settle-amount">{settlementAmount.toLocaleString('ko-KR')} ₩</strong>
+                  <strong className="settle-amount">
+                    {monthlyIncomeError
+                      ? '—'
+                      : monthlyIncome == null
+                        ? '…'
+                        : `${monthlyIncome.toLocaleString('ko-KR')} ₩`}
+                  </strong>
                 </div>
                 <div className="settle-row">
                   <span>구독자 수</span>
-                  <strong className="settle-count">{creatorSubscriberCount.toLocaleString('ko-KR')}</strong>
+                  <strong className="settle-count">
+                    {subscriberCountError ? '—' : subscriberCount == null ? '…' : subscriberCount.toLocaleString('ko-KR')}
+                  </strong>
                 </div>
+                {monthlyIncomeError && <p className="settle-error">{monthlyIncomeError}</p>}
+                {subscriberCountError && subscriberCountError !== monthlyIncomeError && (
+                  <p className="settle-error">{subscriberCountError}</p>
+                )}
                 <form
                   className="settle-account"
                   onSubmit={(event) => {
@@ -192,51 +301,55 @@ export default function SubscriptionPage() {
               </section>
             ) : (
             <div className="sub-list">
-              {visible.length === 0 ? (
+              {subscriptionsError && <p className="settle-error">{subscriptionsError}</p>}
+              {subscriptionsLoading ? (
+                <div className="empty">구독 목록을 불러오는 중…</div>
+              ) : visible.length === 0 && !subscriptionsError ? (
                 <div className="empty">구독한 사용자가 없습니다.</div>
               ) : (
-                visible.map(({ membership, member }) => {
-                  const href = profilePath(member.name)
-                  const network = memberFollowIds(member.id)
+                visible.map((item) => {
+                  const href = subscriptionProfileHref(item.targetId)
+                  const avatar = resolveMemberImageUrl(item.profileImage)
                   return (
-                    <article key={member.id} className="sub-card">
+                    <article key={item.subscriptionId} className="sub-card">
                       {href ? (
-                        <Link to={href} className="sub-photo" aria-label={`${member.name} 프로필`}>
-                          <img src={member.avatar} alt="" />
+                        <Link to={href} className="sub-photo" aria-label={`${item.nickname} 프로필`}>
+                          <img
+                            src={avatar}
+                            alt=""
+                            onError={(event) => {
+                              event.currentTarget.src = '/images/avatar-jieun.jpg'
+                            }}
+                          />
                         </Link>
                       ) : (
-                        <img className="sub-photo" src={member.avatar} alt="" />
+                        <img
+                          className="sub-photo"
+                          src={avatar}
+                          alt=""
+                          onError={(event) => {
+                            event.currentTarget.src = '/images/avatar-jieun.jpg'
+                          }}
+                        />
                       )}
                       <div className="sub-copy">
                         {href ? (
                           <Link to={href} className="sub-name">
-                            {member.name}
+                            {item.nickname}
                           </Link>
                         ) : (
-                          <strong className="sub-name">{member.name}</strong>
+                          <strong className="sub-name">{item.nickname}</strong>
                         )}
-                        <p className="my-counts">
-                          <button
-                            type="button"
-                            className="count-link"
-                            onClick={() => setFollowTarget({ memberId: member.id, tab: 'followers' })}
-                          >
-                            팔로워 <b>{network.followers.length}</b>
-                          </button>
-                          <button
-                            type="button"
-                            className="count-link"
-                            onClick={() => setFollowTarget({ memberId: member.id, tab: 'following' })}
-                          >
-                            팔로잉 <b>{network.following.length}</b>
-                          </button>
-                          <span>
-                            게시글 <b>{member.posts}</b>
-                          </span>
-                        </p>
                       </div>
-                      <p className="sub-days">{membership.daysLeft}일 남음</p>
-                      <button type="button" className="sub-cancel" onClick={() => setSubscribed(member.id, false)}>
+                      <p className="sub-days">{item.remainingDays}일 남음</p>
+                      <button
+                        type="button"
+                        className="sub-cancel"
+                        disabled={cancelingId === item.subscriptionId}
+                        onClick={() => {
+                          void unsubscribe(item)
+                        }}
+                      >
                         구독해제
                       </button>
                     </article>
@@ -250,16 +363,6 @@ export default function SubscriptionPage() {
           </main>
         </div>
       </div>
-      {followTarget && (
-        <FollowList
-          initialTab={followTarget.tab}
-          followers={followListItemsFromIds(memberFollowIds(followTarget.memberId).followers)}
-          following={followListItemsFromIds(memberFollowIds(followTarget.memberId).following)}
-          followedIds={followedIds}
-          onToggle={setFollowing}
-          onClose={() => setFollowTarget(null)}
-        />
-      )}
       {writing && (
         <WritePostModal
           user={currentUser}

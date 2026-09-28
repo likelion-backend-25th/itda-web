@@ -97,7 +97,7 @@ export default function MyPage() {
     bio: `소개글 - ${profile.bio}`,
   }
 
-  // GET /api/v1/member/followers — 나를 팔로우하는 사람
+  // GET /api/v1/member/{id}/followers — 나를 팔로우하는 사람
   useEffect(() => {
     if (!loggedIn) {
       setFollowers([])
