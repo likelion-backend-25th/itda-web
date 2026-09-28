@@ -1,4 +1,5 @@
 import { BrowserRouter, Route, Routes } from 'react-router'
+import RequireAuth from '@/components/auth/RequireAuth'
 import { useOAuthTokenCapture } from '@/hooks/auth/useOAuthTokenCapture'
 import AdminPage from '@/pages/admin/AdminPage'
 import HomePage from '@/pages/home/HomePage'
@@ -26,12 +27,33 @@ export default function App() {
         <Route path="/admin" element={<AdminPage />} />
         <Route path="/admin/:section" element={<AdminPage />} />
         <Route path="/register" element={<RegisterPage />} />
-        <Route path="/mypage" element={<MyPage />} />
+        <Route
+          path="/mypage"
+          element={
+            <RequireAuth>
+              <MyPage />
+            </RequireAuth>
+          }
+        />
         <Route path="/support" element={<SupportPage />} />
         <Route path="/theme/:themeId" element={<ThemePage />} />
         <Route path="/theme" element={<ThemePage />} />
-        <Route path="/subscription/:memberId" element={<SubscriptionPage />} />
-        <Route path="/member/:memberId/pay" element={<PayPage />} />
+        <Route
+          path="/subscription/:memberId"
+          element={
+            <RequireAuth>
+              <SubscriptionPage />
+            </RequireAuth>
+          }
+        />
+        <Route
+          path="/member/:memberId/pay"
+          element={
+            <RequireAuth>
+              <PayPage />
+            </RequireAuth>
+          }
+        />
         <Route path="/member/:memberId" element={<MemberPage />} />
       </Routes>
     </BrowserRouter>

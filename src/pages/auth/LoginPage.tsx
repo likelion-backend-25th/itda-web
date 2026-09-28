@@ -1,5 +1,5 @@
 import { useState, type FormEvent } from 'react'
-import { useNavigate } from 'react-router'
+import { useLocation, useNavigate } from 'react-router'
 import { applyAccessToken, login } from '@/api/auth'
 import AuthCard, { AuthSwitch, GoogleMark, KakaoMark } from '@/components/auth/AuthCard'
 import { EyeIcon, EyeOffIcon, LockIcon, MailIcon } from '@/components/icons'
@@ -9,14 +9,29 @@ import { getApiOrigin } from '@/lib/apiClient'
 const adminId = 'admin@example.com'
 const adminPassword = '1111'
 
+function redirectPathFromState(state: unknown): string {
+  if (
+    typeof state === 'object' &&
+    state !== null &&
+    'from' in state &&
+    typeof (state as { from: unknown }).from === 'string'
+  ) {
+    const from = (state as { from: string }).from
+    if (from.startsWith('/') && !from.startsWith('//')) return from
+  }
+  return '/'
+}
+
 export default function LoginPage() {
   const navigate = useNavigate()
+  const location = useLocation()
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
   const [visible, setVisible] = useState(false)
   const [error, setError] = useState('')
   const [loading, setLoading] = useState(false)
   const oauthBase = getApiOrigin()
+  const redirectTo = redirectPathFromState(location.state)
 
   async function submit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault()
@@ -42,7 +57,7 @@ export default function LoginPage() {
     try {
       const tokens = await login({ email: id, password })
       applyAccessToken(tokens.accessToken, tokens.expiresIn)
-      navigate('/')
+      navigate(redirectTo, { replace: true })
     } catch (err: unknown) {
       const message = err instanceof Error ? err.message : '로그인에 실패했습니다.'
       setError(message)
