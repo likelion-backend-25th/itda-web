@@ -983,7 +983,7 @@ a.comment-author {
 }
 
 .stat.liked svg {
-  color: var(--pink);
+  color: #ed1d24;
 }
 
 .bookmark {
@@ -995,7 +995,7 @@ a.comment-author {
 }
 
 .bookmark.on {
-  color: var(--blue);
+  color: #1d9bf0;
 }
 
 .bookmark:hover,
@@ -1180,11 +1180,11 @@ button.stat {
 }
 
 .detail-stat.liked svg {
-  color: var(--pink);
+  color: #ed1d24;
 }
 
 .detail-bookmark.on {
-  color: var(--blue);
+  color: #1d9bf0;
 }
 
 .detail-date {

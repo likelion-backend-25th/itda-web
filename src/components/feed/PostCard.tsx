@@ -141,7 +141,7 @@ export default function PostCard({
           type="button"
           className={post.bookmarked ? 'bookmark on' : 'bookmark'}
           aria-pressed={post.bookmarked}
-          aria-label={post.bookmarked ? '북마크 해제' : '북마크'}
+          aria-label={post.bookmarked ? '스크랩 해제' : '스크랩'}
           onClick={(event) => {
             keepOnCard(event)
             onToggleBookmark(post.id)

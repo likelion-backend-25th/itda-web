@@ -1,13 +1,14 @@
 import { useCallback, useEffect, useMemo, useRef, useState, useSyncExternalStore } from 'react'
 import { fetchMyProfile, resolveMemberImageUrl, toFeedUser } from '@/api/member'
-import { categoryIdForUpdate, categoryIdFromLabel, createPost, deletePost, fetchPostById, fetchPosts, imageUrlForUpdate, toFeedPost, updatePost, type PostFeedQuery } from '@/api/post'
+import { categoryIdForFeed, categoryIdForUpdate, categoryIdFromLabel, createPost, deletePost, fetchPostById, fetchPosts, imageUrlForUpdate, toFeedPost, togglePostLike, togglePostScrap, updatePost, type PostFeedQuery } from '@/api/post'
+import { createReply, toFeedComment } from '@/api/reply'
 import EditPostModal from '@/components/feed/EditPostModal'
 import Header from '@/components/layout/Header'
 import PostCard from '@/components/feed/PostCard'
 import PostDetail from '@/components/feed/PostDetail'
 import Sidebar from '@/components/layout/Sidebar'
 import WritePostModal, { type PostDraft } from '@/components/feed/WritePostModal'
-import { categories, currentUser, formatDateTime, type CategoryId, type FeedUser, type Post } from '@/data/feed'
+import { categories, currentUser, type CategoryId, type FeedUser, type Post } from '@/data/feed'
 import { getLoggedIn, setLoggedIn, subscribeSession } from '@/data/session'
 import { profilePath } from '@/data/members'
 import { ApiError } from '@/lib/apiClient'
@@ -30,6 +31,8 @@ export default function HomePage() {
   const [feedLoading, setFeedLoading] = useState(true)
   const [loadingMore, setLoadingMore] = useState(false)
   const [feedError, setFeedError] = useState('')
+  const [actionError, setActionError] = useState('')
+  const actionLockRef = useRef(new Set<string>())
   const [hasNext, setHasNext] = useState(false)
   const feedCursorRef = useRef<PostFeedQuery>({})
   const hasNextRef = useRef(false)
@@ -44,7 +47,10 @@ export default function HomePage() {
   const [profileError, setProfileError] = useState('')
   const profileRef = useRef(profile)
   profileRef.current = profile
-  const closeDetail = useCallback(() => setSelectedId(null), [])
+  const closeDetail = useCallback(() => {
+    setSelectedId(null)
+    setActionError('')
+  }, [])
   const selectedPost = posts.find((post) => post.id === selectedId) ?? null
 
   // 로그인 후 JWT로 내 프로필(/member/me) 조회
@@ -88,18 +94,20 @@ export default function HomePage() {
 
     async function loadFeed() {
       const generation = ++feedGenerationRef.current
+      const categoryId = categoryIdForFeed(category)
       hasNextRef.current = false
-      feedCursorRef.current = {}
+      feedCursorRef.current = { categoryId }
       loadingMoreRef.current = false
       setFeedLoading(true)
       setFeedError('')
       try {
-        const result = await fetchPosts()
+        const result = await fetchPosts({ categoryId })
         if (cancelled || generation !== feedGenerationRef.current) return
         setPosts(result.posts.map((post) => toFeedPost(post, profileRef.current)))
         feedCursorRef.current = {
           publicCursor: result.nextPublicCursor,
           subscribedCursor: result.nextSubscribedCursor,
+          categoryId,
         }
         hasNextRef.current = result.hasNext
         setHasNext(result.hasNext)
@@ -121,7 +129,7 @@ export default function HomePage() {
     return () => {
       cancelled = true
     }
-  }, [loggedIn])
+  }, [category, loggedIn])
 
   // 프로필이 늦게 도착해도 내 글 닉네임·아바타를 맞춘다
   useEffect(() => {
@@ -158,9 +166,6 @@ export default function HomePage() {
             post.id === String(detail.id)
               ? {
                   ...next,
-                  liked: post.liked,
-                  likes: post.liked ? post.likes : next.likes,
-                  bookmarked: post.bookmarked,
                   comments: post.comments,
                   thread: post.thread,
                 }
@@ -198,6 +203,7 @@ export default function HomePage() {
       feedCursorRef.current = {
         publicCursor: result.nextPublicCursor,
         subscribedCursor: result.nextSubscribedCursor,
+        categoryId: feedCursorRef.current.categoryId,
       }
       hasNextRef.current = result.hasNext
       setHasNext(result.hasNext)
@@ -289,7 +295,7 @@ export default function HomePage() {
 
   const visiblePosts = useMemo(() => {
     const keyword = query.trim().toLowerCase()
-    // API 글의 category 는 아직 'etc' 고정이라, 사이드바 한글 이름과 categoryName 을 비교한다.
+    // 카드 이름은 응답 categoryName. 서버 categoryId 조회 결과와 사이드바 한글 이름이 같은 글만 남긴다.
     const selectedLabel = categories.find((item) => item.id === category)?.label
     return posts.filter((post) => {
       const categoryMatch = category === 'all' || post.categoryLabel === selectedLabel
@@ -302,26 +308,54 @@ export default function HomePage() {
     })
   }, [category, posts, query])
 
-  function toggleLike(id: string) {
-    setPosts((current) =>
-      current.map((post) =>
-        post.id === id
-          ? {
-              ...post,
-              liked: !post.liked,
-              likes: post.likes + (post.liked ? -1 : 1),
-            }
-          : post,
-      ),
-    )
+  async function toggleLike(id: string) {
+    if (!loggedIn) {
+      setActionError('로그인 후 좋아요할 수 있습니다.')
+      return
+    }
+    const numericId = Number(id)
+    if (!Number.isInteger(numericId) || actionLockRef.current.has(`like:${id}`)) return
+    actionLockRef.current.add(`like:${id}`)
+    setActionError('')
+    try {
+      const result = await togglePostLike(numericId)
+      setPosts((current) =>
+        current.map((post) =>
+          post.id === id ? { ...post, liked: result.liked, likes: result.likesCount } : post,
+        ),
+      )
+    } catch (error: unknown) {
+      const message = error instanceof Error ? error.message : '좋아요를 반영하지 못했습니다.'
+      setActionError(message)
+      if (error instanceof ApiError && error.status === 401) setLoggedIn(false)
+    } finally {
+      actionLockRef.current.delete(`like:${id}`)
+    }
   }
 
-  function toggleBookmark(id: string) {
-    setPosts((current) =>
-      current.map((post) =>
-        post.id === id ? { ...post, bookmarked: !post.bookmarked } : post,
-      ),
-    )
+  async function toggleBookmark(id: string) {
+    if (!loggedIn) {
+      setActionError('로그인 후 스크랩할 수 있습니다.')
+      return
+    }
+    const numericId = Number(id)
+    if (!Number.isInteger(numericId) || actionLockRef.current.has(`scrap:${id}`)) return
+    actionLockRef.current.add(`scrap:${id}`)
+    setActionError('')
+    try {
+      const result = await togglePostScrap(numericId)
+      setPosts((current) =>
+        current.map((post) =>
+          post.id === id ? { ...post, bookmarked: result.scrapped } : post,
+        ),
+      )
+    } catch (error: unknown) {
+      const message = error instanceof Error ? error.message : '스크랩을 반영하지 못했습니다.'
+      setActionError(message)
+      if (error instanceof ApiError && error.status === 401) setLoggedIn(false)
+    } finally {
+      actionLockRef.current.delete(`scrap:${id}`)
+    }
   }
 
   async function publishPost(draft: PostDraft) {
@@ -371,27 +405,28 @@ export default function HomePage() {
     )
   }
 
-  function addComment(id: string, content: string) {
-    setPosts((current) =>
-      current.map((post) =>
-        post.id === id
-          ? {
-              ...post,
-              comments: post.comments + 1,
-              thread: [
-                {
-                  id: `comment-${Date.now()}`,
-                  author: user.name,
-                  avatar: user.avatar,
-                  createdAt: formatDateTime(new Date()),
-                  content,
-                },
-                ...post.thread,
-              ],
-            }
-          : post,
-      ),
-    )
+  async function addComment(id: string, content: string) {
+    if (!loggedIn) throw new Error('로그인 후 댓글을 작성할 수 있습니다.')
+    const postId = Number(id)
+    if (!Number.isInteger(postId)) throw new Error('댓글을 작성할 수 없는 글입니다.')
+    try {
+      const created = await createReply(postId, { content })
+      const comment = toFeedComment(created)
+      setPosts((current) =>
+        current.map((post) =>
+          post.id === id
+            ? {
+                ...post,
+                comments: post.comments + 1,
+                thread: [comment, ...post.thread],
+              }
+            : post,
+        ),
+      )
+    } catch (error: unknown) {
+      if (error instanceof ApiError && error.status === 401) setLoggedIn(false)
+      throw error instanceof Error ? error : new Error('댓글을 등록하지 못했습니다.')
+    }
   }
 
   return (
@@ -480,9 +515,6 @@ export default function HomePage() {
                 item.id === String(updated.id)
                   ? {
                       ...mapped,
-                      liked: item.liked,
-                      likes: item.liked ? item.likes : mapped.likes,
-                      bookmarked: item.bookmarked,
                       comments: item.comments,
                       thread: item.thread,
                     }
@@ -506,8 +538,13 @@ export default function HomePage() {
           post={selectedPost}
           user={user}
           onClose={closeDetail}
-          onToggleLike={toggleLike}
-          onToggleBookmark={toggleBookmark}
+          onToggleLike={(id) => {
+            void toggleLike(id)
+          }}
+          onToggleBookmark={(id) => {
+            void toggleBookmark(id)
+          }}
+          notice={actionError}
           onAddComment={addComment}
           onUpdateComment={updateComment}
           onDeleteComment={deleteComment}
