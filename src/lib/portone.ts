@@ -15,7 +15,7 @@ function readPortOneConfig(): { storeId: string; channelKey: string } {
 
 /**
  * 백엔드가 준 paymentId로 PortOne V2 결제창을 연다.
- * 성공해도 서버 검증 전이라 구독/구매 확정은 하지 않는다.
+ * 창이 성공해도 구매 확정은 아니고, 이어서 POST /payments/complete 가 필요하다.
  */
 export async function openPortOneCheckout(input: {
   paymentId: string

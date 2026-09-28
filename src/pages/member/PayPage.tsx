@@ -18,7 +18,7 @@ export default function PayPage() {
   const [categoriesOpen, setCategoriesOpen] = useState(true)
   const [writing, setWriting] = useState(false)
   const subscribedIds = useSyncExternalStore(subscribeMemberships, getSubscribedIds)
-  const { startCheckout, busy, error, receipt, reset } = usePortOneCheckout()
+  const { startCheckout, busy, phase, error, receipt, reset } = usePortOneCheckout()
   const paid = member ? subscribedIds.has(member.id) : false
 
   useEffect(() => {
@@ -68,7 +68,7 @@ export default function PayPage() {
                       })
                     }}
                   >
-                    {busy ? '결제창 여는 중…' : '결제하기'}
+                    {busy ? (phase === 'confirm' ? '결제 확인 중…' : '결제창 여는 중…') : '결제하기'}
                   </button>
                   {error && (
                     <p className="pay-error" role="alert">
