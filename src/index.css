@@ -2944,6 +2944,35 @@ img.sub-photo {
   font-weight: 700;
 }
 
+.pay-methods {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 8px;
+  width: 100%;
+  margin-top: 16px;
+}
+
+.pay-methods button {
+  height: 40px;
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  background: var(--surface);
+  color: var(--text);
+  font-size: 14px;
+  font-weight: 700;
+}
+
+.pay-methods button.on {
+  border-color: var(--blue);
+  background: var(--blue-soft);
+  color: var(--blue);
+}
+
+.pay-methods button:disabled {
+  cursor: default;
+  opacity: 0.6;
+}
+
 .shop-purchase {
   display: flex;
   align-items: center;
