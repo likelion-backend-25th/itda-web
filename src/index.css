@@ -4040,6 +4040,10 @@ img.sub-photo {
   grid-template-columns: repeat(6, minmax(0, 1fr)) auto;
 }
 
+.admin-row.subscriptions {
+  grid-template-columns: 0.7fr 1fr 1.5fr 1fr 0.7fr 0.9fr 0.9fr;
+}
+
 .admin-row.refunds,
 .admin-row.posts,
 .admin-row.reports {
@@ -4560,6 +4564,7 @@ img.sub-photo {
   .admin-page,
   .admin-row.members,
   .admin-row.pays,
+  .admin-row.subscriptions,
   .admin-row.refunds,
   .admin-row.posts,
   .admin-row.reports,
