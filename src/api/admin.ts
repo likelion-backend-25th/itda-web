@@ -22,9 +22,9 @@ function formatDateTime(value: string): string {
   return value.replace('T', ' ').slice(0, 16)
 }
 
-function formatYear(value: string): string {
-  if (value.length >= 4) return `${value.slice(0, 4)}년`
-  return value
+function formatJoinedOn(value: string): string {
+  if (value.length >= 10) return value.slice(0, 10)
+  return value || '—'
 }
 
 /** GET /api/v1/admin/members */
@@ -43,7 +43,7 @@ export async function fetchAdminMembers(): Promise<AdminMember[]> {
         nickname: asString(record.nickname),
         email: asString(record.email),
         provider: asString(record.authmethod) || asString(record.role) || '—',
-        year: formatYear(createdAt),
+        joinedOn: formatJoinedOn(createdAt),
         avatar: resolveMemberImageUrl(asString(record.profileImage) || null),
       },
     ]
