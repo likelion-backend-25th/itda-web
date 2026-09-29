@@ -8,7 +8,7 @@ import Sidebar from '@/components/layout/Sidebar'
 import WritePostModal, { type PostDraft } from '@/components/feed/WritePostModal'
 import { myPageCategories, type CategoryId } from '@/data/feed'
 import { memberById, type MemberProfile } from '@/data/members'
-import { getSubscribedIds, subscribeMemberships } from '@/data/subscriptions'
+import { getSubscribedIds, setSubscribed, subscribeMemberships } from '@/data/subscriptions'
 import { usePortOneCheckout } from '@/hooks/payment/usePortOneCheckout'
 import type { PayMethod } from '@/types/payment'
 import { useViewerUser } from '@/hooks/member/useViewerUser'
@@ -55,6 +55,12 @@ export default function PayPage() {
   useEffect(() => {
     reset()
   }, [memberId, reset])
+
+  // 구독 결제 complete 가 구독 행을 만든다. 완료 화면과 프로필 버튼이 그 결과를 따른다
+  useEffect(() => {
+    if (!receipt || !member) return
+    setSubscribed(member.id, true)
+  }, [receipt, member])
 
   // 숫자 경로면 GET /member/{id} 로 결제 대상 프로필을 받는다
   useEffect(() => {
