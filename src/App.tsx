@@ -7,6 +7,7 @@ import LoginPage from '@/pages/auth/LoginPage'
 import MemberPage from '@/pages/member/MemberPage'
 import MyPage from '@/pages/member/MyPage'
 import PayPage from '@/pages/member/PayPage'
+import PostDetailPage from '@/pages/post/PostDetailPage'
 import RegisterPage from '@/pages/auth/RegisterPage'
 import SubscriptionPage from '@/pages/member/SubscriptionPage'
 import SupportPage from '@/pages/support/SupportPage'
@@ -23,6 +24,7 @@ export default function App() {
       <OAuthTokenCapture />
       <Routes>
         <Route path="/" element={<HomePage />} />
+        <Route path="/posts/:postId" element={<PostDetailPage />} />
         <Route path="/login" element={<LoginPage />} />
         <Route path="/admin" element={<AdminPage />} />
         <Route path="/admin/:section" element={<AdminPage />} />

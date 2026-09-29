@@ -1,24 +1,24 @@
 import { useCallback, useEffect, useMemo, useRef, useState, useSyncExternalStore } from 'react'
+import { useLocation, useNavigate } from 'react-router'
 import { resolveMemberImageUrl } from '@/api/member'
-import { categoryIdForFeed, categoryIdForUpdate, deletePost, fetchPostById, fetchPosts, toFeedPost, togglePostLike, togglePostScrap, updatePost, type PostFeedQuery } from '@/api/post'
-import { createReply, deleteReply, fetchReplies, toFeedComment, updateReply } from '@/api/reply'
+import { categoryIdForFeed, categoryIdForUpdate, deletePost, fetchPosts, toFeedPost, togglePostLike, togglePostScrap, updatePost, type PostFeedQuery } from '@/api/post'
 import EditPostModal from '@/components/feed/EditPostModal'
 import Header from '@/components/layout/Header'
 import PostCard from '@/components/feed/PostCard'
-import PostDetail from '@/components/feed/PostDetail'
 import Sidebar from '@/components/layout/Sidebar'
 import WritePostModal, { type PostDraft } from '@/components/feed/WritePostModal'
-import { categories, type CategoryId, type Post } from '@/data/feed'
+import { categories, postPath, type CategoryId, type Post } from '@/data/feed'
 import { getLoggedIn, setLoggedIn, subscribeSession } from '@/data/session'
 import { ensureViewerLoaded, getViewerProfile, subscribeViewer } from '@/data/viewer'
 import { profilePath } from '@/data/members'
 import { useViewerUser } from '@/hooks/member/useViewerUser'
 import { usePublishPost } from '@/hooks/post/usePublishPost'
 import { ApiError } from '@/lib/apiClient'
-import { hasAdminRole } from '@/lib/authToken'
 import type { MyPost } from '@/data/mypage'
 
 export default function HomePage() {
+  const navigate = useNavigate()
+  const location = useLocation()
   const loggedIn = useSyncExternalStore(subscribeSession, getLoggedIn)
   const [query, setQuery] = useState('')
   const [category, setCategory] = useState<CategoryId>('all')
@@ -35,7 +35,6 @@ export default function HomePage() {
   const loadingMoreRef = useRef(false)
   const feedGenerationRef = useRef(0)
   const sentinelRef = useRef<HTMLDivElement>(null)
-  const [selectedId, setSelectedId] = useState<string | null>(null)
   const [writing, setWriting] = useState(false)
   const [menuId, setMenuId] = useState<string | null>(null)
   const [editingPost, setEditingPost] = useState<Post | null>(null)
@@ -45,11 +44,13 @@ export default function HomePage() {
   const profile = useSyncExternalStore(subscribeViewer, getViewerProfile)
   const profileRef = useRef(profile)
   profileRef.current = profile
-  const closeDetail = useCallback(() => {
-    setSelectedId(null)
-    setActionError('')
-  }, [])
-  const selectedPost = posts.find((post) => post.id === selectedId) ?? null
+
+  const openPost = useCallback(
+    (id: string) => {
+      navigate(postPath(id), { state: { from: `${location.pathname}${location.search}` } })
+    },
+    [location.pathname, location.search, navigate],
+  )
 
   // 로그인 후 내 프로필은 viewer 캐시로 공유 (페이지 이동 시 목 사용자 깜빡임 방지)
   useEffect(() => {
@@ -139,46 +140,6 @@ export default function HomePage() {
     )
   }, [profile])
 
-  // 카드를 열면 getPostById로 최신 본문·조회수를 받는다
-  useEffect(() => {
-    if (selectedId == null) return
-    const id = Number(selectedId)
-    if (!Number.isInteger(id)) return
-
-    let cancelled = false
-    async function loadDetail() {
-      setActionError('')
-      try {
-        const [detail, replies] = await Promise.all([fetchPostById(id), fetchReplies(id)])
-        if (cancelled) return
-        const next = toFeedPost(detail, profileRef.current)
-        const thread = replies.map(toFeedComment)
-        setPosts((current) =>
-          current.map((post) =>
-            post.id === String(detail.id)
-              ? {
-                  ...next,
-                  thread,
-                }
-              : post,
-          ),
-        )
-      } catch (error: unknown) {
-        if (cancelled) return
-        const message = error instanceof Error ? error.message : '댓글을 불러오지 못했습니다.'
-        setActionError(message)
-        if (error instanceof ApiError && error.status === 401 && loggedIn) {
-          setLoggedIn(false)
-        }
-      }
-    }
-
-    void loadDetail()
-    return () => {
-      cancelled = true
-    }
-  }, [loggedIn, selectedId])
-
   const loadMore = useCallback(async () => {
     if (!hasNextRef.current || loadingMoreRef.current) return
     const generation = feedGenerationRef.current
@@ -254,7 +215,6 @@ export default function HomePage() {
     try {
       await deletePost(id)
       setPosts((current) => current.filter((item) => item.id !== postId))
-      setSelectedId((current) => (current === postId ? null : current))
       setEditingPost((current) => (current?.id === postId ? null : current))
     } catch (error: unknown) {
       const message = error instanceof Error ? error.message : '글을 삭제하지 못했습니다.'
@@ -360,77 +320,6 @@ export default function HomePage() {
     setWriting(false)
   }
 
-  async function updateComment(postId: string, commentId: string, content: string) {
-    const numericPostId = Number(postId)
-    const replyId = Number(commentId)
-    if (!Number.isInteger(numericPostId) || !Number.isInteger(replyId)) {
-      throw new Error('수정할 수 없는 댓글입니다.')
-    }
-    try {
-      const updated = await updateReply(numericPostId, replyId, { content })
-      const comment = toFeedComment(updated)
-      setPosts((current) =>
-        current.map((post) =>
-          post.id === postId
-            ? {
-                ...post,
-                thread: post.thread.map((item) => (item.id === commentId ? comment : item)),
-              }
-            : post,
-        ),
-      )
-    } catch (error: unknown) {
-      if (error instanceof ApiError && error.status === 401) setLoggedIn(false)
-      throw error instanceof Error ? error : new Error('댓글을 수정하지 못했습니다.')
-    }
-  }
-
-  async function deleteComment(postId: string, commentId: string) {
-    const numericPostId = Number(postId)
-    const replyId = Number(commentId)
-    if (!Number.isInteger(numericPostId) || !Number.isInteger(replyId)) {
-      throw new Error('삭제할 수 없는 댓글입니다.')
-    }
-    try {
-      await deleteReply(numericPostId, replyId)
-      setPosts((current) =>
-        current.map((post) => {
-          if (post.id !== postId) return post
-          const thread = post.thread.filter((comment) => comment.id !== commentId)
-          if (thread.length === post.thread.length) return post
-          return { ...post, thread, comments: Math.max(0, post.comments - 1) }
-        }),
-      )
-    } catch (error: unknown) {
-      if (error instanceof ApiError && error.status === 401) setLoggedIn(false)
-      throw error instanceof Error ? error : new Error('댓글을 삭제하지 못했습니다.')
-    }
-  }
-
-  async function addComment(id: string, content: string) {
-    if (!loggedIn) throw new Error('로그인 후 댓글을 작성할 수 있습니다.')
-    const postId = Number(id)
-    if (!Number.isInteger(postId)) throw new Error('댓글을 작성할 수 없는 글입니다.')
-    try {
-      const created = await createReply(postId, { content })
-      const comment = toFeedComment(created)
-      setPosts((current) =>
-        current.map((post) =>
-          post.id === id
-            ? {
-                ...post,
-                comments: post.comments + 1,
-                thread: [...post.thread, comment],
-              }
-            : post,
-        ),
-      )
-    } catch (error: unknown) {
-      if (error instanceof ApiError && error.status === 401) setLoggedIn(false)
-      throw error instanceof Error ? error : new Error('댓글을 등록하지 못했습니다.')
-    }
-  }
-
   return (
     <div className="page">
       <div className="shell">
@@ -468,7 +357,7 @@ export default function HomePage() {
                     (post.memberId != null ? profile?.id === post.memberId : post.author === user.name)
                   }
                   menuOpen={menuId === post.id}
-                  onOpen={setSelectedId}
+                  onOpen={openPost}
                   onToggleMenu={() => setMenuId((current) => (current === post.id ? null : post.id))}
                   onEdit={() => openEditor(post)}
                   onDelete={() => {
@@ -483,6 +372,11 @@ export default function HomePage() {
             {posts.length > 0 && feedError && (
               <div className="empty" role="alert">
                 {feedError}
+              </div>
+            )}
+            {actionError && (
+              <div className="empty" role="alert">
+                {actionError}
               </div>
             )}
             {hasNext && posts.length > 0 && (
@@ -537,27 +431,6 @@ export default function HomePage() {
           categories={categories}
           onClose={() => setWriting(false)}
           onPublish={publishPost}
-        />
-      )}
-      {selectedPost && (
-        <PostDetail
-          post={selectedPost}
-          user={user}
-          onClose={closeDetail}
-          onToggleLike={(id) => {
-            void toggleLike(id)
-          }}
-          onToggleBookmark={(id) => {
-            void toggleBookmark(id)
-          }}
-          notice={actionError}
-          viewerMemberId={profile?.id}
-          canModerateReplies={
-            profile?.role === 'ADMIN' || profile?.role === 'ROLE_ADMIN' || hasAdminRole()
-          }
-          onAddComment={addComment}
-          onUpdateComment={updateComment}
-          onDeleteComment={deleteComment}
         />
       )}
     </div>
