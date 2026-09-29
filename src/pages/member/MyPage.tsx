@@ -400,7 +400,7 @@ export default function MyPage() {
                 type="button"
                 role="tab"
                 aria-selected={tab === 'themes'}
-                className={tab === 'themes' ? 'my-tab aside active' : 'my-tab aside'}
+                className={tab === 'themes' ? 'my-tab active' : 'my-tab'}
                 onClick={() => setTab('themes')}
               >
                 보유테마

@@ -13,7 +13,6 @@ import {
   CraftIcon,
   DotsIcon,
   DumbbellIcon,
-  FolderIcon,
   GameIcon,
   HomeIcon,
   LoginIcon,
@@ -76,7 +75,7 @@ export default function Sidebar({
             회원가입
           </Link>
         </div>
-      ) : compact ? (
+      ) : (
         <div className="profile studio">
           <img
             src={user.avatar}
@@ -95,35 +94,12 @@ export default function Sidebar({
           </button>
           {suspended && <p className="write-blocked">활동 정지 상태에서는 글을 작성할 수 없습니다.</p>}
         </div>
-      ) : (
-        <>
-          <div className="profile">
-            <img
-              src={user.avatar}
-              alt=""
-              onError={(event) => {
-                event.currentTarget.src = DEFAULT_AVATAR
-              }}
-            />
-            <div>
-              <strong className="profile-name">{user.name}</strong>
-              <p className="profile-handle">{user.handle}</p>
-              <p className="profile-bio">{user.bio}</p>
-            </div>
-          </div>
-          <button type="button" className="write-btn" disabled={suspended} onClick={onWrite}>
-            <PencilIcon />
-            글쓰기
-          </button>
-          {suspended && <p className="write-blocked">활동 정지 상태에서는 글을 작성할 수 없습니다.</p>}
-        </>
       )}
 
       <nav className="side-nav" aria-label="주요 메뉴">
         <NavLink to="/" end className={({ isActive }) => (isActive ? 'nav-item active' : 'nav-item')}>
           <HomeIcon />
           <span>홈</span>
-          {(compact || !loggedIn) && <small className="nav-hint">(SNS 메인페이지)</small>}
         </NavLink>
         <NavLink to="/mypage" className={({ isActive }) => (isActive ? 'nav-item active' : 'nav-item')}>
           <UserIcon />
@@ -150,7 +126,7 @@ export default function Sidebar({
           onClick={onToggleCategories}
         >
           <span>카테고리</span>
-          {compact ? <FolderIcon /> : categoriesOpen ? <ChevronUpIcon /> : <ChevronDownIcon />}
+          {categoriesOpen ? <ChevronUpIcon /> : <ChevronDownIcon />}
         </button>
 
         {categoriesOpen && (

@@ -1,5 +1,5 @@
 ﻿import { useSyncExternalStore } from 'react'
-import { Link, useLocation, useNavigate } from 'react-router'
+import { Link, useNavigate } from 'react-router'
 import { logout } from '@/api/auth'
 import { DEFAULT_AVATAR } from '@/api/member'
 import type { FeedUser } from '@/data/feed'
@@ -15,13 +15,6 @@ type HeaderProps = {
 export default function Header({ query, user, onQueryChange }: HeaderProps) {
   const navigate = useNavigate()
   const loggedIn = useSyncExternalStore(subscribeSession, getLoggedIn)
-  const pathname = useLocation().pathname
-  const onMyPage =
-    pathname.startsWith('/mypage') ||
-    pathname.startsWith('/member') ||
-    pathname.startsWith('/subscription') ||
-    pathname.startsWith('/theme') ||
-    pathname.startsWith('/support')
 
   return (
     <header className="topbar">
@@ -29,12 +22,10 @@ export default function Header({ query, user, onQueryChange }: HeaderProps) {
         <Link to="/" className="logo">
           ITDA
         </Link>
-        {!onMyPage && (
-          <span className="tagline">
-            일상을 공유하는
-            <br />더 특별한 공간
-          </span>
-        )}
+        <span className="tagline">
+          일상을 공유하는
+          <br />더 특별한 공간
+        </span>
       </div>
 
       <label className="search">
@@ -42,7 +33,7 @@ export default function Header({ query, user, onQueryChange }: HeaderProps) {
         <input
           type="search"
           value={query}
-          placeholder={onMyPage ? '검색창' : loggedIn ? '관심 있는 내용을 검색해보세요!' : '관심 있는 이야기를 검색해보세요.'}
+          placeholder="관심 있는 내용을 검색해보세요!"
           onChange={(event) => onQueryChange(event.target.value)}
         />
       </label>

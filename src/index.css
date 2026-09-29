@@ -618,12 +618,6 @@ a.guest-auth {
   margin-top: 14px;
 }
 
-.nav-hint {
-  color: var(--muted);
-  font-size: 12px;
-  font-weight: 500;
-}
-
 .profile.studio ~ .category-block .category-item.active {
   background: transparent;
 }
@@ -1403,11 +1397,6 @@ a.comment-avatar {
 
 .my-tabs + .my-feed {
   margin-top: 16px;
-}
-
-.my-tab.aside {
-  margin-left: 72px;
-  font-weight: 650;
 }
 
 .member-summary {
