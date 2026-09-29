@@ -27,6 +27,17 @@ export type AdminPayment = {
   paidAt: string
 }
 
+export type AdminSubscription = {
+  id: string
+  subscriptionId: string
+  memberNickname: string
+  memberEmail: string
+  targetNickname: string
+  status: string
+  startedOn: string
+  endedOn: string
+}
+
 export type AdminRefund = {
   id: string
   orderNo: string

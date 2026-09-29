@@ -21,6 +21,7 @@ import {
   type AdminPost,
   type AdminRefund,
   type AdminReport,
+  type AdminSubscription,
   type AdminTheme,
   type ThemeDraft,
 } from '@/data/admin'
@@ -37,6 +38,7 @@ import {
   updateAdminTheme,
 } from '@/api/admin'
 import { fetchAdminPayments, fetchAdminRefunds, refundAdminPayment } from '@/api/adminPayment'
+import { fetchAdminSubscriptions } from '@/api/adminSubscription'
 import { logout } from '@/api/auth'
 import { getAdmin, subscribeAdmin } from '@/data/adminSession'
 import { getLoggedIn, subscribeSession } from '@/data/session'
@@ -73,10 +75,11 @@ const searchFields: Record<SectionId, { value: string; label: string }[]> = {
     { value: 'payType', label: '결제 유형' },
   ],
   subscriptions: [
-    { value: 'orderNo', label: '결제 번호' },
-    { value: 'memberId', label: 'member_id' },
-    { value: 'targetId', label: 'target_id' },
-    { value: 'payType', label: '결제 유형' },
+    { value: 'subscriptionId', label: '구독 번호' },
+    { value: 'memberNickname', label: '구독자' },
+    { value: 'memberEmail', label: '이메일' },
+    { value: 'targetNickname', label: '대상' },
+    { value: 'status', label: '상태' },
   ],
   posts: [
     { value: 'id', label: 'id' },
@@ -194,6 +197,7 @@ function AdminBoard({ section }: { section: SectionId }) {
   const [apiMembers, setApiMembers] = useState<AdminMember[]>([])
   const [apiPosts, setApiPosts] = useState<AdminPost[]>([])
   const [apiThemes, setApiThemes] = useState<AdminTheme[]>([])
+  const [apiSubscriptions, setApiSubscriptions] = useState<AdminSubscription[]>([])
   const [boardLoading, setBoardLoading] = useState(false)
   const [boardError, setBoardError] = useState<string | null>(null)
   const [payLoading, setPayLoading] = useState(false)
@@ -232,9 +236,9 @@ function AdminBoard({ section }: { section: SectionId }) {
     }
   }, [section])
 
-  // 회원·게시글/댓글·테마는 Swagger 관리자 API로 불러온다
+  // 회원·구독·게시글/댓글·테마는 Swagger 관리자 API로 불러온다
   useEffect(() => {
-    if (section !== 'members' && section !== 'posts' && section !== 'themes') return
+    if (section !== 'members' && section !== 'posts' && section !== 'themes' && section !== 'subscriptions') return
 
     let cancelled = false
     setBoardLoading(true)
@@ -248,6 +252,9 @@ function AdminBoard({ section }: { section: SectionId }) {
         } else if (section === 'posts') {
           const [posts, replies] = await Promise.all([fetchAdminPosts(), fetchAdminReplies()])
           if (!cancelled) setApiPosts([...posts, ...replies])
+        } else if (section === 'subscriptions') {
+          const list = await fetchAdminSubscriptions()
+          if (!cancelled) setApiSubscriptions(list)
         } else {
           const list = await fetchAdminThemes()
           if (!cancelled) setApiThemes(list)
@@ -279,7 +286,7 @@ function AdminBoard({ section }: { section: SectionId }) {
 
   const memberPage = slicePage(filterRows(apiMembers, field, keyword), page)
   const paymentPage = slicePage(filterRows(apiPayments, field, keyword), page)
-  const subscriptionPage = slicePage(filterRows([] as AdminPayment[], field, keyword), page)
+  const subscriptionPage = slicePage(filterRows(apiSubscriptions, field, keyword), page)
   const refundPage = slicePage(filterRows(apiRefunds, field, keyword), page)
   const postPage = slicePage(filterRows(apiPosts, field, keyword), page)
   const themePage = slicePage(filterRows(apiThemes, field, keyword), page)
@@ -423,9 +430,6 @@ function AdminBoard({ section }: { section: SectionId }) {
         </button>
       </form>
 
-      {section === 'subscriptions' && (
-        <p className="admin-note">구독 관리 API가 준비되면 이 목록에 표시됩니다. 결제 후 7일 이내 전액 환불, 이후 남은 구독일 수에 따른 부분 환불(남은 구독일/30)</p>
-      )}
       {section === 'reports' && (
         <p className="admin-note">신고 관리 API가 준비되면 이 목록에 표시됩니다.</p>
       )}
@@ -434,7 +438,7 @@ function AdminBoard({ section }: { section: SectionId }) {
           {payError}
         </p>
       )}
-      {(section === 'members' || section === 'posts' || section === 'themes') && boardError && (
+      {(section === 'members' || section === 'posts' || section === 'themes' || section === 'subscriptions') && boardError && (
         <p className="admin-note" role="alert">
           {boardError}
         </p>
@@ -452,11 +456,11 @@ function AdminBoard({ section }: { section: SectionId }) {
 
       {(section === 'payments' || section === 'refunds') && payLoading ? (
         <p className="admin-empty">{section === 'refunds' ? '환불 내역을 불러오는 중…' : '결제 내역을 불러오는 중…'}</p>
-      ) : (section === 'members' || section === 'posts' || section === 'themes') && boardLoading ? (
+      ) : (section === 'members' || section === 'posts' || section === 'themes' || section === 'subscriptions') && boardLoading ? (
         <p className="admin-empty">목록을 불러오는 중…</p>
       ) : (section === 'payments' || section === 'refunds') && payError && active.visible.length === 0 ? (
         <p className="admin-empty">{payError}</p>
-      ) : (section === 'members' || section === 'posts' || section === 'themes') &&
+      ) : (section === 'members' || section === 'posts' || section === 'themes' || section === 'subscriptions') &&
         boardError &&
         active.visible.length === 0 ? (
         <p className="admin-empty">{boardError}</p>
@@ -543,6 +547,18 @@ function AdminBoard({ section }: { section: SectionId }) {
                     상세보기
                   </button>
                 )}
+              </article>
+            ))}
+          {section === 'subscriptions' &&
+            subscriptionPage.visible.map((item) => (
+              <article key={item.id} className="admin-row subscriptions">
+                <Cell label="구독 번호" value={item.subscriptionId} />
+                <Cell label="구독자" value={item.memberNickname} />
+                <Cell label="이메일" value={item.memberEmail} />
+                <Cell label="대상" value={item.targetNickname} />
+                <Cell label="상태" value={item.status} />
+                <Cell label="시작일" value={item.startedOn} />
+                <Cell label="종료일" value={item.endedOn} />
               </article>
             ))}
           {section === 'refunds' &&
