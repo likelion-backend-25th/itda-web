@@ -1,6 +1,7 @@
 import { BrowserRouter, Route, Routes } from 'react-router'
 import RequireAuth from '@/components/auth/RequireAuth'
 import { useOAuthTokenCapture } from '@/hooks/auth/useOAuthTokenCapture'
+import { useSessionThemeSync } from '@/hooks/theme/useSessionThemeSync'
 import AdminPage from '@/pages/admin/AdminPage'
 import HomePage from '@/pages/home/HomePage'
 import LoginPage from '@/pages/auth/LoginPage'
@@ -18,10 +19,16 @@ function OAuthTokenCapture() {
   return null
 }
 
+function SessionThemeSync() {
+  useSessionThemeSync()
+  return null
+}
+
 export default function App() {
   return (
     <BrowserRouter>
       <OAuthTokenCapture />
+      <SessionThemeSync />
       <Routes>
         <Route path="/" element={<HomePage />} />
         <Route path="/posts/:postId" element={<PostDetailPage />} />

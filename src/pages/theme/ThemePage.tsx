@@ -1,13 +1,13 @@
 ﻿import { useEffect, useMemo, useState, useSyncExternalStore, type FormEvent } from 'react'
 import { Link, useNavigate, useParams } from 'react-router'
-import { fetchOwnedThemeList, fetchThemeDetail, fetchThemeList } from '@/api/theme'
+import { applyTheme, claimFreeTheme, fetchOwnedThemeList, fetchThemeDetail, fetchThemeList } from '@/api/theme'
 import CategoryFeed from '@/components/feed/CategoryFeed'
 import Header from '@/components/layout/Header'
 import Sidebar from '@/components/layout/Sidebar'
 import ThemeShot, { toneFromThemeCode } from '@/components/theme/ThemeShot'
 import WritePostModal, { type PostDraft } from '@/components/feed/WritePostModal'
 import { BagIcon, CloseIcon, SearchIcon } from '@/components/icons'
-import { applyAppTheme, getAppliedTheme, resolveAppTheme, subscribeAppTheme } from '@/data/appTheme'
+import { applyAppThemeAsync, getAppliedTheme, resolveAppTheme, subscribeAppTheme } from '@/data/appTheme'
 import { myPageCategories, type CategoryId } from '@/data/feed'
 import {
   formatThemePrice,
@@ -118,8 +118,13 @@ export default function ThemePage() {
         if (cancelled) return
         // 로컬 캐시를 서버 보유 목록으로 교체 (예전 예시 테마 오탐 제거)
         syncOwnedThemes(result.content.map((theme) => theme.themeCode.trim().toLowerCase()))
-        for (const theme of result.content) {
-          if (theme.isApplied) applyAppTheme(theme.themeCode, theme.id)
+        const serverApplied = result.content.find((theme) => theme.isApplied)
+        const local = getAppliedTheme()
+        if (
+          serverApplied &&
+          (local.themeId == null || serverApplied.id !== local.themeId)
+        ) {
+          void applyAppThemeAsync(serverApplied.themeCode, serverApplied.id)
         }
         const ownedById = new Map(result.content.map((theme) => [theme.id, theme]))
         setThemes((current) =>
@@ -170,7 +175,7 @@ export default function ThemePage() {
         const result = await fetchThemeDetail(id)
         if (cancelled) return
         setDetail(result)
-        if (result.isApplied) applyAppTheme(result.themeCode, result.id)
+        if (result.isApplied) void applyAppThemeAsync(result.themeCode, result.id)
         if (result.isOwned) setThemeOwned(result.themeCode.trim().toLowerCase())
       } catch (caught: unknown) {
         if (cancelled) return
@@ -223,7 +228,10 @@ export default function ThemePage() {
 
   useEffect(() => {
     const serverApplied = themes.find((theme) => theme.isApplied) ?? (detail?.isApplied ? detail : undefined)
-    if (serverApplied) applyAppTheme(serverApplied.themeCode, serverApplied.id)
+    if (!serverApplied) return
+    const local = getAppliedTheme()
+    if (local.themeId != null && local.themeId === serverApplied.id) return
+    void applyAppThemeAsync(serverApplied.themeCode, serverApplied.id)
   }, [detail, themes])
 
   useEffect(() => {
@@ -241,24 +249,32 @@ export default function ThemePage() {
   }
 
   function grantAndApply(theme: ThemeResponse) {
-    applyAppTheme(theme.themeCode, theme.id)
-    setThemeOwned(theme.themeCode.trim().toLowerCase())
-    setThemes((current) =>
-      current.map((item) => ({
-        ...item,
-        isOwned: item.id === theme.id ? true : item.isOwned,
-        isApplied: item.id === theme.id,
-      })),
-    )
-    setDetail((current) =>
-      current
-        ? {
-            ...current,
-            isOwned: current.id === theme.id ? true : current.isOwned,
-            isApplied: current.id === theme.id,
-          }
-        : current,
-    )
+    void (async () => {
+      try {
+        // 서버 member.theme_id 먼저 저장해야 마이페이지에서 덮어쓰지 않음
+        await applyTheme(theme.id)
+        await applyAppThemeAsync(theme.themeCode, theme.id)
+        setThemeOwned(theme.themeCode.trim().toLowerCase())
+        setThemes((current) =>
+          current.map((item) => ({
+            ...item,
+            isOwned: item.id === theme.id ? true : item.isOwned,
+            isApplied: item.id === theme.id,
+          })),
+        )
+        setDetail((current) =>
+          current
+            ? {
+                ...current,
+                isOwned: current.id === theme.id ? true : current.isOwned,
+                isApplied: current.id === theme.id,
+              }
+            : current,
+        )
+      } catch {
+        // applyAppThemeAsync / applyTheme 실패 시 폴백은 각 API·게이트에서 처리
+      }
+    })()
   }
 
   async function handlePurchase(theme: ThemeResponse) {
@@ -267,6 +283,16 @@ export default function ThemePage() {
       return
     }
     setLoginHint('')
+    // PortOne은 0원 결제 불가 → 무료 수령 API
+    if (theme.price <= 0) {
+      try {
+        await claimFreeTheme(theme.id)
+        grantAndApply(theme)
+      } catch (err: unknown) {
+        setLoginHint(err instanceof Error ? err.message : '무료 수령에 실패했습니다.')
+      }
+      return
+    }
     const result = await startCheckout({
       paymentType: 'THEME',
       targetId: theme.id,
@@ -443,15 +469,23 @@ export default function ThemePage() {
                     </button>
                   ) : (
                     <>
-                      <PayMethodPicker value={payMethod} disabled={busy} onChange={setPayMethod} />
+                      {selected.price > 0 && (
+                        <PayMethodPicker value={payMethod} disabled={busy} onChange={setPayMethod} />
+                      )}
                       <button
                         type="button"
                         className="shop-purchase"
                         disabled={busy}
                         onClick={() => handlePurchase(selected)}
                       >
-                        <BagIcon />
-                        {busy ? (phase === 'confirm' ? '결제 확인 중…' : '결제창 여는 중…') : '구매'}
+                        {selected.price > 0 ? <BagIcon /> : null}
+                        {selected.price <= 0
+                          ? '무료 받기'
+                          : busy
+                            ? phase === 'confirm'
+                              ? '결제 확인 중…'
+                              : '결제창 여는 중…'
+                            : '구매'}
                       </button>
                       {(loginHint || error) && (
                         <p className="shop-pay-error" role="alert">

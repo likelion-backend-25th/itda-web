@@ -2,7 +2,7 @@ import { useCallback, useEffect, useMemo, useState, useSyncExternalStore } from 
 import { Link, useLocation, useNavigate } from 'react-router'
 import { resolveMemberImageUrl, toFeedUser } from '@/api/member'
 import { resolvePostImageUrl } from '@/api/post'
-import { fetchOwnedThemeList } from '@/api/theme'
+import { applyTheme, fetchOwnedThemeList } from '@/api/theme'
 import EditPostModal from '@/components/feed/EditPostModal'
 import FollowList, { type FollowTab } from '@/components/profile/FollowList'
 import WritePostModal, { type PostDraft } from '@/components/feed/WritePostModal'
@@ -15,7 +15,7 @@ import ThemeShot, { toneFromThemeCode } from '@/components/theme/ThemeShot'
 import { GearIcon, HeadsetIcon } from '@/components/icons'
 import { formatDateTime, myPageCategories, postPath, type CategoryId } from '@/data/feed'
 import { usePublishPost } from '@/hooks/post/usePublishPost'
-import { applyAppTheme, getAppliedTheme, resolveAppTheme, subscribeAppTheme } from '@/data/appTheme'
+import { applyAppThemeAsync, getAppliedTheme, resolveAppTheme, subscribeAppTheme } from '@/data/appTheme'
 import { syncOwnedThemes } from '@/data/themes'
 import { getFollowingIds, setFollowing, subscribeFollows } from '@/data/follows'
 import { getLoggedIn, setLoggedIn, subscribeSession } from '@/data/session'
@@ -41,10 +41,12 @@ function ownedFromApi(themes: ThemeResponse[], appliedId: number | null): OwnedT
     const tone = toneFromThemeCode(theme.themeCode)
     return {
       id: resolveAppTheme(theme.themeCode),
+      themeId: theme.id,
       name: theme.themeName,
       title: theme.themeName,
       subtitle: theme.themeCode,
       tone,
+      thumbnailUrl: theme.thumbnailUrl,
       active: appliedId != null ? theme.id === appliedId : theme.isApplied,
     }
   })
@@ -138,7 +140,7 @@ export default function MyPage() {
     }
   }, [loggedIn])
 
-  // GET /themes/owned — 마이페이지 보유 테마
+  // GET /themes/owned — 마이페이지 보유 테마 (로그인 시에만, 적용 직후 재덮어쓰기 방지)
   useEffect(() => {
     if (!loggedIn) return
     let cancelled = false
@@ -147,10 +149,16 @@ export default function MyPage() {
         const result = await fetchOwnedThemeList(1, 50)
         if (cancelled) return
         syncOwnedThemes(result.content.map((theme) => theme.themeCode.trim().toLowerCase()))
-        for (const theme of result.content) {
-          if (theme.isApplied) applyAppTheme(theme.themeCode, theme.id)
+        const serverApplied = result.content.find((theme) => theme.isApplied)
+        const local = getAppliedTheme()
+        // 서버에 저장된 적용 테마와 로컬이 다를 때만 CSS 동기화
+        if (
+          serverApplied &&
+          (local.themeId == null || serverApplied.id !== local.themeId)
+        ) {
+          void applyAppThemeAsync(serverApplied.themeCode, serverApplied.id)
         }
-        setThemes(ownedFromApi(result.content, applied.themeId))
+        setThemes(ownedFromApi(result.content, serverApplied?.id ?? local.themeId))
       } catch {
         // 보유 목록 실패 시 빈 목록 유지
       }
@@ -159,7 +167,8 @@ export default function MyPage() {
     return () => {
       cancelled = true
     }
-  }, [applied.themeId, loggedIn])
+    // applied.themeId 를 deps에 넣으면 적용 직후 서버 구버전으로 덮어쓴다
+  }, [loggedIn])
 
   useEffect(() => {
     if (!menuId) return
@@ -172,7 +181,10 @@ export default function MyPage() {
 
   const visibleThemes = themes.map((theme) => ({
     ...theme,
-    active: resolveAppTheme(theme.tone) === applied.palette && applied.palette !== 'light',
+    active:
+      theme.themeId != null && applied.themeId != null
+        ? theme.themeId === applied.themeId
+        : resolveAppTheme(theme.tone) === applied.palette,
   }))
   const detailTheme = visibleThemes.find((theme) => theme.id === detailId) ?? null
   const source = tab === 'likes' ? liked : tab === 'scraps' ? scraps : posts
@@ -295,7 +307,7 @@ export default function MyPage() {
                     aria-pressed={theme.active}
                     onClick={() => setDetailId(theme.id)}
                   >
-                    <ThemeShot tone={theme.tone} />
+                    <ThemeShot tone={theme.tone} thumbnailUrl={theme.thumbnailUrl} />
                     <strong>{theme.name}</strong>
                   </button>
                 ))}
@@ -381,8 +393,27 @@ export default function MyPage() {
           theme={detailTheme}
           onClose={() => setDetailId(null)}
           onApply={() => {
-            applyAppTheme(detailTheme.tone)
-            setDetailId(null)
+            const id = detailTheme.themeId
+            if (id == null) {
+              setDetailId(null)
+              return
+            }
+            void (async () => {
+              try {
+                await applyTheme(id)
+                await applyAppThemeAsync(detailTheme.subtitle || detailTheme.tone, id)
+                setThemes((current) =>
+                  current.map((item) => ({
+                    ...item,
+                    active: item.themeId === id,
+                  })),
+                )
+              } catch {
+                // 폴백은 applyAppThemeAsync 내부
+              } finally {
+                setDetailId(null)
+              }
+            })()
           }}
         />
       )}

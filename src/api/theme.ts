@@ -1,5 +1,5 @@
 import { apiJson, getApiOrigin } from '@/lib/apiClient'
-import type { PageResponse, ThemeDetailResponse, ThemeResponse } from '@/types/theme'
+import type { PageResponse, ThemeDetailResponse, ThemeResponse, ThemeStylesResponse } from '@/types/theme'
 
 const S3_PUBLIC_BASE =
   import.meta.env.VITE_S3_PUBLIC_BASE_URL?.replace(/\/$/, '') ||
@@ -120,4 +120,36 @@ export function fetchOwnedThemeList(page = 1, size = 6): Promise<PageResponse<Th
     size: String(safeSize),
   })
   return apiJson<unknown>(`/themes/owned?${params}`).then(normalizePage)
+}
+
+function normalizeThemeStyles(raw: unknown): ThemeStylesResponse {
+  if (typeof raw !== 'object' || raw === null) {
+    throw new Error('테마 스타일 응답 형식이 올바르지 않습니다.')
+  }
+  const record = raw as Record<string, unknown>
+  const themeId = asNumber(record.themeId)
+  const themeCode = typeof record.themeCode === 'string' ? record.themeCode.trim() : ''
+  const cssText = typeof record.cssText === 'string' ? record.cssText.trim() : ''
+  if (themeId == null || themeCode === '' || cssText === '') {
+    throw new Error('테마 스타일 응답이 비어 있습니다.')
+  }
+  return { themeId, themeCode, cssText }
+}
+
+/** GET /api/v1/themes/{themeId}/styles — 보유·기본 테마만 CSS 반환 (인증 필요) */
+export function fetchThemeStyles(themeId: number): Promise<ThemeStylesResponse> {
+  assertPositiveInt(themeId, '테마 id')
+  return apiJson<unknown>(`/themes/${themeId}/styles`).then(normalizeThemeStyles)
+}
+
+/** POST /api/v1/themes/{themeId}/apply — member.theme_id 저장 (+ is_used sticky) */
+export function applyTheme(themeId: number): Promise<ThemeDetailResponse> {
+  assertPositiveInt(themeId, '테마 id')
+  return apiJson<unknown>(`/themes/${themeId}/apply`, { method: 'POST' }).then(normalizeThemeDetail)
+}
+
+/** POST /api/v1/themes/{themeId}/claim — 0원 테마 무료 수령 (PortOne 우회) */
+export function claimFreeTheme(themeId: number): Promise<ThemeDetailResponse> {
+  assertPositiveInt(themeId, '테마 id')
+  return apiJson<unknown>(`/themes/${themeId}/claim`, { method: 'POST' }).then(normalizeThemeDetail)
 }

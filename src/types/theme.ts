@@ -16,6 +16,13 @@ export interface ThemeDetailResponse extends ThemeResponse {
   updatedAt: string
 }
 
+/** GET /api/v1/themes/{themeId}/styles — 보유 검증 후 CSS */
+export interface ThemeStylesResponse {
+  themeId: number
+  themeCode: string
+  cssText: string
+}
+
 /** 백엔드 PageResponse 공통 래퍼 */
 export interface PageResponse<T> {
   content: T[]
