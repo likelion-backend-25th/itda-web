@@ -1,14 +1,13 @@
-﻿import { useEffect, useMemo, useState, useSyncExternalStore } from 'react'
-import { Navigate, useNavigate, useParams } from 'react-router'
+﻿import { useCallback, useEffect, useMemo, useState, useSyncExternalStore } from 'react'
+import { Navigate, useLocation, useNavigate, useParams } from 'react-router'
 import { fetchMemberProfile, resolveMemberImageUrl, toFeedUser } from '@/api/member'
 import { cancelSubscription, fetchSubscriptionStatus } from '@/api/subscription'
 import FollowList, { type FollowTab } from '@/components/profile/FollowList'
 import Header from '@/components/layout/Header'
-import PostDetail from '@/components/feed/PostDetail'
 import Sidebar from '@/components/layout/Sidebar'
 import WritePostModal, { type PostDraft } from '@/components/feed/WritePostModal'
 import { BookmarkIcon, CommentIcon, CrownIcon, DotsIcon, EyeIcon, HeartIcon } from '@/components/icons'
-import { formatDateTime, initialPosts, myPageCategories, type CategoryId, type Post } from '@/data/feed'
+import { initialPosts, myPageCategories, postPath, type CategoryId, type Post } from '@/data/feed'
 import { getFollowingIds, memberFollowIds, setFollowing, subscribeFollows } from '@/data/follows'
 import { followListItemsFromIds, memberById, type MemberProfile } from '@/data/members'
 import { setSubscribed } from '@/data/subscriptions'
@@ -39,6 +38,7 @@ function toMemberView(profile: {
 export default function MemberPage() {
   const { memberId = '' } = useParams()
   const navigate = useNavigate()
+  const location = useLocation()
   const { publish } = usePublishPost()
   const numericId = Number(memberId)
   const isNumericRoute = Number.isInteger(numericId) && numericId > 0
@@ -53,7 +53,6 @@ export default function MemberPage() {
   const [tab, setTab] = useState<'public' | 'exclusive'>('public')
   const [followTab, setFollowTab] = useState<FollowTab | null>(null)
   const [posts, setPosts] = useState<Post[]>([])
-  const [selectedId, setSelectedId] = useState<string | null>(null)
   const [writing, setWriting] = useState(false)
   const [subscribed, setSubscribedFlag] = useState(false)
   const [statusReady, setStatusReady] = useState(false)
@@ -125,9 +124,15 @@ export default function MemberPage() {
     setFollowTab(null)
     setTab('public')
     setCategory('all')
-    setSelectedId(null)
     setPosts(member ? initialPosts.filter((post) => post.author === member.name) : [])
   }, [member])
+
+  const openPost = useCallback(
+    (id: string) => {
+      navigate(postPath(id), { state: { from: `${location.pathname}${location.search}` } })
+    },
+    [location.pathname, location.search, navigate],
+  )
 
   // GET /api/v1/subscriptions/{targetId} — subscribed로 버튼 문구를 정한다
   useEffect(() => {
@@ -197,8 +202,6 @@ export default function MemberPage() {
     })
   }, [category, posts, query, subscribed, tab])
 
-  const selectedPost = posts.find((post) => post.id === selectedId) ?? null
-
   if (member?.name === viewer.name) return <Navigate to="/mypage" replace />
 
   function toggleLike(id: string) {
@@ -214,55 +217,6 @@ export default function MemberPage() {
   function toggleBookmark(id: string) {
     setPosts((current) =>
       current.map((post) => (post.id === id ? { ...post, bookmarked: !post.bookmarked } : post)),
-    )
-  }
-
-  function updateComment(postId: string, commentId: string, content: string) {
-    setPosts((current) =>
-      current.map((post) =>
-        post.id === postId
-          ? {
-              ...post,
-              thread: post.thread.map((comment) =>
-                comment.id === commentId ? { ...comment, content } : comment,
-              ),
-            }
-          : post,
-      ),
-    )
-  }
-
-  function deleteComment(postId: string, commentId: string) {
-    setPosts((current) =>
-      current.map((post) => {
-        if (post.id !== postId) return post
-        const thread = post.thread.filter((comment) => comment.id !== commentId)
-        if (thread.length === post.thread.length) return post
-        return { ...post, thread, comments: Math.max(0, post.comments - 1) }
-      }),
-    )
-  }
-
-  function addComment(id: string, content: string) {
-    setPosts((current) =>
-      current.map((post) =>
-        post.id === id
-          ? {
-              ...post,
-              comments: post.comments + 1,
-              thread: [
-                {
-                  id: `comment-${Date.now()}`,
-                  author: viewer.name,
-                  avatar: viewer.avatar,
-                  createdAt: formatDateTime(new Date()),
-                  content,
-                },
-                ...post.thread,
-              ],
-            }
-          : post,
-      ),
     )
   }
 
@@ -371,7 +325,7 @@ export default function MemberPage() {
                     </div>
                   ) : (
                     visiblePosts.map((post) => (
-                      <article key={post.id} className="member-post" onClick={() => setSelectedId(post.id)}>
+                      <article key={post.id} className="member-post" onClick={() => openPost(post.id)}>
                         <header>
                           <img src={post.avatar} alt="" />
                           <div>
@@ -454,18 +408,6 @@ export default function MemberPage() {
             setWriting(false)
             navigate('/')
           }}
-        />
-      )}
-      {selectedPost && (
-        <PostDetail
-          post={selectedPost}
-          user={viewer}
-          onClose={() => setSelectedId(null)}
-          onToggleLike={toggleLike}
-          onToggleBookmark={toggleBookmark}
-          onAddComment={addComment}
-          onUpdateComment={updateComment}
-          onDeleteComment={deleteComment}
         />
       )}
     </div>

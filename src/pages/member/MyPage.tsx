@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useState, useSyncExternalStore } from 'react'
-import { Link } from 'react-router'
+import { Link, useLocation, useNavigate } from 'react-router'
 import { resolveMemberImageUrl, toFeedUser } from '@/api/member'
 import { resolvePostImageUrl } from '@/api/post'
 import { fetchOwnedThemeList } from '@/api/theme'
@@ -8,13 +8,12 @@ import FollowList, { type FollowTab } from '@/components/profile/FollowList'
 import WritePostModal, { type PostDraft } from '@/components/feed/WritePostModal'
 import Header from '@/components/layout/Header'
 import MyPostCard from '@/components/feed/MyPostCard'
-import PostDetail from '@/components/feed/PostDetail'
 import Sidebar from '@/components/layout/Sidebar'
 import ThemeDetail from '@/components/theme/ThemeDetail'
 import ProfileEditModal, { type ProfileForm } from '@/components/profile/ProfileEditModal'
 import ThemeShot, { toneFromThemeCode } from '@/components/theme/ThemeShot'
 import { GearIcon, HeadsetIcon } from '@/components/icons'
-import { formatDateTime, myPageCategories, type CategoryId, type Post } from '@/data/feed'
+import { formatDateTime, myPageCategories, postPath, type CategoryId } from '@/data/feed'
 import { usePublishPost } from '@/hooks/post/usePublishPost'
 import { applyAppTheme, getAppliedTheme, resolveAppTheme, subscribeAppTheme } from '@/data/appTheme'
 import { syncOwnedThemes } from '@/data/themes'
@@ -58,6 +57,8 @@ const tabCopy: Record<Exclude<MyTab, 'themes'>, string> = {
 }
 
 export default function MyPage() {
+  const navigate = useNavigate()
+  const location = useLocation()
   const [query, setQuery] = useState('')
   const [category, setCategory] = useState<CategoryId>('all')
   const [categoriesOpen, setCategoriesOpen] = useState(true)
@@ -71,8 +72,6 @@ export default function MyPage() {
   const [menuId, setMenuId] = useState<string | null>(null)
   const [editingPost, setEditingPost] = useState<MyPost | null>(null)
   const { publish } = usePublishPost()
-  const [selectedId, setSelectedId] = useState<string | null>(null)
-  const closeDetail = useCallback(() => setSelectedId(null), [])
   const [writing, setWriting] = useState(false)
   const [settingsOpen, setSettingsOpen] = useState(false)
   const [followTab, setFollowTab] = useState<FollowTab | null>(null)
@@ -92,6 +91,13 @@ export default function MyPage() {
     avatar: profile.avatar || cachedViewer.avatar,
     bio: profile.bio ? `소개글 - ${profile.bio}` : cachedViewer.bio,
   }
+
+  const openPost = useCallback(
+    (id: string) => {
+      navigate(postPath(id), { state: { from: `${location.pathname}${location.search}` } })
+    },
+    [location.pathname, location.search, navigate],
+  )
 
   // GET /member/me — 캐시 공유. 있으면 즉시 반영, 없으면 한 번만 조회
   useEffect(() => {
@@ -169,28 +175,6 @@ export default function MyPage() {
     active: resolveAppTheme(theme.tone) === applied.palette && applied.palette !== 'light',
   }))
   const detailTheme = visibleThemes.find((theme) => theme.id === detailId) ?? null
-  const selectedPost = [...posts, ...liked, ...scraps].find((post) => post.id === selectedId) ?? null
-
-  function toDetailPost(post: MyPost): Post {
-    return {
-      id: post.id,
-      author: post.author,
-      avatar: post.avatar,
-      time: '',
-      category: post.category,
-      categoryLabel: post.categoryLabel,
-      content: post.body ? `${post.title}\n${post.body}` : post.title,
-      images: post.images,
-      createdAt: post.createdAt ?? '',
-      comments: post.comments,
-      likes: post.likes,
-      liked: post.liked,
-      views: post.views,
-      bookmarked: scraps.some((item) => item.id === post.id),
-      visibility: post.visibility,
-      thread: post.thread ?? [],
-    }
-  }
   const source = tab === 'likes' ? liked : tab === 'scraps' ? scraps : posts
 
   const visiblePosts = useMemo(() => {
@@ -212,13 +196,6 @@ export default function MyPage() {
         ? current.filter((item) => item.id !== post.id)
         : [post, ...current],
     )
-  }
-
-  function patchPost(id: string, updater: (post: MyPost) => MyPost) {
-    const apply = (list: MyPost[]) => list.map((post) => (post.id === id ? updater(post) : post))
-    setPosts(apply)
-    setLiked(apply)
-    setScraps(apply)
   }
 
   function updateList(id: string, updater: (post: MyPost) => MyPost) {
@@ -337,7 +314,7 @@ export default function MyPage() {
                         post={post}
                         canManage={tab === 'posts'}
                         menuOpen={menuId === post.id}
-                        onOpen={() => setSelectedId(post.id)}
+                        onOpen={() => openPost(post.id)}
                         onToggleMenu={() => setMenuId((current) => (current === post.id ? null : post.id))}
                         onEdit={() => {
                           setEditingPost(post)
@@ -346,7 +323,6 @@ export default function MyPage() {
                         onDelete={() => {
                           setPosts((current) => current.filter((item) => item.id !== post.id))
                           setMenuId(null)
-                          if (selectedId === post.id) setSelectedId(null)
                         }}
                         onToggleLike={() =>
                           updateList(post.id, (item) => ({
@@ -445,53 +421,6 @@ export default function MyPage() {
             setCategory((current) => (current === 'all' || current === draft.category ? current : 'all'))
             setWriting(false)
           }}
-        />
-      )}
-
-      {selectedPost && (
-        <PostDetail
-          post={toDetailPost(selectedPost)}
-          user={viewer}
-          onClose={closeDetail}
-          onToggleLike={(id) =>
-            patchPost(id, (item) => ({
-              ...item,
-              liked: !item.liked,
-              likes: item.likes + (item.liked ? -1 : 1),
-            }))
-          }
-          onToggleBookmark={() => toggleScrap(selectedPost)}
-          onAddComment={(id, content) =>
-            patchPost(id, (item) => ({
-              ...item,
-              comments: item.comments + 1,
-              thread: [
-                {
-                  id: `comment-${Date.now()}`,
-                  author: viewer.name,
-                  avatar: viewer.avatar,
-                  createdAt: formatDateTime(new Date()),
-                  content,
-                },
-                ...(item.thread ?? []),
-              ],
-            }))
-          }
-          onUpdateComment={(id, commentId, content) =>
-            patchPost(id, (item) => ({
-              ...item,
-              thread: (item.thread ?? []).map((comment) =>
-                comment.id === commentId ? { ...comment, content } : comment,
-              ),
-            }))
-          }
-          onDeleteComment={(id, commentId) =>
-            patchPost(id, (item) => {
-              const thread = (item.thread ?? []).filter((comment) => comment.id !== commentId)
-              if (thread.length === (item.thread ?? []).length) return item
-              return { ...item, thread, comments: Math.max(0, item.comments - 1) }
-            })
-          }
         />
       )}
 
