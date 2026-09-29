@@ -13,19 +13,23 @@ import type {
 
 const PAGE_SIZE = 5
 
-/** 사이드바 한글 이름 → common_code id. 화면 이름은 응답 categoryName 을 쓴다. */
+/** 게시글 카테고리 common_code type 3. 1~4는 결제 상태라 쓰지 않는다. */
 const CATEGORY_ID_BY_LABEL: Record<string, number> = {
-  맛집: 1,
-  여행: 2,
-  운동: 3,
-  게임: 4,
-  독서: 8,
-  음악: 9,
-  요리: 10,
-  공예: 11,
-  쥬얼리: 12,
-  그림: 13,
-  기타: 14,
+  맛집: 8,
+  여행: 9,
+  운동: 10,
+  독서: 11,
+  음악: 12,
+  요리: 13,
+  공예: 14,
+  그림: 15,
+  게임: 16,
+  기타: 17,
+}
+
+/** 글 등록·수정에 쓸 수 있는 게시글 카테고리인지 */
+export function isPostCategoryLabel(label: string): boolean {
+  return CATEGORY_ID_BY_LABEL[label] != null
 }
 
 function categoryFromName(name: string): PostCategory {

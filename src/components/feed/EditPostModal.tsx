@@ -2,6 +2,7 @@ import { useEffect, useId, useRef, useState } from 'react'
 import { createPortal } from 'react-dom'
 import { myPageCategories, type CategoryId, type FeedImage, type PostCategory } from '@/data/feed'
 import type { MyPost, PostVisibility } from '@/data/mypage'
+import { isPostCategoryLabel } from '@/api/post'
 import { ChevronDownIcon, CloseIcon, GlobeIcon, ImageIcon, UsersIcon } from '@/components/icons'
 
 const textLimit = 2000
@@ -29,7 +30,8 @@ export default function EditPostModal({
   onSave,
 }: EditPostModalProps) {
   const categoryOptions = categories.filter(
-    (item): item is { id: PostCategory; label: string } => item.id !== 'all',
+    (item): item is { id: PostCategory; label: string } =>
+      item.id !== 'all' && isPostCategoryLabel(item.label),
   )
   const titleId = useId()
   const fileRef = useRef<HTMLInputElement>(null)

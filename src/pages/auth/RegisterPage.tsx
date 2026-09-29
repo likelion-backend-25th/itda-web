@@ -20,16 +20,16 @@ import {
 
 /** UI 관심사 → 백엔드 interestCategoryIds */
 const INTEREST_CATEGORY_ID: Record<InterestId, number> = {
-  food: 1,
-  travel: 2,
-  workout: 3,
-  reading: 8,
-  cooking: 10,
-  music: 9,
-  craft: 11,
-  drawing: 13,
-  game: 4,
-  etc: 14,
+  food: 8,
+  travel: 9,
+  workout: 10,
+  reading: 11,
+  music: 12,
+  cooking: 13,
+  craft: 14,
+  drawing: 15,
+  game: 16,
+  etc: 17,
 }
 
 const interests: { id: InterestId; label: string; Icon: ComponentType }[] = [

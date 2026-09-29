@@ -2,6 +2,7 @@ import { useEffect, useId, useRef, useState } from 'react'
 import { createPortal } from 'react-dom'
 import type { CategoryId, FeedImage, FeedUser, PostCategory } from '@/data/feed'
 import type { PostVisibility } from '@/data/mypage'
+import { isPostCategoryLabel } from '@/api/post'
 import { ChevronDownIcon, CloseIcon, GlobeIcon, ImageIcon, UsersIcon } from '@/components/icons'
 
 const textLimit = 2000
@@ -41,7 +42,8 @@ export default function WritePostModal({ user, categories, onClose, onPublish }:
   const [saveError, setSaveError] = useState('')
 
   const categoryOptions = categories.filter(
-    (item): item is { id: PostCategory; label: string } => item.id !== 'all',
+    (item): item is { id: PostCategory; label: string } =>
+      item.id !== 'all' && isPostCategoryLabel(item.label),
   )
   const selectedCategory = categoryOptions.find((item) => item.id === category)
 
