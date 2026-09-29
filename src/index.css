@@ -3534,10 +3534,17 @@ img.sub-photo {
 }
 
 .refund-row p {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px 20px;
   margin: 0;
   color: var(--text-soft);
   font-size: 15px;
   font-weight: 650;
+}
+
+.refund-row p span {
+  white-space: nowrap;
 }
 
 .refund-apply {

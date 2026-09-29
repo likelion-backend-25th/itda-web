@@ -1,5 +1,6 @@
-import { apiJson } from '@/lib/apiClient'
+import { apiFetch, apiJson } from '@/lib/apiClient'
 import type {
+  MyPaymentResponse,
   PaymentCompleteRequest,
   PaymentCompleteResponse,
   PaymentPrepareRequest,
@@ -20,4 +21,55 @@ export function completePayment(request: PaymentCompleteRequest): Promise<Paymen
     method: 'POST',
     body: JSON.stringify(request),
   })
+}
+
+function asNumber(value: unknown): number | null {
+  if (typeof value === 'number' && Number.isFinite(value)) return value
+  if (typeof value === 'string' && value.trim() !== '') {
+    const parsed = Number(value)
+    return Number.isFinite(parsed) ? parsed : null
+  }
+  return null
+}
+
+function createdOn(value: unknown): string {
+  if (typeof value === 'string') return value.length >= 10 ? value.slice(0, 10) : value
+  if (Array.isArray(value) && value.length >= 3) {
+    const [year, month, day] = value
+    if (typeof year === 'number' && typeof month === 'number' && typeof day === 'number') {
+      return `${year}-${String(month).padStart(2, '0')}-${String(day).padStart(2, '0')}`
+    }
+  }
+  return ''
+}
+
+function toMyPayment(item: unknown): MyPaymentResponse | null {
+  if (typeof item !== 'object' || item === null) return null
+  const record = item as Record<string, unknown>
+  const paymentId = asNumber(record.paymentId)
+  const amount = asNumber(record.amount)
+  if (paymentId == null || amount == null) return null
+  return {
+    paymentId,
+    paymentType: typeof record.paymentType === 'string' ? record.paymentType : '',
+    amount,
+    createdAt: createdOn(record.createdAt),
+    paymentStatus: typeof record.paymentStatus === 'string' ? record.paymentStatus : '',
+    refundAvailable: record.refundAvailable === true,
+  }
+}
+
+/** 로그인한 회원의 결제 목록 */
+export async function fetchMyPayments(): Promise<MyPaymentResponse[]> {
+  const raw = await apiJson<unknown>('/customer/payments')
+  if (!Array.isArray(raw)) return []
+  return raw.flatMap((item) => {
+    const row = toMyPayment(item)
+    return row ? [row] : []
+  })
+}
+
+/** POST /api/v1/customer/payments/{paymentId}/refund — 본문 없는 200 */
+export async function requestPaymentRefund(paymentId: number): Promise<void> {
+  await apiFetch(`/customer/payments/${paymentId}/refund`, { method: 'POST' })
 }

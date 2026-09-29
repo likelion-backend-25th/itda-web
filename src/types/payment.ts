@@ -29,3 +29,13 @@ export interface PaymentCompleteResponse {
   amount: number
   transactionId: string
 }
+
+/** GET /api/v1/customer/payments 한 건 */
+export interface MyPaymentResponse {
+  paymentId: number
+  paymentType: string
+  amount: number
+  createdAt: string
+  paymentStatus: string
+  refundAvailable: boolean
+}
