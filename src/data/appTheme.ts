@@ -1,7 +1,18 @@
 import { toneFromThemeCode } from '@/components/theme/ThemeShot'
 
 /** 화면 전체에 입히는 팔레트. 기본 라이트 + 구매 테마 */
-export type AppThemeId = 'light' | 'ocean' | 'sunset' | 'forest' | 'dark' | 'lavender' | 'watermelon' | 'skiper'
+export type AppThemeId =
+  | 'light'
+  | 'ocean'
+  | 'sunset'
+  | 'forest'
+  | 'dark'
+  | 'lavender'
+  | 'cream'
+  | 'sky'
+  | 'hidden'
+  | 'watermelon'
+  | 'skiper'
 
 type AppliedTheme = {
   palette: AppThemeId
@@ -10,7 +21,19 @@ type AppliedTheme = {
 }
 
 const STORAGE_KEY = 'itda-applied-theme'
-const APP_THEMES: AppThemeId[] = ['light', 'ocean', 'sunset', 'forest', 'dark', 'lavender', 'watermelon', 'skiper']
+const APP_THEMES: AppThemeId[] = [
+  'light',
+  'ocean',
+  'sunset',
+  'forest',
+  'dark',
+  'lavender',
+  'cream',
+  'sky',
+  'hidden',
+  'watermelon',
+  'skiper',
+]
 
 function isAppThemeId(value: string): value is AppThemeId {
   return (APP_THEMES as string[]).includes(value)
@@ -20,6 +43,9 @@ function isAppThemeId(value: string): value is AppThemeId {
 export function resolveAppTheme(themeCode: string): AppThemeId {
   const lower = themeCode.trim().toLowerCase()
   if (lower === 'default' || lower === 'basic' || lower === 'light') return 'light'
+  if (lower === 'cream' || lower === 'cotton') return 'cream'
+  if (lower === 'sky' || lower === 'skylight') return 'sky'
+  if (lower === 'hidden' || lower === 'hide') return 'hidden'
   if (isAppThemeId(lower)) return lower
   const tone = toneFromThemeCode(themeCode)
   if (tone === 'light') return 'light'

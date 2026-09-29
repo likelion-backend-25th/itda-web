@@ -93,6 +93,48 @@
   --search-bg: #f3ecff;
 }
 
+:root[data-theme='cream'] {
+  --bg: #faf6f0;
+  --surface: #fffdf9;
+  --text: #3d342c;
+  --text-soft: #7a6c5e;
+  --muted: #a89786;
+  --line: #ebe3d8;
+  --blue: #c4a574;
+  --blue-deep: #a88655;
+  --blue-soft: #f5efe6;
+  --shadow: 0 10px 28px rgba(120, 90, 50, 0.08);
+  --search-bg: #f3ede4;
+}
+
+:root[data-theme='sky'] {
+  --bg: #eef7ff;
+  --surface: #f7fbff;
+  --text: #1a3550;
+  --text-soft: #4a6d8c;
+  --muted: #7f9cb8;
+  --line: #d5e8f8;
+  --blue: #4aa3ff;
+  --blue-deep: #2f86e0;
+  --blue-soft: #e3f1ff;
+  --shadow: 0 10px 28px rgba(50, 120, 200, 0.08);
+  --search-bg: #e8f3ff;
+}
+
+:root[data-theme='hidden'] {
+  --bg: #eceaef;
+  --surface: #f6f5f7;
+  --text: #3a3840;
+  --text-soft: #6b6774;
+  --muted: #9a96a3;
+  --line: #ddd9e2;
+  --blue: #7a7488;
+  --blue-deep: #5f596c;
+  --blue-soft: #ebe8ef;
+  --shadow: 0 10px 28px rgba(60, 50, 80, 0.08);
+  --search-bg: #e8e6eb;
+}
+
 /* Watermelon UI: 흰 카드, 먹색 글자, 라임 포인트 */
 :root[data-theme='watermelon'] {
   --bg: #f3f4f6;
