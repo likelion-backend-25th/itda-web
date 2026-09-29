@@ -60,12 +60,12 @@ const searchFields: Record<SectionId, { value: string; label: string }[]> = {
     { value: 'nickname', label: '닉네임' },
     { value: 'email', label: '이메일' },
     { value: 'provider', label: '인증 방식' },
-    { value: 'year', label: '가입년도' },
+    { value: 'joinedOn', label: '가입일' },
   ],
   payments: [
     { value: 'orderNo', label: '결제 번호' },
     { value: 'memberId', label: 'member_id' },
-    { value: 'targetId', label: 'target_id' },
+    { value: 'paymentType', label: 'payment_type' },
     { value: 'payType', label: '결제 유형' },
   ],
   refunds: [
@@ -520,7 +520,7 @@ function AdminBoard({ section }: { section: SectionId }) {
                 <Cell label="닉네임" value={member.nickname} />
                 <Cell label="이메일" value={member.email} />
                 <Cell label="인증 방식" value={member.provider} />
-                <Cell label="가입년도" value={member.year} />
+                <Cell label="가입일" value={member.joinedOn} />
                 <button
                   type="button"
                   className="admin-danger"
@@ -538,7 +538,7 @@ function AdminBoard({ section }: { section: SectionId }) {
               <article key={item.id} className="admin-row pays">
                 <Cell label="결제 번호" value={item.orderNo} />
                 <Cell label="member_id" value={item.memberId} />
-                <Cell label="target_id" value={item.targetId} />
+                <Cell label="payment_type" value={item.paymentType} />
                 <Cell label="결제일" value={item.paidOn} />
                 <Cell label="결제금액" value={formatAmount(item.amount)} />
                 <Cell label="결제 유형" value={item.payType} />

@@ -5,7 +5,7 @@ export type AdminMember = {
   nickname: string
   email: string
   provider: string
-  year: string
+  joinedOn: string
   avatar: string
 }
 
@@ -14,6 +14,7 @@ export type AdminPayment = {
   orderNo: string
   memberId: string
   targetId: string
+  paymentType: string
   paidOn: string
   expiresOn: string
   payType: string
@@ -142,7 +143,7 @@ const initial = {
     nickname: index < 6 ? seed[0] : `${seed[0]}${index + 1}`,
     email: index < 6 ? seed[1] : seed[1].replace('@', `${index}@`),
     provider: seed[2],
-    year: seed[3],
+    joinedOn: seed[3],
     avatar: avatars[index % avatars.length],
   })),
   payments: pages(paymentSeeds, (seed, index) => {

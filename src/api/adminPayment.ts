@@ -59,6 +59,7 @@ function toPayment(item: AdminPaymentBody): AdminPayment {
     orderNo: paymentId,
     memberId: String(item.memberId),
     targetId: String(item.targetId),
+    paymentType: purchaseLabel(item.paymentType),
     paidOn: formatDay(item.paidAt),
     expiresOn: '—',
     payType: item.paymentMethod,
