@@ -19,7 +19,6 @@ import {
   type AdminMember,
   type AdminPayment,
   type AdminPost,
-  type AdminRefund,
   type AdminReport,
   type AdminSubscription,
   type AdminTheme,
@@ -70,8 +69,8 @@ const searchFields: Record<SectionId, { value: string; label: string }[]> = {
   ],
   refunds: [
     { value: 'orderNo', label: '결제 번호' },
-    { value: 'email', label: '회원 email' },
-    { value: 'purchaseType', label: '구매 유형' },
+    { value: 'memberId', label: 'member_id' },
+    { value: 'paymentType', label: 'payment_type' },
     { value: 'payType', label: '결제 유형' },
   ],
   subscriptions: [
@@ -193,7 +192,7 @@ function AdminBoard({ section }: { section: SectionId }) {
   const [adding, setAdding] = useState(false)
   const [themeForm, setThemeForm] = useState<ThemeDraft>(newTheme)
   const [apiPayments, setApiPayments] = useState<AdminPayment[]>([])
-  const [apiRefunds, setApiRefunds] = useState<AdminRefund[]>([])
+  const [apiRefunds, setApiRefunds] = useState<AdminPayment[]>([])
   const [apiMembers, setApiMembers] = useState<AdminMember[]>([])
   const [apiPosts, setApiPosts] = useState<AdminPost[]>([])
   const [apiThemes, setApiThemes] = useState<AdminTheme[]>([])
@@ -306,19 +305,17 @@ function AdminBoard({ section }: { section: SectionId }) {
                 ? themePage
                 : reportPage
 
-  async function refundRow(item: AdminRefund) {
-    if (item.refunded || refundingId != null) return
+  async function acceptRefund(item: AdminPayment) {
+    if (refundingId != null) return
     const paymentId = Number(item.id)
     if (!Number.isInteger(paymentId)) return
     setRefundingId(item.id)
     setPayError(null)
     try {
       await refundAdminPayment(paymentId)
-      setApiRefunds((current) =>
-        current.map((row) => (row.id === item.id ? { ...row, refunded: true } : row)),
-      )
+      setApiRefunds((current) => current.filter((row) => row.id !== item.id))
     } catch (error: unknown) {
-      const message = error instanceof Error ? error.message : '환불에 실패했습니다.'
+      const message = error instanceof Error ? error.message : '환불 수락에 실패했습니다.'
       setPayError(message)
     } finally {
       setRefundingId(null)
@@ -448,16 +445,14 @@ function AdminBoard({ section }: { section: SectionId }) {
       {section !== 'members' && (
         <header className="admin-head">
           <h1>
-            {section === 'refunds'
-              ? '환불 내역'
-              : sections.find((item) => item.id === section)?.label}
+            {sections.find((item) => item.id === section)?.label}
           </h1>
           {section === 'themes' && <p>서비스에 제공되는 테마를 관리하고, 새로운 테마를 추가할 수 있습니다.</p>}
         </header>
       )}
 
       {(section === 'payments' || section === 'refunds') && payLoading ? (
-        <p className="admin-empty">{section === 'refunds' ? '환불 내역을 불러오는 중…' : '결제 내역을 불러오는 중…'}</p>
+        <p className="admin-empty">{section === 'refunds' ? '환불 신청을 불러오는 중…' : '결제 내역을 불러오는 중…'}</p>
       ) : (section === 'members' || section === 'posts' || section === 'themes' || section === 'subscriptions') && boardLoading ? (
         <p className="admin-empty">목록을 불러오는 중…</p>
       ) : (section === 'payments' || section === 'refunds') && payError && active.visible.length === 0 ? (
@@ -568,19 +563,20 @@ function AdminBoard({ section }: { section: SectionId }) {
             refundPage.visible.map((item) => (
               <article key={item.id} className="admin-row refunds">
                 <Cell label="결제 번호" value={item.orderNo} />
-                <Cell label="회원 email" value={item.email} />
-                <Cell label="구매 유형" value={item.purchaseType} />
+                <Cell label="member_id" value={item.memberId} />
+                <Cell label="payment_type" value={item.paymentType} />
+                <Cell label="결제일" value={item.paidOn} />
+                <Cell label="결제금액" value={formatAmount(item.amount)} />
                 <Cell label="결제 유형" value={item.payType} />
-                <Cell label="구입 날짜" value={item.purchasedOn} />
                 <button
                   type="button"
-                  className="admin-danger"
-                  disabled={item.refunded || refundingId === item.id}
+                  className="refund-accept"
+                  disabled={refundingId === item.id}
                   onClick={() => {
-                    void refundRow(item)
+                    void acceptRefund(item)
                   }}
                 >
-                  {item.refunded ? '완료' : refundingId === item.id ? '처리 중…' : '환불'}
+                  {refundingId === item.id ? '처리 중…' : '환불 수락'}
                 </button>
               </article>
             ))}

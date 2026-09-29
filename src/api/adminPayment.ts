@@ -1,5 +1,5 @@
 import { apiFetch, apiJson } from '@/lib/apiClient'
-import type { AdminPayment, AdminRefund } from '@/data/admin'
+import type { AdminPayment } from '@/data/admin'
 
 type AdminPaymentBody = {
   paymentId: number
@@ -48,10 +48,6 @@ function purchaseLabel(paymentType: string): string {
   return paymentType
 }
 
-function isRefunded(status: string): boolean {
-  return status.includes('환불')
-}
-
 function toPayment(item: AdminPaymentBody): AdminPayment {
   const paymentId = String(item.paymentId)
   return {
@@ -71,18 +67,6 @@ function toPayment(item: AdminPaymentBody): AdminPayment {
     payMethod: item.paymentMethod,
     status: item.paymentStatus,
     paidAt: formatDateTime(item.paidAt),
-  }
-}
-
-function toRefund(item: AdminPaymentBody): AdminRefund {
-  return {
-    id: String(item.paymentId),
-    orderNo: String(item.paymentId),
-    email: item.email,
-    purchaseType: purchaseLabel(item.paymentType),
-    payType: item.paymentMethod,
-    purchasedOn: formatDay(item.paidAt),
-    refunded: isRefunded(item.paymentStatus),
   }
 }
 
@@ -119,10 +103,10 @@ export async function fetchAdminPayments(): Promise<AdminPayment[]> {
   return normalizeList(raw).map(toPayment)
 }
 
-/** GET /api/v1/admin/payments/refunds */
-export async function fetchAdminRefunds(): Promise<AdminRefund[]> {
+/** GET /api/v1/admin/payments/refunds — 환불 대기(PS05)만, 결제 목록과 같은 칸 */
+export async function fetchAdminRefunds(): Promise<AdminPayment[]> {
   const raw = await apiJson<unknown>('/admin/payments/refunds')
-  return normalizeList(raw).map(toRefund)
+  return normalizeList(raw).map(toPayment)
 }
 
 /** PATCH /api/v1/admin/payments/{paymentId}/refund */

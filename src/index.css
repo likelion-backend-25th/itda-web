@@ -4033,7 +4033,8 @@ img.sub-photo {
   grid-template-columns: 52px repeat(5, minmax(0, 1fr)) auto;
 }
 
-.admin-row.pays {
+.admin-row.pays,
+.admin-row.refunds {
   grid-template-columns: repeat(6, minmax(0, 1fr)) auto;
 }
 
@@ -4041,7 +4042,6 @@ img.sub-photo {
   grid-template-columns: 0.7fr 1fr 1.5fr 1fr 0.7fr 0.9fr 0.9fr;
 }
 
-.admin-row.refunds,
 .admin-row.posts,
 .admin-row.reports {
   grid-template-columns: 0.7fr 1fr 1.2fr 0.8fr 1fr auto;
@@ -4112,10 +4112,25 @@ img.sub-photo {
   font-weight: 800;
 }
 
-.member-activate:disabled {
+.member-activate:disabled,
+.refund-accept:disabled {
   color: #b7c2d0;
   border-color: #e4ebf3;
   cursor: default;
+}
+
+.refund-accept {
+  height: 36px;
+  padding: 0 14px;
+  border: 1px solid #b7d7c4;
+  border-radius: 10px;
+  background: #fff;
+  color: #1f7a45;
+  font-weight: 800;
+}
+
+.refund-accept:hover:not(:disabled) {
+  background: #f3fbf6;
 }
 
 .admin-empty {
