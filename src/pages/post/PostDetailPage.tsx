@@ -110,6 +110,7 @@ export default function PostDetailPage() {
       setActionError('로그인 후 좋아요할 수 있습니다.')
       return
     }
+    if (post?.isMe || (profile && post?.memberId === profile.id)) return
     const numericId = Number(id)
     if (!Number.isInteger(numericId) || actionLockRef.current.has(`like:${id}`)) return
     actionLockRef.current.add(`like:${id}`)
@@ -134,6 +135,7 @@ export default function PostDetailPage() {
       setActionError('로그인 후 스크랩할 수 있습니다.')
       return
     }
+    if (post?.isMe || (profile && post?.memberId === profile.id)) return
     const numericId = Number(id)
     if (!Number.isInteger(numericId) || actionLockRef.current.has(`scrap:${id}`)) return
     actionLockRef.current.add(`scrap:${id}`)

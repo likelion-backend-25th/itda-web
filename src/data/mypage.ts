@@ -5,6 +5,11 @@ export type PostVisibility = 'public' | 'subscribers'
 
 export type MyPost = {
   id: string
+  /** 백엔드 PostResponse.memberId */
+  memberId?: number
+  /** 수정 PUT 에 다시 보낸다 */
+  categoryId?: number
+  imageUrl?: string | null
   author: string
   avatar: string
   intro: string
@@ -16,6 +21,8 @@ export type MyPost = {
   comments: number
   likes: number
   liked: boolean
+  /** 로그인한 회원이 스크랩했는지 */
+  scrapped?: boolean
   views: number
   visibility?: PostVisibility
   createdAt?: string

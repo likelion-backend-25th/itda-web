@@ -9,7 +9,8 @@ type MyPostCardProps = {
   onToggleMenu: () => void
   onEdit: () => void
   onDelete: () => void
-  onToggleLike: () => void
+  /** 없으면 좋아요 수만 보여 준다. 본인 글은 백엔드가 좋아요를 거절한다 */
+  onToggleLike?: () => void
   scrapped?: boolean
   onToggleScrap?: () => void
 }
@@ -70,18 +71,25 @@ export default function MyPostCard({
           <CommentIcon />
           <span>댓글 {post.comments}</span>
         </span>
-        <button
-          type="button"
-          className={post.liked ? 'stat liked' : 'stat'}
-          aria-pressed={post.liked}
-          onClick={(event) => {
-            event.stopPropagation()
-            onToggleLike()
-          }}
-        >
-          <HeartIcon filled={post.liked} />
-          <span>{post.likes}</span>
-        </button>
+        {onToggleLike ? (
+          <button
+            type="button"
+            className={post.liked ? 'stat liked' : 'stat'}
+            aria-pressed={post.liked}
+            onClick={(event) => {
+              event.stopPropagation()
+              onToggleLike()
+            }}
+          >
+            <HeartIcon filled={post.liked} />
+            <span>{post.likes}</span>
+          </button>
+        ) : (
+          <span className={post.liked ? 'stat liked' : 'stat'} aria-label="좋아요">
+            <HeartIcon filled={post.liked} />
+            <span>{post.likes}</span>
+          </span>
+        )}
         <span className="stat">
           <EyeIcon />
           <span>조회수 {post.views}</span>

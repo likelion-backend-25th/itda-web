@@ -758,6 +758,12 @@ a.comment-author {
   font-weight: 600;
 }
 
+button.feed-more {
+  background: none;
+  border: 0;
+  cursor: pointer;
+}
+
 .post {
   position: relative;
   padding: 18px 20px 14px;

@@ -266,6 +266,8 @@ export default function HomePage() {
       setActionError('로그인 후 좋아요할 수 있습니다.')
       return
     }
+    const target = posts.find((item) => item.id === id)
+    if (target?.isMe || (profile && target?.memberId === profile.id)) return
     const numericId = Number(id)
     if (!Number.isInteger(numericId) || actionLockRef.current.has(`like:${id}`)) return
     actionLockRef.current.add(`like:${id}`)
@@ -291,6 +293,8 @@ export default function HomePage() {
       setActionError('로그인 후 스크랩할 수 있습니다.')
       return
     }
+    const target = posts.find((item) => item.id === id)
+    if (target?.isMe || (profile && target?.memberId === profile.id)) return
     const numericId = Number(id)
     if (!Number.isInteger(numericId) || actionLockRef.current.has(`scrap:${id}`)) return
     actionLockRef.current.add(`scrap:${id}`)

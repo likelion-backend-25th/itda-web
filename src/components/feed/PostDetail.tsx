@@ -173,28 +173,41 @@ export default function PostDetail({
             <CommentIcon />
             <span>댓글 {post.comments}</span>
           </span>
-          <button
-            type="button"
-            className={post.liked ? 'detail-stat liked' : 'detail-stat'}
-            aria-pressed={post.liked}
-            onClick={() => onToggleLike(post.id)}
-          >
-            <HeartIcon filled={post.liked} />
-            <span>좋아요 {post.likes}</span>
-          </button>
+          {post.isMe ? (
+            <span className={post.liked ? 'detail-stat liked' : 'detail-stat'} aria-label="좋아요">
+              <HeartIcon filled={post.liked} />
+              <span>좋아요 {post.likes}</span>
+            </span>
+          ) : (
+            <button
+              type="button"
+              className={post.liked ? 'detail-stat liked' : 'detail-stat'}
+              aria-pressed={post.liked}
+              onClick={() => onToggleLike(post.id)}
+            >
+              <HeartIcon filled={post.liked} />
+              <span>좋아요 {post.likes}</span>
+            </button>
+          )}
           <span className="detail-stat">
             <EyeIcon />
             <span>조회수 {post.views}</span>
           </span>
-          <button
-            type="button"
-            className={post.bookmarked ? 'detail-bookmark on' : 'detail-bookmark'}
-            aria-pressed={post.bookmarked}
-            aria-label={post.bookmarked ? '스크랩 해제' : '스크랩'}
-            onClick={() => onToggleBookmark(post.id)}
-          >
-            <BookmarkIcon filled={post.bookmarked} />
-          </button>
+          {post.isMe ? (
+            <span className="detail-bookmark" aria-label="스크랩">
+              <BookmarkIcon filled={false} />
+            </span>
+          ) : (
+            <button
+              type="button"
+              className={post.bookmarked ? 'detail-bookmark on' : 'detail-bookmark'}
+              aria-pressed={post.bookmarked}
+              aria-label={post.bookmarked ? '스크랩 해제' : '스크랩'}
+              onClick={() => onToggleBookmark(post.id)}
+            >
+              <BookmarkIcon filled={post.bookmarked} />
+            </button>
+          )}
           <p className="detail-date">
             작성 {post.createdAt}
             {post.updatedAt ? ` · 수정 ${post.updatedAt}` : ''}

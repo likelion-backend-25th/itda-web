@@ -121,22 +121,34 @@ export default function PostCard({
           <CommentIcon />
           <span>댓글 {post.comments}</span>
         </span>
-        <button
-          type="button"
-          className={post.liked ? 'stat liked' : 'stat'}
-          aria-pressed={post.liked}
-          onClick={(event) => {
-            keepOnCard(event)
-            onToggleLike(post.id)
-          }}
-        >
-          <HeartIcon filled={post.liked} />
-          <span>{post.likes}</span>
-        </button>
+        {post.isMe ? (
+          <span className={post.liked ? 'stat liked' : 'stat'} aria-label="좋아요">
+            <HeartIcon filled={post.liked} />
+            <span>{post.likes}</span>
+          </span>
+        ) : (
+          <button
+            type="button"
+            className={post.liked ? 'stat liked' : 'stat'}
+            aria-pressed={post.liked}
+            onClick={(event) => {
+              keepOnCard(event)
+              onToggleLike(post.id)
+            }}
+          >
+            <HeartIcon filled={post.liked} />
+            <span>{post.likes}</span>
+          </button>
+        )}
         <span className="stat">
           <EyeIcon />
           <span>조회수 {post.views}</span>
         </span>
+        {post.isMe ? (
+          <span className="bookmark" aria-label="스크랩">
+            <BookmarkIcon filled={false} />
+          </span>
+        ) : (
         <button
           type="button"
           className={post.bookmarked ? 'bookmark on' : 'bookmark'}
@@ -149,6 +161,7 @@ export default function PostCard({
         >
           <BookmarkIcon filled={post.bookmarked} />
         </button>
+        )}
       </footer>
 
       {canManage && menuOpen && (

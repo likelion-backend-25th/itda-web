@@ -1,7 +1,8 @@
-import { useCallback, useEffect, useMemo, useState, useSyncExternalStore } from 'react'
+import { useCallback, useEffect, useMemo, useRef, useState, useSyncExternalStore } from 'react'
 import { Link, useLocation, useNavigate } from 'react-router'
 import { resolveMemberImageUrl, toFeedUser } from '@/api/member'
-import { resolvePostImageUrl } from '@/api/post'
+import { fetchMyLikedPosts, fetchMyPosts, fetchMyScrappedPosts, toMyPost } from '@/api/mypage'
+import { categoryIdForUpdate, deletePost, togglePostLike, togglePostScrap, updatePost } from '@/api/post'
 import { applyTheme, fetchOwnedThemeList } from '@/api/theme'
 import EditPostModal from '@/components/feed/EditPostModal'
 import FollowList, { type FollowTab } from '@/components/profile/FollowList'
@@ -13,7 +14,7 @@ import ThemeDetail from '@/components/theme/ThemeDetail'
 import ProfileEditModal, { type ProfileForm } from '@/components/profile/ProfileEditModal'
 import ThemeShot, { toneFromThemeCode } from '@/components/theme/ThemeShot'
 import { GearIcon, HeadsetIcon } from '@/components/icons'
-import { formatDateTime, myPageCategories, postPath, type CategoryId } from '@/data/feed'
+import { myPageCategories, postPath, type CategoryId } from '@/data/feed'
 import { usePublishPost } from '@/hooks/post/usePublishPost'
 import { applyAppThemeAsync, getAppliedTheme, resolveAppTheme, subscribeAppTheme } from '@/data/appTheme'
 import { syncOwnedThemes } from '@/data/themes'
@@ -24,14 +25,7 @@ import { useMyFollows } from '@/hooks/member/useMyFollows'
 import { useViewerUser } from '@/hooks/member/useViewerUser'
 import { ApiError } from '@/lib/apiClient'
 import type { ThemeResponse } from '@/types/theme'
-import {
-  likedPosts,
-  myPosts,
-  pageProfile,
-  scrappedPosts,
-  type MyPost,
-  type OwnedTheme,
-} from '@/data/mypage'
+import { pageProfile, type MyPost, type OwnedTheme } from '@/data/mypage'
 
 type MyTab = 'posts' | 'likes' | 'scraps' | 'themes'
 
@@ -64,9 +58,17 @@ export default function MyPage() {
   const [category, setCategory] = useState<CategoryId>('all')
   const [categoriesOpen, setCategoriesOpen] = useState(true)
   const [tab, setTab] = useState<MyTab>('posts')
-  const [posts, setPosts] = useState<MyPost[]>(myPosts)
-  const [liked, setLiked] = useState<MyPost[]>(likedPosts)
-  const [scraps, setScraps] = useState<MyPost[]>(scrappedPosts)
+  const [posts, setPosts] = useState<MyPost[]>([])
+  const [liked, setLiked] = useState<MyPost[]>([])
+  const [scraps, setScraps] = useState<MyPost[]>([])
+  const [listLoading, setListLoading] = useState(false)
+  const [loadingMore, setLoadingMore] = useState(false)
+  const [listError, setListError] = useState('')
+  const [actionError, setActionError] = useState('')
+  const [hasMore, setHasMore] = useState(false)
+  const cursorRef = useRef<number | null>(null)
+  const listGenRef = useRef(0)
+  const actionLockRef = useRef(new Set<string>())
   const applied = useSyncExternalStore(subscribeAppTheme, getAppliedTheme)
   const [themes, setThemes] = useState<OwnedTheme[]>([])
   const [detailId, setDetailId] = useState<string | null>(null)
@@ -121,15 +123,6 @@ export default function MyPage() {
           bio: feed.bio || current.bio,
           avatar,
         }))
-        const patchMine = (items: MyPost[]) =>
-          items.map((post) =>
-            post.author === pageProfile.name || post.author === feed.name
-              ? { ...post, author: feed.name, avatar }
-              : post,
-          )
-        setPosts((current) => patchMine(current))
-        setLiked((current) => patchMine(current))
-        setScraps((current) => patchMine(current))
       } catch (error: unknown) {
         if (cancelled) return
         if (error instanceof ApiError && error.status === 401) setLoggedIn(false)
@@ -172,6 +165,72 @@ export default function MyPage() {
     // applied.themeId 를 deps에 넣으면 적용 직후 서버 구버전으로 덮어쓴다
   }, [loggedIn])
 
+  // 게시글 / 좋아요 / 스크랩 탭은 로그인 회원 기준으로 다시 받는다
+  useEffect(() => {
+    if (!loggedIn || tab === 'themes') return
+    const generation = ++listGenRef.current
+    cursorRef.current = null
+    setListLoading(true)
+    setListError('')
+    setActionError('')
+    setHasMore(false)
+
+    const request =
+      tab === 'likes' ? fetchMyLikedPosts() : tab === 'scraps' ? fetchMyScrappedPosts() : fetchMyPosts()
+
+    void request
+      .then((result) => {
+        if (generation !== listGenRef.current) return
+        const mapped = result.posts.map((item) => toMyPost(item, getViewerProfile()))
+        if (tab === 'likes') setLiked(mapped)
+        else if (tab === 'scraps') setScraps(mapped)
+        else setPosts(mapped)
+        cursorRef.current = result.nextCursor
+        setHasMore(result.hadNext)
+      })
+      .catch((error: unknown) => {
+        if (generation !== listGenRef.current) return
+        setListError(error instanceof Error ? error.message : '글을 불러오지 못했습니다.')
+        if (error instanceof ApiError && error.status === 401) setLoggedIn(false)
+      })
+      .finally(() => {
+        if (generation === listGenRef.current) setListLoading(false)
+      })
+  }, [loggedIn, tab])
+
+  const loadMore = useCallback(async () => {
+    if (!loggedIn || tab === 'themes' || !hasMore || loadingMore || listLoading) return
+    const generation = listGenRef.current
+    setLoadingMore(true)
+    setListError('')
+    try {
+      const cursor = cursorRef.current
+      const result =
+        tab === 'likes'
+          ? await fetchMyLikedPosts(cursor)
+          : tab === 'scraps'
+            ? await fetchMyScrappedPosts(cursor)
+            : await fetchMyPosts(cursor)
+      if (generation !== listGenRef.current) return
+      const mapped = result.posts.map((item) => toMyPost(item, getViewerProfile()))
+      const append = (current: MyPost[]) => {
+        const seen = new Set(current.map((item) => item.id))
+        return [...current, ...mapped.filter((item) => !seen.has(item.id))]
+      }
+      if (tab === 'likes') setLiked(append)
+      else if (tab === 'scraps') setScraps(append)
+      else setPosts(append)
+      cursorRef.current = result.nextCursor
+      setHasMore(result.hadNext)
+    } catch (error: unknown) {
+      if (generation !== listGenRef.current) return
+      setListError(error instanceof Error ? error.message : '글을 더 불러오지 못했습니다.')
+      if (error instanceof ApiError && error.status === 401) setLoggedIn(false)
+    } finally {
+      if (generation === listGenRef.current) setLoadingMore(false)
+    }
+  }, [hasMore, listLoading, loadingMore, loggedIn, tab])
+
   useEffect(() => {
     if (!menuId) return
     function closeMenu() {
@@ -204,19 +263,71 @@ export default function MyPage() {
     })
   }, [category, query, source])
 
-  function toggleScrap(post: MyPost) {
-    setScraps((current) =>
-      current.some((item) => item.id === post.id)
-        ? current.filter((item) => item.id !== post.id)
-        : [post, ...current],
-    )
+  function isOwnPost(post: MyPost) {
+    return tab === 'posts' || (viewerProfile != null && post.memberId === viewerProfile.id)
   }
 
-  function updateList(id: string, updater: (post: MyPost) => MyPost) {
-    const apply = (list: MyPost[]) => list.map((post) => (post.id === id ? updater(post) : post))
-    if (tab === 'likes') setLiked(apply)
-    else if (tab === 'scraps') setScraps(apply)
-    else setPosts(apply)
+  function patchPost(id: string, updater: (post: MyPost) => MyPost) {
+    const apply = (list: MyPost[]) => list.map((item) => (item.id === id ? updater(item) : item))
+    setPosts(apply)
+    setLiked(apply)
+    setScraps(apply)
+  }
+
+  async function toggleLike(post: MyPost) {
+    if (!loggedIn || isOwnPost(post)) return
+    const numericId = Number(post.id)
+    if (!Number.isInteger(numericId) || actionLockRef.current.has(`like:${post.id}`)) return
+    actionLockRef.current.add(`like:${post.id}`)
+    setActionError('')
+    try {
+      const result = await togglePostLike(numericId)
+      patchPost(post.id, (item) => ({ ...item, liked: result.liked, likes: result.likesCount }))
+      if (tab === 'likes' && !result.liked) {
+        setLiked((current) => current.filter((item) => item.id !== post.id))
+      }
+    } catch (error: unknown) {
+      setActionError(error instanceof Error ? error.message : '좋아요를 반영하지 못했습니다.')
+      if (error instanceof ApiError && error.status === 401) setLoggedIn(false)
+    } finally {
+      actionLockRef.current.delete(`like:${post.id}`)
+    }
+  }
+
+  async function toggleScrap(post: MyPost) {
+    if (!loggedIn || isOwnPost(post)) return
+    const numericId = Number(post.id)
+    if (!Number.isInteger(numericId) || actionLockRef.current.has(`scrap:${post.id}`)) return
+    actionLockRef.current.add(`scrap:${post.id}`)
+    setActionError('')
+    try {
+      const result = await togglePostScrap(numericId)
+      patchPost(post.id, (item) => ({ ...item, scrapped: result.scrapped }))
+      if (tab === 'scraps' && !result.scrapped) {
+        setScraps((current) => current.filter((item) => item.id !== post.id))
+      }
+    } catch (error: unknown) {
+      setActionError(error instanceof Error ? error.message : '스크랩을 반영하지 못했습니다.')
+      if (error instanceof ApiError && error.status === 401) setLoggedIn(false)
+    } finally {
+      actionLockRef.current.delete(`scrap:${post.id}`)
+    }
+  }
+
+  async function removePost(postId: string) {
+    const id = Number(postId)
+    if (!Number.isInteger(id)) return
+    setMenuId(null)
+    setActionError('')
+    try {
+      await deletePost(id)
+      setPosts((current) => current.filter((item) => item.id !== postId))
+      setLiked((current) => current.filter((item) => item.id !== postId))
+      setScraps((current) => current.filter((item) => item.id !== postId))
+    } catch (error: unknown) {
+      setActionError(error instanceof Error ? error.message : '글을 삭제하지 못했습니다.')
+      if (error instanceof ApiError && error.status === 401) setLoggedIn(false)
+    }
   }
 
   return (
@@ -319,36 +430,55 @@ export default function MyPage() {
               <>
                 <h3 className="my-heading">{tabCopy[tab]}</h3>
                 <div className="my-feed">
-                  {visiblePosts.length === 0 ? (
+                  {!loggedIn ? (
+                    <div className="empty">로그인 후 확인할 수 있습니다.</div>
+                  ) : listLoading && source.length === 0 ? (
+                    <div className="empty">글을 불러오는 중...</div>
+                  ) : listError && source.length === 0 ? (
+                    <div className="empty" role="alert">
+                      {listError}
+                    </div>
+                  ) : visiblePosts.length === 0 ? (
                     <div className="empty">해당하는 글이 없습니다.</div>
                   ) : (
-                    visiblePosts.map((post) => (
-                      <MyPostCard
-                        key={post.id}
-                        post={post}
-                        canManage={tab === 'posts'}
-                        menuOpen={menuId === post.id}
-                        onOpen={() => openPost(post.id)}
-                        onToggleMenu={() => setMenuId((current) => (current === post.id ? null : post.id))}
-                        onEdit={() => {
-                          setEditingPost(post)
-                          setMenuId(null)
-                        }}
-                        onDelete={() => {
-                          setPosts((current) => current.filter((item) => item.id !== post.id))
-                          setMenuId(null)
-                        }}
-                        onToggleLike={() =>
-                          updateList(post.id, (item) => ({
-                            ...item,
-                            liked: !item.liked,
-                            likes: item.likes + (item.liked ? -1 : 1),
-                          }))
-                        }
-                        scrapped={scraps.some((item) => item.id === post.id)}
-                        onToggleScrap={tab === 'posts' ? undefined : () => toggleScrap(post)}
-                      />
-                    ))
+                    visiblePosts.map((post) => {
+                      const own = isOwnPost(post)
+                      return (
+                        <MyPostCard
+                          key={post.id}
+                          post={post}
+                          canManage={tab === 'posts'}
+                          menuOpen={menuId === post.id}
+                          onOpen={() => openPost(post.id)}
+                          onToggleMenu={() => setMenuId((current) => (current === post.id ? null : post.id))}
+                          onEdit={() => {
+                            setEditingPost(post)
+                            setMenuId(null)
+                          }}
+                          onDelete={() => {
+                            void removePost(post.id)
+                          }}
+                          onToggleLike={own ? undefined : () => void toggleLike(post)}
+                          scrapped={post.scrapped === true}
+                          onToggleScrap={own ? undefined : () => void toggleScrap(post)}
+                        />
+                      )
+                    })
+                  )}
+                  {loggedIn && hasMore && source.length > 0 && (
+                    <button type="button" className="feed-more" disabled={loadingMore} onClick={() => void loadMore()}>
+                      {loadingMore ? '글을 불러오는 중...' : '더 보기'}
+                    </button>
+                  )}
+                  {listError && source.length > 0 && (
+                    <div className="empty" role="alert">
+                      {listError}
+                    </div>
+                  )}
+                  {actionError && (
+                    <div className="empty" role="alert">
+                      {actionError}
+                    </div>
                   )}
                 </div>
               </>
@@ -430,29 +560,8 @@ export default function MyPage() {
           onClose={() => setWriting(false)}
           onPublish={async (draft: PostDraft) => {
             const created = await publish(draft)
-            const image = resolvePostImageUrl(created.imageUrl)
-            const createdAt = new Date(created.createdAt)
-            const post: MyPost = {
-              id: String(created.id),
-              author: viewer.name,
-              avatar: viewer.avatar,
-              intro: viewer.bio,
-              category: draft.category,
-              categoryLabel: created.categoryName || draft.categoryLabel,
-              title: draft.title,
-              body: draft.body,
-              images: image ? [{ src: image, alt: '게시글 이미지' }] : [],
-              comments: 0,
-              likes: created.likeCount,
-              liked: created.liked === true,
-              views: created.viewCount,
-              visibility: created.subscriberOnly ? 'subscribers' : 'public',
-              createdAt: Number.isNaN(createdAt.getTime())
-                ? formatDateTime(new Date())
-                : formatDateTime(createdAt),
-              thread: [],
-            }
-            setPosts((current) => [post, ...current])
+            const post = toMyPost(created, getViewerProfile())
+            setPosts((current) => [post, ...current.filter((item) => item.id !== post.id)])
             setTab('posts')
             setCategory((current) => (current === 'all' || current === draft.category ? current : 'all'))
             setWriting(false)
@@ -464,10 +573,26 @@ export default function MyPage() {
         <EditPostModal
           post={editingPost}
           onClose={() => setEditingPost(null)}
-          onSave={(next) => {
-            setPosts((current) =>
-              current.map((item) => (item.id === editingPost.id ? { ...item, ...next } : item)),
-            )
+          onSave={async (next) => {
+            const id = Number(editingPost.id)
+            if (!Number.isInteger(id) || editingPost.categoryId == null) {
+              throw new Error('수정할 수 없는 글입니다.')
+            }
+            const content = next.body ? `${next.title}\n${next.body}` : next.title
+            const updated = await updatePost(id, {
+              request: {
+                categoryId: categoryIdForUpdate(
+                  next.categoryLabel,
+                  editingPost.categoryId,
+                  editingPost.categoryLabel,
+                ),
+                content,
+                subscriberOnly: next.visibility === 'subscribers',
+              },
+              image: next.imageFile ?? null,
+            })
+            const mapped = toMyPost(updated, getViewerProfile())
+            setPosts((current) => current.map((item) => (item.id === mapped.id ? mapped : item)))
             setEditingPost(null)
           }}
         />
