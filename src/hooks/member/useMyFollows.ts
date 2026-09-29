@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react'
 import { fetchFollowers, fetchFollowings, fetchMyProfile, resolveMemberImageUrl } from '@/api/member'
 import type { FollowListItem } from '@/components/profile/FollowList'
+import { syncMyFollowing } from '@/data/follows'
 import { ApiError } from '@/lib/apiClient'
 import type { FollowerResponse, FollowingResponse } from '@/types/member'
 
@@ -23,8 +24,6 @@ function toFollowListItem(member: FollowerResponse | FollowingResponse): FollowL
     name: member.nickname,
     avatar: resolveMemberImageUrl(member.profileImage),
     href: `/member/${member.id}`,
-    // 팔로우 등록/취소 API가 아직 없어 버튼을 숨긴다
-    toggleable: false,
   }
 }
 
@@ -50,8 +49,11 @@ type MyFollows = {
   following: FollowListState
 }
 
-/** 로그인한 본인의 팔로워·팔로잉 목록 (/member/me → /member/{id}/followers, followings) */
-export function useMyFollows(loggedIn: boolean): MyFollows {
+/**
+ * 로그인한 본인의 팔로워·팔로잉 목록 (/members/me → /members/{id}/followers, followings)
+ * refreshKey가 바뀌면 기존 목록을 유지한 채 다시 받는다.
+ */
+export function useMyFollows(loggedIn: boolean, refreshKey = 0): MyFollows {
   const [result, setResult] = useState<MyFollows | null>(null)
 
   useEffect(() => {
@@ -67,6 +69,9 @@ export function useMyFollows(loggedIn: boolean): MyFollows {
           fetchFollowings(me.id),
         ])
         if (cancelled) return
+        if (followingResult.status === 'fulfilled') {
+          syncMyFollowing(followingResult.value.map((member) => member.id))
+        }
         setResult({
           followers: toListState(followerResult, '팔로워 목록을 불러오지 못했습니다.'),
           following: toListState(followingResult, '팔로잉 목록을 불러오지 못했습니다.'),
@@ -85,9 +90,13 @@ export function useMyFollows(loggedIn: boolean): MyFollows {
     void load()
     return () => {
       cancelled = true
-      // 다른 계정으로 다시 로그인했을 때 이전 목록이 잠깐 보이지 않도록 비운다
-      setResult(null)
     }
+  }, [loggedIn, refreshKey])
+
+  useEffect(() => {
+    if (!loggedIn) return
+    // 다른 계정으로 다시 로그인했을 때 이전 목록이 잠깐 보이지 않도록 로그아웃 시 비운다
+    return () => setResult(null)
   }, [loggedIn])
 
   if (!loggedIn) return { followers: LOGGED_OUT, following: LOGGED_OUT }

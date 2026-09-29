@@ -44,8 +44,18 @@ export function clearViewer() {
   emit()
 }
 
+/** 캐시를 무시하고 /members/me 를 다시 받아 카운트 등을 갱신한다 (실패 시 기존 캐시 유지) */
+export async function refreshViewerProfile(): Promise<void> {
+  if (!profile) return
+  try {
+    setViewerProfile(await fetchMyProfile())
+  } catch {
+    // 표시 중인 값을 유지
+  }
+}
+
 /**
- * 캐시가 있으면 그대로 쓰고, 없으면 /member/me 를 한 번만 호출한다.
+ * 캐시가 있으면 그대로 쓰고, 없으면 /members/me 를 한 번만 호출한다.
  * 페이지 이동 시 목 사용자 깜빡임을 막기 위함.
  */
 export function ensureViewerLoaded(): Promise<MemberProfileResponse | null> {

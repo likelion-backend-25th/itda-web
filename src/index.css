@@ -1443,6 +1443,7 @@ a.comment-avatar {
   height: 16px;
 }
 
+.member-follow:disabled,
 .member-subscribe:disabled {
   opacity: 0.65;
   cursor: default;
@@ -3082,10 +3083,15 @@ img.sub-photo {
   font-weight: 800;
 }
 
-.follow-toggle:hover {
+.follow-toggle:hover:not(:disabled) {
   border-color: var(--blue);
   color: var(--blue);
   background: var(--blue-soft);
+}
+
+.follow-toggle:disabled {
+  opacity: 0.65;
+  cursor: default;
 }
 
 .follow-empty {

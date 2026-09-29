@@ -1,7 +1,6 @@
 import { useEffect, useId, useState, type SyntheticEvent } from 'react'
 import { Link } from 'react-router'
 import { DEFAULT_AVATAR } from '@/api/member'
-import { currentUser } from '@/data/feed'
 
 function fallbackAvatar(event: SyntheticEvent<HTMLImageElement>) {
   const img = event.currentTarget
@@ -17,17 +16,21 @@ export type FollowListItem = {
   name: string
   avatar: string
   href: string | null
-  /** false면 팔로우/언팔로우 버튼을 숨긴다 (서버 팔로우 API 미연동 항목) */
-  toggleable?: boolean
 }
 
 type FollowListProps = {
   initialTab: FollowTab
   followers: FollowListItem[]
   following: FollowListItem[]
-  followedIds: Set<string>
+  followedIds: ReadonlySet<string>
   onToggle: (memberId: string, next: boolean) => void
   onClose: () => void
+  /** 로그인한 본인 id — 본인 행에는 팔로우 버튼을 숨긴다 */
+  viewerId?: string | null
+  /** 요청 중인 회원 id — 버튼 비활성화 */
+  pendingIds?: ReadonlySet<string>
+  /** 팔로우/언팔로우 실패 메시지 */
+  actionError?: string | null
   followersLoading?: boolean
   followersError?: string | null
   followingLoading?: boolean
@@ -41,6 +44,9 @@ export default function FollowList({
   followedIds,
   onToggle,
   onClose,
+  viewerId = null,
+  pendingIds,
+  actionError = null,
   followersLoading = false,
   followersError = null,
   followingLoading = false,
@@ -89,6 +95,11 @@ export default function FollowList({
             팔로잉
           </button>
         </div>
+        {actionError && (
+          <p className="pay-error" role="alert">
+            {actionError}
+          </p>
+        )}
         {loading ? (
           <p className="follow-empty">불러오는 중…</p>
         ) : error ? (
@@ -98,8 +109,9 @@ export default function FollowList({
         ) : (
           <ul className="follow-people">
             {people.map((member) => {
-              const mine = member.name === currentUser.name
+              const mine = viewerId != null && member.id === viewerId
               const followed = followedIds.has(member.id)
+              const busy = pendingIds?.has(member.id) ?? false
               return (
                 <li key={member.id}>
                   {member.href ? (
@@ -113,10 +125,12 @@ export default function FollowList({
                       <strong>{member.name}</strong>
                     </span>
                   )}
-                  {!mine && member.toggleable !== false && (
+                  {!mine && (
                     <button
                       type="button"
                       className="follow-toggle"
+                      disabled={busy}
+                      aria-busy={busy}
                       onClick={() => onToggle(member.id, !followed)}
                     >
                       {followed ? '언팔로우' : '팔로우'}

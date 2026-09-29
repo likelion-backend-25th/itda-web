@@ -1,4 +1,4 @@
-﻿import { useCallback, useEffect, useMemo, useState, useSyncExternalStore } from 'react'
+﻿import { useCallback, useEffect, useMemo, useRef, useState, useSyncExternalStore } from 'react'
 import { Navigate, useLocation, useNavigate, useParams } from 'react-router'
 import { fetchMemberProfile, resolveMemberImageUrl, toFeedUser } from '@/api/member'
 import { cancelSubscription, fetchSubscriptionStatus } from '@/api/subscription'
@@ -8,10 +8,12 @@ import Sidebar from '@/components/layout/Sidebar'
 import WritePostModal, { type PostDraft } from '@/components/feed/WritePostModal'
 import { BookmarkIcon, CommentIcon, CrownIcon, DotsIcon, EyeIcon, HeartIcon } from '@/components/icons'
 import { initialPosts, myPageCategories, postPath, type CategoryId, type Post } from '@/data/feed'
-import { getFollowingIds, memberFollowIds, setFollowing, subscribeFollows } from '@/data/follows'
+import { memberFollowIds } from '@/data/follows'
 import { followListItemsFromIds, memberById, type MemberProfile } from '@/data/members'
 import { setSubscribed } from '@/data/subscriptions'
 import { getLoggedIn, setLoggedIn, subscribeSession } from '@/data/session'
+import { getViewerProfile, subscribeViewer } from '@/data/viewer'
+import { useFollow } from '@/hooks/member/useFollow'
 import { useMemberFollows } from '@/hooks/member/useMemberFollows'
 import { useViewerUser } from '@/hooks/member/useViewerUser'
 import { usePublishPost } from '@/hooks/post/usePublishPost'
@@ -22,6 +24,9 @@ function toMemberView(profile: {
   nickname: string
   bio: string
   avatar: string
+  followerCount: number
+  followingCount: number
+  postCount: number
 }): MemberProfile {
   return {
     id: String(profile.id),
@@ -29,9 +34,9 @@ function toMemberView(profile: {
     name: profile.nickname,
     avatar: profile.avatar,
     bio: profile.bio || '소개글이 없습니다.',
-    followers: 0,
-    following: 0,
-    posts: 0,
+    followers: profile.followerCount,
+    following: profile.followingCount,
+    posts: profile.postCount,
   }
 }
 
@@ -46,6 +51,9 @@ export default function MemberPage() {
   const [apiMember, setApiMember] = useState<MemberProfile | null>(null)
   const [profileLoading, setProfileLoading] = useState(isNumericRoute)
   const [profileError, setProfileError] = useState('')
+  const loadedMemberIdRef = useRef<number | null>(null)
+  // 팔로우 변경 후 카운트만 갱신할 때 member 객체를 바꾸면 화면 상태가 초기화되므로 분리한다
+  const [apiCounts, setApiCounts] = useState<{ followers: number; following: number; posts: number } | null>(null)
   const member = apiMember ?? mockMember
   const [query, setQuery] = useState('')
   const [category, setCategory] = useState<CategoryId>('all')
@@ -60,10 +68,18 @@ export default function MemberPage() {
   const [subscribeError, setSubscribeError] = useState<string | null>(null)
   const loggedIn = useSyncExternalStore(subscribeSession, getLoggedIn)
   const viewer = useViewerUser()
-  const followedIds = useSyncExternalStore(subscribeFollows, getFollowingIds)
-  const following = member ? followedIds.has(member.id) : false
+  const viewerProfile = useSyncExternalStore(subscribeViewer, getViewerProfile)
+  const follow = useFollow(loggedIn)
+  const following = member ? follow.followedIds.has(member.id) : false
+  const followBusy = member ? follow.pendingIds.has(member.id) : false
+  // 서버 회원은 내 팔로잉 목록을 받기 전까지 팔로우 여부를 모르므로 버튼을 잠근다
+  const followLocked = followBusy || (apiMember != null && !follow.ready)
   const network = member ? memberFollowIds(member.id) : { followers: [], following: [] }
-  const apiFollows = useMemberFollows(isNumericRoute ? numericId : (member?.backendId ?? null), Boolean(member) && loggedIn)
+  const apiFollows = useMemberFollows(
+    isNumericRoute ? numericId : (member?.backendId ?? null),
+    Boolean(member) && loggedIn,
+    follow.version,
+  )
   const followerItems = apiFollows.followers.items.length > 0
     ? apiFollows.followers
     : {
@@ -79,9 +95,10 @@ export default function MemberPage() {
         error: apiFollows.following.error,
       }
 
-  // GET /member/{memberId}
+  // GET /members/{memberId}
   useEffect(() => {
     if (!isNumericRoute) {
+      loadedMemberIdRef.current = null
       setApiMember(null)
       setProfileLoading(false)
       setProfileError('')
@@ -89,12 +106,23 @@ export default function MemberPage() {
     }
 
     let cancelled = false
+    // 같은 회원을 팔로우 변경 후 다시 받을 때는 로딩 화면 없이 카운트만 갱신한다
+    const silent = loadedMemberIdRef.current === numericId
     async function loadProfile() {
-      setProfileLoading(true)
-      setProfileError('')
+      if (!silent) {
+        setProfileLoading(true)
+        setProfileError('')
+      }
       try {
         const profile = await fetchMemberProfile(numericId)
         if (cancelled) return
+        loadedMemberIdRef.current = profile.id
+        setApiCounts({
+          followers: profile.followerCount,
+          following: profile.followingCount,
+          posts: profile.postCount,
+        })
+        if (silent) return
         const feed = toFeedUser(profile)
         setApiMember(
           toMemberView({
@@ -102,15 +130,18 @@ export default function MemberPage() {
             nickname: feed.name,
             bio: feed.bio,
             avatar: resolveMemberImageUrl(profile.profileImage),
+            followerCount: profile.followerCount,
+            followingCount: profile.followingCount,
+            postCount: profile.postCount,
           }),
         )
       } catch (error: unknown) {
-        if (cancelled) return
+        if (cancelled || silent) return
         setApiMember(null)
         setProfileError(error instanceof Error ? error.message : '프로필을 불러오지 못했습니다.')
         if (error instanceof ApiError && error.status === 401 && loggedIn) setLoggedIn(false)
       } finally {
-        if (!cancelled) setProfileLoading(false)
+        if (!cancelled && !silent) setProfileLoading(false)
       }
     }
 
@@ -118,7 +149,7 @@ export default function MemberPage() {
     return () => {
       cancelled = true
     }
-  }, [isNumericRoute, loggedIn, numericId])
+  }, [isNumericRoute, loggedIn, numericId, follow.version])
 
   useEffect(() => {
     setFollowTab(null)
@@ -248,18 +279,23 @@ export default function MemberPage() {
                     <p className="my-intro">{member.bio}</p>
                     <p className="my-counts">
                       <button type="button" className="count-link" onClick={() => setFollowTab('followers')}>
-                        팔로워 <b>{followerItems.items.length || network.followers.length}</b>
+                        팔로워 <b>{apiMember ? (apiCounts?.followers ?? apiMember.followers) : network.followers.length}</b>
                       </button>
                       <button type="button" className="count-link" onClick={() => setFollowTab('following')}>
-                        팔로잉 <b>{followingItems.items.length || network.following.length}</b>
+                        팔로잉 <b>{apiMember ? (apiCounts?.following ?? apiMember.following) : network.following.length}</b>
                       </button>
                       <span>
-                        게시글 <b>{member.posts}</b>
+                        게시글 <b>{apiMember ? (apiCounts?.posts ?? apiMember.posts) : member.posts}</b>
                       </span>
                     </p>
                     {subscribeError && (
                       <p className="pay-error" role="alert">
                         {subscribeError}
+                      </p>
+                    )}
+                    {follow.error && !followTab && (
+                      <p className="pay-error" role="alert">
+                        {follow.error}
                       </p>
                     )}
                   </div>
@@ -268,7 +304,15 @@ export default function MemberPage() {
                       type="button"
                       className={following ? 'member-follow on' : 'member-follow'}
                       aria-pressed={following}
-                      onClick={() => setFollowing(member.id, !following)}
+                      aria-busy={followBusy}
+                      disabled={followLocked}
+                      onClick={() => {
+                        if (apiMember != null && !loggedIn) {
+                          navigate('/login')
+                          return
+                        }
+                        void follow.toggle(member.id, !following)
+                      }}
                     >
                       {following ? '팔로잉' : '팔로우'}
                     </button>
@@ -389,8 +433,17 @@ export default function MemberPage() {
           initialTab={followTab}
           followers={followerItems.items}
           following={followingItems.items}
-          followedIds={followedIds}
-          onToggle={setFollowing}
+          followedIds={follow.followedIds}
+          pendingIds={follow.pendingIds}
+          actionError={follow.error}
+          viewerId={viewerProfile ? String(viewerProfile.id) : null}
+          onToggle={(memberId, next) => {
+            if (!loggedIn && Number.isInteger(Number(memberId))) {
+              navigate('/login')
+              return
+            }
+            void follow.toggle(memberId, next)
+          }}
           onClose={() => setFollowTab(null)}
           followersLoading={followerItems.loading}
           followersError={followerItems.error}

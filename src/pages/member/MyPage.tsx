@@ -17,9 +17,9 @@ import { formatDateTime, myPageCategories, postPath, type CategoryId } from '@/d
 import { usePublishPost } from '@/hooks/post/usePublishPost'
 import { applyAppThemeAsync, getAppliedTheme, resolveAppTheme, subscribeAppTheme } from '@/data/appTheme'
 import { syncOwnedThemes } from '@/data/themes'
-import { getFollowingIds, setFollowing, subscribeFollows } from '@/data/follows'
 import { getLoggedIn, setLoggedIn, subscribeSession } from '@/data/session'
-import { ensureViewerLoaded, setViewerProfile } from '@/data/viewer'
+import { ensureViewerLoaded, getViewerProfile, setViewerProfile, subscribeViewer } from '@/data/viewer'
+import { useFollow } from '@/hooks/member/useFollow'
 import { useMyFollows } from '@/hooks/member/useMyFollows'
 import { useViewerUser } from '@/hooks/member/useViewerUser'
 import { ApiError } from '@/lib/apiClient'
@@ -28,7 +28,6 @@ import {
   likedPosts,
   myPosts,
   pageProfile,
-  profileStats,
   scrappedPosts,
   type MyPost,
   type OwnedTheme,
@@ -78,8 +77,11 @@ export default function MyPage() {
   const [settingsOpen, setSettingsOpen] = useState(false)
   const [followTab, setFollowTab] = useState<FollowTab | null>(null)
   const loggedIn = useSyncExternalStore(subscribeSession, getLoggedIn)
-  const followedIds = useSyncExternalStore(subscribeFollows, getFollowingIds)
-  const { followers, following } = useMyFollows(loggedIn)
+  const follow = useFollow(loggedIn)
+  const { followers, following } = useMyFollows(loggedIn, follow.version)
+  const viewerProfile = useSyncExternalStore(subscribeViewer, getViewerProfile)
+  // GET /members/me 의 followerCount·followingCount·postCount
+  const profileCount = (count: number | undefined) => (!loggedIn ? '-' : (count ?? '…'))
   const cachedViewer = useViewerUser()
   const [profile, setProfile] = useState<ProfileForm>(() => ({
     name: cachedViewer.name || '',
@@ -101,7 +103,7 @@ export default function MyPage() {
     [location.pathname, location.search, navigate],
   )
 
-  // GET /member/me — 캐시 공유. 있으면 즉시 반영, 없으면 한 번만 조회
+  // GET /members/me — 캐시 공유. 있으면 즉시 반영, 없으면 한 번만 조회
   useEffect(() => {
     if (!loggedIn) return
     let cancelled = false
@@ -239,13 +241,13 @@ export default function MyPage() {
                 <p className="my-intro">{viewer.bio}</p>
                 <p className="my-counts">
                   <button type="button" className="count-link" onClick={() => setFollowTab('following')}>
-                    팔로잉 <b>{following.loading ? '…' : loggedIn ? following.items.length : '-'}</b>
+                    팔로잉 <b>{profileCount(viewerProfile?.followingCount)}</b>
                   </button>
                   <button type="button" className="count-link" onClick={() => setFollowTab('followers')}>
-                    팔로워 <b>{followers.loading ? '…' : loggedIn ? followers.items.length : '-'}</b>
+                    팔로워 <b>{profileCount(viewerProfile?.followerCount)}</b>
                   </button>
                   <span>
-                    게시글 <b>{profileStats.posts}</b>
+                    게시글 <b>{profileCount(viewerProfile?.postCount)}</b>
                   </span>
                 </p>
               </div>
@@ -369,8 +371,11 @@ export default function MyPage() {
           initialTab={followTab}
           followers={followers.items}
           following={following.items}
-          followedIds={followedIds}
-          onToggle={setFollowing}
+          followedIds={follow.followedIds}
+          pendingIds={follow.pendingIds}
+          actionError={follow.error}
+          viewerId={viewerProfile ? String(viewerProfile.id) : null}
+          onToggle={(memberId, next) => void follow.toggle(memberId, next)}
           onClose={() => setFollowTab(null)}
           followersLoading={followers.loading}
           followersError={followers.error}

@@ -14,7 +14,7 @@ export async function login(request: LoginRequest): Promise<TokenResponse> {
 }
 
 /**
- * POST /api/v1/member → 201 Created
+ * POST /api/v1/members → 201 Created
  * @RequestPart("request") SignupRequest + @RequestPart("profileImage") MultipartFile?
  */
 export async function signup({ request, profileImage }: SignupPayload): Promise<void> {
@@ -27,7 +27,7 @@ export async function signup({ request, profileImage }: SignupPayload): Promise<
     form.append('profileImage', profileImage, profileImage.name || 'profile.png')
   }
 
-  await apiFetch('/member', {
+  await apiFetch('/members', {
     method: 'POST',
     body: form,
     skipAuth: true,
