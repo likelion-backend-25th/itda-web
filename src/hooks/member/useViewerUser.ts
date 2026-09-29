@@ -17,7 +17,7 @@ const guestUser: FeedUser = {
 }
 
 /**
- * 로그인 중이면 캐시된 /member/me 프로필을 쓴다.
+ * 로그인 중이면 캐시된 /members/me 프로필을 쓴다.
  * 페이지를 옮겨도 같은 캐시를 공유해서 목 사용자가 깜빡이지 않는다.
  */
 export function useViewerUser(): FeedUser {

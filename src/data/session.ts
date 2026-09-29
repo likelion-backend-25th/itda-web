@@ -18,10 +18,11 @@ export function getLoggedIn() {
 }
 
 export function setLoggedIn(next: boolean) {
-  // 로그아웃 시 JWT·캐시된 내 프로필도 함께 제거
+  // 로그아웃 시 JWT·캐시된 내 프로필·팔로우 상태도 함께 제거
   if (!next) {
     clearAccessToken()
     void import('./viewer').then(({ clearViewer }) => clearViewer())
+    void import('./follows').then(({ resetServerFollows }) => resetServerFollows())
   }
   if (loggedIn === next) return
   loggedIn = next

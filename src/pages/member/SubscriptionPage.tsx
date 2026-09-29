@@ -4,6 +4,7 @@ import { DEFAULT_AVATAR, resolveMemberImageUrl } from '@/api/member'
 import { cancelSubscription, fetchMonthlyIncome, fetchMySubscriptions, fetchSubscriberCount } from '@/api/subscription'
 import CategoryFeed from '@/components/feed/CategoryFeed'
 import Header from '@/components/layout/Header'
+import FollowList, { type FollowTab } from '@/components/profile/FollowList'
 import ProfileEditModal, { type ProfileForm } from '@/components/profile/ProfileEditModal'
 import Sidebar from '@/components/layout/Sidebar'
 import WritePostModal, { type PostDraft } from '@/components/feed/WritePostModal'
@@ -11,7 +12,9 @@ import { GearIcon } from '@/components/icons'
 import { myPageCategories, type CategoryId } from '@/data/feed'
 import { getLoggedIn, subscribeSession } from '@/data/session'
 import { members } from '@/data/members'
-import { ensureViewerLoaded, getViewerProfile, subscribeViewer } from '@/data/viewer'
+import { ensureViewerLoaded, getViewerProfile, refreshViewerProfile, subscribeViewer } from '@/data/viewer'
+import { useFollow } from '@/hooks/member/useFollow'
+import { useMyFollows } from '@/hooks/member/useMyFollows'
 import { useViewerUser } from '@/hooks/member/useViewerUser'
 import { usePublishPost } from '@/hooks/post/usePublishPost'
 import type { MySubscriptionResponse } from '@/types/subscription'
@@ -44,6 +47,10 @@ export default function SubscriptionPage() {
   const loggedIn = useSyncExternalStore(subscribeSession, getLoggedIn)
   const viewer = useViewerUser()
   const me = useSyncExternalStore(subscribeViewer, getViewerProfile)
+  const [followTab, setFollowTab] = useState<FollowTab | null>(null)
+  const follow = useFollow(loggedIn)
+  // GET /members/{내 id}/followers · /followings — 팔로우 토글 후 version 으로 재조회
+  const { followers, following } = useMyFollows(loggedIn, follow.version)
   const [profile, setProfile] = useState<ProfileForm>({
     name: '',
     bio: '',
@@ -59,10 +66,14 @@ export default function SubscriptionPage() {
   const [monthlyIncome, setMonthlyIncome] = useState<number | null>(null)
   const [monthlyIncomeError, setMonthlyIncomeError] = useState<string | null>(null)
 
+  // 카운트(followerCount 등)가 최신이 되도록 캐시가 있어도 /members/me 를 다시 받는다
   useEffect(() => {
     if (!loggedIn) return
-    void ensureViewerLoaded()
+    if (getViewerProfile()) void refreshViewerProfile()
+    else void ensureViewerLoaded()
   }, [loggedIn])
+
+  const profileCount = (count: number | undefined) => (!loggedIn ? '—' : (count ?? '…'))
 
   // /me 프로필로 요약·설정 폼을 맞춘다
   useEffect(() => {
@@ -216,14 +227,14 @@ export default function SubscriptionPage() {
                 <h2>{profile.name}</h2>
                 <p className="my-intro">{profile.bio}</p>
                 <p className="my-counts">
+                  <button type="button" className="count-link" onClick={() => setFollowTab('followers')}>
+                    팔로워 <b>{profileCount(me?.followerCount)}</b>
+                  </button>
+                  <button type="button" className="count-link" onClick={() => setFollowTab('following')}>
+                    팔로잉 <b>{profileCount(me?.followingCount)}</b>
+                  </button>
                   <span>
-                    팔로워 <b>—</b>
-                  </span>
-                  <span>
-                    팔로잉 <b>—</b>
-                  </span>
-                  <span>
-                    게시글 <b>—</b>
+                    게시글 <b>{profileCount(me?.postCount)}</b>
                   </span>
                 </p>
               </div>
@@ -387,6 +398,23 @@ export default function SubscriptionPage() {
           </main>
         </div>
       </div>
+      {followTab && (
+        <FollowList
+          initialTab={followTab}
+          followers={followers.items}
+          following={following.items}
+          followedIds={follow.followedIds}
+          pendingIds={follow.pendingIds}
+          actionError={follow.error}
+          viewerId={me ? String(me.id) : null}
+          onToggle={(targetId, next) => void follow.toggle(targetId, next)}
+          onClose={() => setFollowTab(null)}
+          followersLoading={followers.loading}
+          followersError={followers.error}
+          followingLoading={following.loading}
+          followingError={following.error}
+        />
+      )}
       {writing && (
         <WritePostModal
           user={viewer}

@@ -1,4 +1,4 @@
-import { apiJson } from '@/lib/apiClient'
+import { apiFetch, apiJson } from '@/lib/apiClient'
 import type { FeedUser } from '@/data/feed'
 import type { FollowerResponse, FollowingResponse, MemberProfileResponse } from '@/types/member'
 
@@ -43,6 +43,9 @@ export function normalizeMemberProfile(raw: unknown): MemberProfileResponse {
     themeId: asNumber(record.themeId),
     createdAt,
     status: typeof record.status === 'string' && record.status.trim() !== '' ? record.status : 'ACTIVE',
+    followerCount: asNumber(record.followerCount) ?? 0,
+    followingCount: asNumber(record.followingCount) ?? 0,
+    postCount: asNumber(record.postCount) ?? 0,
   }
 }
 
@@ -67,33 +70,45 @@ async function fetchFollowMembers(path: string): Promise<FollowerResponse[]> {
   })
 }
 
-/** GET /api/v1/member/me */
+/** GET /api/v1/members/me */
 export function fetchMyProfile(): Promise<MemberProfileResponse> {
-  return apiJson<unknown>('/member/me').then(normalizeMemberProfile)
+  return apiJson<unknown>('/members/me').then(normalizeMemberProfile)
 }
 
-/** GET /api/v1/member/{memberId} */
+/** GET /api/v1/members/{memberId} */
 export function fetchMemberProfile(memberId: number): Promise<MemberProfileResponse> {
   if (!Number.isInteger(memberId) || memberId <= 0) {
     return Promise.reject(new Error('잘못된 회원 id입니다.'))
   }
-  return apiJson<unknown>(`/member/${memberId}`).then(normalizeMemberProfile)
+  return apiJson<unknown>(`/members/${memberId}`).then(normalizeMemberProfile)
 }
 
-/** GET /api/v1/member/{id}/followers */
+/** GET /api/v1/members/{id}/followers */
 export function fetchFollowers(memberId: number): Promise<FollowerResponse[]> {
   if (!Number.isInteger(memberId) || memberId <= 0) {
     return Promise.reject(new Error('잘못된 회원 id입니다.'))
   }
-  return fetchFollowMembers(`/member/${memberId}/followers`)
+  return fetchFollowMembers(`/members/${memberId}/followers`)
 }
 
-/** GET /api/v1/member/{id}/followings */
+/** GET /api/v1/members/{id}/followings */
 export function fetchFollowings(memberId: number): Promise<FollowingResponse[]> {
   if (!Number.isInteger(memberId) || memberId <= 0) {
     return Promise.reject(new Error('잘못된 회원 id입니다.'))
   }
-  return fetchFollowMembers(`/member/${memberId}/followings`)
+  return fetchFollowMembers(`/members/${memberId}/followings`)
+}
+
+/** POST /api/v1/members/{id}/follow */
+export async function followMember(memberId: number): Promise<void> {
+  if (!Number.isInteger(memberId) || memberId <= 0) throw new Error('잘못된 회원 id입니다.')
+  await apiFetch(`/members/${memberId}/follow`, { method: 'POST' })
+}
+
+/** DELETE /api/v1/members/{id}/follow */
+export async function unfollowMember(memberId: number): Promise<void> {
+  if (!Number.isInteger(memberId) || memberId <= 0) throw new Error('잘못된 회원 id입니다.')
+  await apiFetch(`/members/${memberId}/follow`, { method: 'DELETE' })
 }
 
 /**

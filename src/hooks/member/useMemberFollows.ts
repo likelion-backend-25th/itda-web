@@ -11,6 +11,7 @@ export type FollowListState = {
 }
 
 const LOADING: FollowListState = { items: [], loading: true, error: null }
+const IDLE: FollowListState = { items: [], loading: false, error: null }
 
 function toFollowListItem(member: FollowerResponse | FollowingResponse): FollowListItem {
   return {
@@ -18,7 +19,6 @@ function toFollowListItem(member: FollowerResponse | FollowingResponse): FollowL
     name: member.nickname,
     avatar: resolveMemberImageUrl(member.profileImage),
     href: `/member/${member.id}`,
-    toggleable: false,
   }
 }
 
@@ -44,15 +44,17 @@ type MemberFollows = {
   following: FollowListState
 }
 
-/** GET /member/{id}/followers · followings */
-export function useMemberFollows(memberId: number | null, enabled: boolean): MemberFollows {
-  const [result, setResult] = useState<MemberFollows | null>(null)
+/**
+ * GET /members/{id}/followers · followings
+ * 결과를 회원 id와 함께 저장해, 다른 회원으로 이동하면 이전 목록 대신 로딩을 보여주고
+ * refreshKey로 재조회할 때는 기존 목록을 유지한다.
+ */
+export function useMemberFollows(memberId: number | null, enabled: boolean, refreshKey = 0): MemberFollows {
+  const [result, setResult] = useState<{ memberId: number; data: MemberFollows } | null>(null)
+  const active = enabled && memberId != null && memberId > 0
 
   useEffect(() => {
-    if (!enabled || memberId == null || memberId <= 0) {
-      setResult(null)
-      return
-    }
+    if (!active || memberId == null) return
 
     const id = memberId
     let cancelled = false
@@ -63,23 +65,21 @@ export function useMemberFollows(memberId: number | null, enabled: boolean): Mem
       ])
       if (cancelled) return
       setResult({
-        followers: toListState(followerResult, '팔로워 목록을 불러오지 못했습니다.'),
-        following: toListState(followingResult, '팔로잉 목록을 불러오지 못했습니다.'),
+        memberId: id,
+        data: {
+          followers: toListState(followerResult, '팔로워 목록을 불러오지 못했습니다.'),
+          following: toListState(followingResult, '팔로잉 목록을 불러오지 못했습니다.'),
+        },
       })
     }
 
     void load()
     return () => {
       cancelled = true
-      setResult(null)
     }
-  }, [enabled, memberId])
+  }, [active, memberId, refreshKey])
 
-  if (!enabled || memberId == null || memberId <= 0) {
-    return {
-      followers: { items: [], loading: false, error: null },
-      following: { items: [], loading: false, error: null },
-    }
-  }
-  return result ?? { followers: LOADING, following: LOADING }
+  if (!active) return { followers: IDLE, following: IDLE }
+  if (result == null || result.memberId !== memberId) return { followers: LOADING, following: LOADING }
+  return result.data
 }

@@ -62,7 +62,7 @@ export default function PayPage() {
     setSubscribed(member.id, true)
   }, [receipt, member])
 
-  // 숫자 경로면 GET /member/{id} 로 결제 대상 프로필을 받는다
+  // 숫자 경로면 GET /members/{id} 로 결제 대상 프로필을 받는다
   useEffect(() => {
     if (numericId == null) {
       setApiMember(null)
