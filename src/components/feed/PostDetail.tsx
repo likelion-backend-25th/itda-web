@@ -2,7 +2,7 @@ import { useEffect, useId, useRef, useState, type FormEvent } from 'react'
 import { createPortal } from 'react-dom'
 import { Link } from 'react-router'
 import type { FeedUser, Post } from '@/data/feed'
-import { profilePath } from '@/data/members'
+import { profileHrefForMember } from '@/data/members'
 import { BookmarkIcon, CloseIcon, CommentIcon, DotsIcon, EyeIcon, HeartIcon } from '@/components/icons'
 
 type PostDetailProps = {
@@ -145,18 +145,13 @@ export default function PostDetail({
         </header>
 
         <div className="detail-body">
-          <div className="author">
-            <img src={post.avatar} alt="" />
-            <div>
-              <div className="author-name">
-                <strong>{post.author}</strong>
-                {post.isMe && <span className="me-badge">나</span>}
-              </div>
-              <p className="post-meta">
-                {post.visibility === 'subscribers' ? '구독자 전용' : '전체 공개'}
-              </p>
-            </div>
-          </div>
+          <AuthorIdentity
+            href={profileHrefForMember(post.memberId, post.author, viewerMemberId)}
+            name={post.author}
+            avatar={post.avatar}
+            isMe={post.isMe}
+            meta={post.visibility === 'subscribers' ? '구독자 전용' : '전체 공개'}
+          />
           <p className="post-text">{post.content}</p>
         </div>
 
@@ -236,10 +231,16 @@ export default function PostDetail({
             const canEdit = isAuthor
             const canDelete = isAuthor || (canModerateReplies && comment.memberId != null)
             const editing = editingId === comment.id
-            const href = profilePath(comment.author)
+            const href = profileHrefForMember(comment.memberId, comment.author, viewerMemberId)
             return (
               <article key={comment.id} className="comment">
-                <img src={comment.avatar} alt="" />
+                {href ? (
+                  <Link to={href} className="comment-avatar" aria-label={`${comment.author} 프로필`}>
+                    <img src={comment.avatar} alt="" />
+                  </Link>
+                ) : (
+                  <img src={comment.avatar} alt="" />
+                )}
                 <div>
                   <div className="comment-top">
                     {href ? (
@@ -311,5 +312,38 @@ export default function PostDetail({
       </div>
     </div>,
     document.body,
+  )
+}
+
+function AuthorIdentity({
+  href,
+  name,
+  avatar,
+  isMe,
+  meta,
+}: {
+  href: string | null
+  name: string
+  avatar: string
+  isMe?: boolean
+  meta: string
+}) {
+  const body = (
+    <>
+      <img src={avatar} alt="" />
+      <div>
+        <div className="author-name">
+          <strong>{name}</strong>
+          {isMe && <span className="me-badge">나</span>}
+        </div>
+        <p className="post-meta">{meta}</p>
+      </div>
+    </>
+  )
+  if (!href) return <div className="author">{body}</div>
+  return (
+    <Link to={href} className="author" aria-label={`${name} 프로필`}>
+      {body}
+    </Link>
   )
 }

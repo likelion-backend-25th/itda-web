@@ -1266,15 +1266,23 @@ button.stat {
 }
 
 .composer img,
-.comment img {
+.comment img,
+a.comment-avatar img {
   width: 46px;
   height: 46px;
   border-radius: 50%;
   object-fit: cover;
 }
 
+a.comment-avatar {
+  display: block;
+  width: 46px;
+  height: 46px;
+}
+
 .composer strong,
-.comment-top strong {
+.comment-top strong,
+.comment-top .comment-author {
   font-size: 15px;
   font-weight: 800;
 }
