@@ -21,6 +21,11 @@ export function getViewerProfile(): MemberProfileResponse | null {
   return profile
 }
 
+/** 활동 정지 회원은 글·댓글을 작성할 수 없다 */
+export function isViewerSuspended(): boolean {
+  return profile?.status === 'SUSPENDED'
+}
+
 export function getViewerUser(): FeedUser | null {
   return feedUser
 }

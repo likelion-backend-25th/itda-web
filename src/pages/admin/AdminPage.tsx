@@ -34,7 +34,7 @@ import {
   fetchAdminReplies,
   fetchAdminThemes,
   setAdminThemeStatus,
-  suspendAdminMember,
+  setAdminMemberStatus,
   updateAdminTheme,
 } from '@/api/admin'
 import { fetchAdminPayments, fetchAdminRefunds, refundAdminPayment } from '@/api/adminPayment'
@@ -325,14 +325,16 @@ function AdminBoard({ section }: { section: SectionId }) {
     }
   }
 
-  async function kickMember(item: AdminMember) {
+  async function toggleMemberStatus(item: AdminMember) {
     const memberId = Number(item.id)
     if (!Number.isInteger(memberId) || busyId != null) return
     setBusyId(item.id)
     setBoardError(null)
     try {
-      await suspendAdminMember(memberId)
-      setApiMembers((current) => current.filter((row) => row.id !== item.id))
+      await setAdminMemberStatus(memberId, !item.active)
+      setApiMembers((current) =>
+        current.map((row) => (row.id === item.id ? { ...row, active: !item.active } : row)),
+      )
     } catch (error: unknown) {
       setBoardError(error instanceof Error ? error.message : '회원 상태 변경에 실패했습니다.')
     } finally {
@@ -521,15 +523,16 @@ function AdminBoard({ section }: { section: SectionId }) {
                 <Cell label="이메일" value={member.email} />
                 <Cell label="인증 방식" value={member.provider} />
                 <Cell label="가입일" value={member.joinedOn} />
+                <Cell label="상태" value={member.active ? '활성화' : '활동 정지'} />
                 <button
                   type="button"
-                  className="admin-danger"
+                  className={member.active ? 'admin-danger' : 'member-activate'}
                   disabled={busyId === member.id}
                   onClick={() => {
-                    void kickMember(member)
+                    void toggleMemberStatus(member)
                   }}
                 >
-                  강퇴
+                  {member.active ? '활동 정지' : '활성화'}
                 </button>
               </article>
             ))}

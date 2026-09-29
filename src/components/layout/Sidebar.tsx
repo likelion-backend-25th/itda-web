@@ -4,6 +4,7 @@ import { Link, NavLink } from 'react-router'
 import { DEFAULT_AVATAR } from '@/api/member'
 import { categories, type CategoryId, type FeedUser } from '@/data/feed'
 import { getLoggedIn, subscribeSession } from '@/data/session'
+import { getViewerProfile, subscribeViewer } from '@/data/viewer'
 import {
   BagIcon,
   BookIcon,
@@ -60,6 +61,7 @@ export default function Sidebar({
 }: SidebarProps) {
   const compact = categoryItems !== categories
   const loggedIn = useSyncExternalStore(subscribeSession, getLoggedIn)
+  const suspended = useSyncExternalStore(subscribeViewer, getViewerProfile)?.status === 'SUSPENDED'
 
   return (
     <aside className="sidebar">
@@ -87,10 +89,11 @@ export default function Sidebar({
             <strong className="profile-name">{user.name || '프로필'}</strong>
             {user.handle ? <p className="profile-handle">{user.handle}</p> : null}
           </div>
-          <button type="button" className="write-btn" onClick={onWrite}>
+          <button type="button" className="write-btn" disabled={suspended} onClick={onWrite}>
             <PencilIcon />
             글쓰기
           </button>
+          {suspended && <p className="write-blocked">활동 정지 상태에서는 글을 작성할 수 없습니다.</p>}
         </div>
       ) : (
         <>
@@ -108,10 +111,11 @@ export default function Sidebar({
               <p className="profile-bio">{user.bio}</p>
             </div>
           </div>
-          <button type="button" className="write-btn" onClick={onWrite}>
+          <button type="button" className="write-btn" disabled={suspended} onClick={onWrite}>
             <PencilIcon />
             글쓰기
           </button>
+          {suspended && <p className="write-blocked">활동 정지 상태에서는 글을 작성할 수 없습니다.</p>}
         </>
       )}
 

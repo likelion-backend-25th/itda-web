@@ -1,4 +1,4 @@
-﻿/** 공유·직접 진입용 게시글 상세 경로 */
+/** 공유·직접 진입용 게시글 상세 경로 */
 export function postPath(postId: string | number): string {
   return `/posts/${postId}`
 }

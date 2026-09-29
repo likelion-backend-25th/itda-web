@@ -709,7 +709,19 @@ a.guest-auth {
   height: 18px;
 }
 
-.write-btn:hover {
+.write-btn:disabled {
+  opacity: 0.45;
+  cursor: default;
+}
+
+.write-blocked {
+  margin: 0 4px 8px;
+  color: #d4534a;
+  font-size: 13px;
+  font-weight: 700;
+}
+
+.write-btn:hover:not(:disabled) {
   background: var(--blue-deep);
 }
 
@@ -4083,7 +4095,7 @@ img.sub-photo {
 }
 
 .admin-row.members {
-  grid-template-columns: 52px repeat(4, minmax(0, 1fr)) auto;
+  grid-template-columns: 52px repeat(5, minmax(0, 1fr)) auto;
 }
 
 .admin-row.pays {
@@ -4150,6 +4162,22 @@ img.sub-photo {
 }
 
 .admin-danger:disabled {
+  color: #b7c2d0;
+  border-color: #e4ebf3;
+  cursor: default;
+}
+
+.member-activate {
+  height: 36px;
+  padding: 0 14px;
+  border: 1px solid #b7d7c4;
+  border-radius: 10px;
+  background: #fff;
+  color: #1f7a45;
+  font-weight: 800;
+}
+
+.member-activate:disabled {
   color: #b7c2d0;
   border-color: #e4ebf3;
   cursor: default;

@@ -45,14 +45,16 @@ export async function fetchAdminMembers(): Promise<AdminMember[]> {
         provider: asString(record.authmethod) || asString(record.role) || '—',
         joinedOn: formatJoinedOn(createdAt),
         avatar: resolveMemberImageUrl(asString(record.profileImage) || null),
+        active: asString(record.status) !== 'SUSPENDED',
       },
     ]
   })
 }
 
-/** PATCH /api/v1/admin/members/{memberId}/status?status=SUSPENDED */
-export async function suspendAdminMember(memberId: number): Promise<void> {
-  await apiFetch(`/admin/members/${memberId}/status?status=SUSPENDED`, { method: 'PATCH' })
+/** PATCH /api/v1/admin/members/{memberId}/status — ACTIVE 활성화, SUSPENDED 활동 정지 */
+export async function setAdminMemberStatus(memberId: number, active: boolean): Promise<void> {
+  const status = active ? 'ACTIVE' : 'SUSPENDED'
+  await apiFetch(`/admin/members/${memberId}/status?status=${status}`, { method: 'PATCH' })
 }
 
 /** GET /api/v1/admin/posts */

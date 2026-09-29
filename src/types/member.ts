@@ -9,6 +9,8 @@ export interface MemberProfileResponse {
   introduction: string | null
   themeId: number | null
   createdAt: string
+  /** ACTIVE 정상, SUSPENDED 활동 정지 */
+  status: string
 }
 
 /** GET /api/v1/member/{id}/followers */

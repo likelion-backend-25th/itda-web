@@ -42,6 +42,7 @@ export function normalizeMemberProfile(raw: unknown): MemberProfileResponse {
     introduction: asOptionalString(record.introduction),
     themeId: asNumber(record.themeId),
     createdAt,
+    status: typeof record.status === 'string' && record.status.trim() !== '' ? record.status : 'ACTIVE',
   }
 }
 
