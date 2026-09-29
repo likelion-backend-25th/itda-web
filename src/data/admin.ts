@@ -7,6 +7,8 @@ export type AdminMember = {
   provider: string
   joinedOn: string
   avatar: string
+  /** false면 활동 정지. 글·댓글 작성이 막힌다 */
+  active: boolean
 }
 
 export type AdminPayment = {
@@ -145,6 +147,7 @@ const initial = {
     provider: seed[2],
     joinedOn: seed[3],
     avatar: avatars[index % avatars.length],
+    active: true,
   })),
   payments: pages(paymentSeeds, (seed, index) => {
     const paidTimes = ['14:23', '10:15', '09:12', '18:40', '11:05', '16:22']

@@ -1,8 +1,9 @@
-import { useEffect, useId, useRef, useState, type FormEvent } from 'react'
+import { useEffect, useId, useRef, useState, useSyncExternalStore, type FormEvent } from 'react'
 import { createPortal } from 'react-dom'
 import { Link } from 'react-router'
 import type { FeedUser, Post } from '@/data/feed'
 import { profileHrefForMember } from '@/data/members'
+import { getViewerProfile, subscribeViewer } from '@/data/viewer'
 import { BookmarkIcon, CloseIcon, CommentIcon, DotsIcon, EyeIcon, HeartIcon } from '@/components/icons'
 
 type PostDetailProps = {
@@ -34,6 +35,7 @@ export default function PostDetail({
   onUpdateComment,
   onDeleteComment,
 }: PostDetailProps) {
+  const suspended = useSyncExternalStore(subscribeViewer, getViewerProfile)?.status === 'SUSPENDED'
   const titleId = useId()
   const closeRef = useRef<HTMLButtonElement>(null)
   const [draft, setDraft] = useState('')
@@ -79,7 +81,7 @@ export default function PostDetail({
   async function submitComment(event: FormEvent<HTMLFormElement>) {
     event.preventDefault()
     const content = draft.trim()
-    if (!content || savingComment) return
+    if (!content || savingComment || suspended) return
     setSavingComment(true)
     setCommentError('')
     try {
@@ -204,17 +206,21 @@ export default function PostDetail({
             <img src={user.avatar} alt="" />
             <div>
               <strong>{user.name}</strong>
-              <form onSubmit={(event) => void submitComment(event)}>
-                <input
-                  value={draft}
-                  placeholder="댓글을 남겨주세요 :)"
-                  disabled={savingComment}
-                  onChange={(event) => setDraft(event.target.value)}
-                />
-                <button type="submit" disabled={savingComment || draft.trim().length === 0}>
-                  {savingComment ? '작성 중...' : '작성'}
-                </button>
-              </form>
+              {suspended ? (
+                <p className="write-blocked">활동 정지 상태에서는 댓글을 작성할 수 없습니다.</p>
+              ) : (
+                <form onSubmit={(event) => void submitComment(event)}>
+                  <input
+                    value={draft}
+                    placeholder="댓글을 남겨주세요 :)"
+                    disabled={savingComment}
+                    onChange={(event) => setDraft(event.target.value)}
+                  />
+                  <button type="submit" disabled={savingComment || draft.trim().length === 0}>
+                    {savingComment ? '작성 중...' : '작성'}
+                  </button>
+                </form>
+              )}
               {commentError && (
                 <p className="editor-error" role="alert">
                   {commentError}
