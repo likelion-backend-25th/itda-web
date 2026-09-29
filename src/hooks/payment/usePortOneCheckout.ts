@@ -3,12 +3,13 @@ import { useNavigate } from 'react-router'
 import { completePayment, preparePayment } from '@/api/payment'
 import { getLoggedIn } from '@/data/session'
 import { openPortOneCheckout } from '@/lib/portone'
-import type { PaymentType } from '@/types/payment'
+import type { PayMethod, PaymentType } from '@/types/payment'
 
 interface StartCheckoutInput {
   paymentType: PaymentType
   targetId: number
   orderName: string
+  payMethod: PayMethod
 }
 
 export type CheckoutReceipt = {
@@ -45,10 +46,13 @@ export function usePortOneCheckout() {
         const prepared = await preparePayment({
           paymentType: input.paymentType,
           targetId: input.targetId,
+          payMethod: input.payMethod,
         })
         const result = await openPortOneCheckout({
           paymentId: prepared.paymentId,
           amount: prepared.amount,
+          storeId: prepared.storeId,
+          channelKey: prepared.channelKey,
           orderName: input.orderName,
         })
         if (!result.ok) {

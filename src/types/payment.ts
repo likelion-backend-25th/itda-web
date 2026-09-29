@@ -1,14 +1,20 @@
 /** 백엔드 PaymentPrepareRequest.paymentType 과 동일 */
 export type PaymentType = 'THEME' | 'SUBSCRIPTION'
 
+/** 백엔드 PaymentPrepareRequest.payMethod. PortOne 채널을 고르는 값 */
+export type PayMethod = 'KAKAOPAY' | 'TOSSPAY'
+
 export interface PaymentPrepareRequest {
   paymentType: PaymentType
   targetId: number
+  payMethod: PayMethod
 }
 
 export interface PaymentPrepareResponse {
   paymentId: string
   amount: number
+  storeId: string
+  channelKey: string
 }
 
 /** 백엔드 PaymentCompleteRequest */

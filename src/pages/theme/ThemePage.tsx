@@ -17,9 +17,11 @@ import {
 import { getLoggedIn, setLoggedIn, subscribeSession } from '@/data/session'
 import { useViewerUser } from '@/hooks/member/useViewerUser'
 import { usePublishPost } from '@/hooks/post/usePublishPost'
+import PayMethodPicker from '@/components/payment/PayMethodPicker'
 import PaymentCompleteDialog from '@/components/payment/PaymentCompleteDialog'
 import { usePortOneCheckout } from '@/hooks/payment/usePortOneCheckout'
 import { ApiError } from '@/lib/apiClient'
+import type { PayMethod } from '@/types/payment'
 import type { ThemeDetailResponse, ThemeResponse } from '@/types/theme'
 
 const PAGE_SIZE = 6
@@ -69,6 +71,7 @@ export default function ThemePage() {
   const [loading, setLoading] = useState(false)
   const [listError, setListError] = useState('')
   const [loginHint, setLoginHint] = useState('')
+  const [payMethod, setPayMethod] = useState<PayMethod>('KAKAOPAY')
   const [detail, setDetail] = useState<ThemeDetailResponse | null>(null)
   const [detailLoading, setDetailLoading] = useState(false)
   const [detailError, setDetailError] = useState('')
@@ -268,6 +271,7 @@ export default function ThemePage() {
       paymentType: 'THEME',
       targetId: theme.id,
       orderName: theme.themeName,
+      payMethod,
     })
     if (result) grantAndApply(theme)
   }
@@ -439,6 +443,7 @@ export default function ThemePage() {
                     </button>
                   ) : (
                     <>
+                      <PayMethodPicker value={payMethod} disabled={busy} onChange={setPayMethod} />
                       <button
                         type="button"
                         className="shop-purchase"
