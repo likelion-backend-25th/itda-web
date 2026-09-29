@@ -618,10 +618,6 @@ a.guest-auth {
   margin-top: 14px;
 }
 
-.profile.studio ~ .category-block .category-item.active {
-  background: transparent;
-}
-
 .side-nav,
 .category-list {
   display: flex;
@@ -1760,7 +1756,6 @@ img.sub-photo {
   display: flex;
   flex-direction: column;
   gap: 14px;
-  padding-right: 108px;
 }
 
 .my-post {
@@ -3462,11 +3457,18 @@ img.sub-photo {
   text-overflow: ellipsis;
 }
 
+.my-board {
+  position: relative;
+}
+
 .support {
+  position: absolute;
+  left: calc(100% + 16px);
+  bottom: 12px;
   display: flex;
-  justify-content: flex-end;
-  margin-top: auto;
-  padding: 28px 8px 4px;
+  width: max-content;
+  margin: 0;
+  padding: 0;
 }
 
 .support-fab {
@@ -3817,6 +3819,14 @@ img.sub-photo {
   .my-feed,
   .theme-list {
     padding-right: 0;
+  }
+
+  .support {
+    position: static;
+    width: auto;
+    justify-content: flex-end;
+    margin-top: auto;
+    padding: 28px 8px 4px;
   }
 
   .my-post-body,

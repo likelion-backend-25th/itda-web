@@ -67,6 +67,9 @@ export default function MyPage() {
   const [actionError, setActionError] = useState('')
   const [hasMore, setHasMore] = useState(false)
   const cursorRef = useRef<number | null>(null)
+  const hasMoreRef = useRef(false)
+  const loadingMoreRef = useRef(false)
+  const sentinelRef = useRef<HTMLDivElement>(null)
   const listGenRef = useRef(0)
   const actionLockRef = useRef(new Set<string>())
   const applied = useSyncExternalStore(subscribeAppTheme, getAppliedTheme)
@@ -170,10 +173,13 @@ export default function MyPage() {
     if (!loggedIn || tab === 'themes') return
     const generation = ++listGenRef.current
     cursorRef.current = null
+    hasMoreRef.current = false
+    loadingMoreRef.current = false
     setListLoading(true)
     setListError('')
     setActionError('')
     setHasMore(false)
+    setLoadingMore(false)
 
     const request =
       tab === 'likes' ? fetchMyLikedPosts() : tab === 'scraps' ? fetchMyScrappedPosts() : fetchMyPosts()
@@ -186,6 +192,7 @@ export default function MyPage() {
         else if (tab === 'scraps') setScraps(mapped)
         else setPosts(mapped)
         cursorRef.current = result.nextCursor
+        hasMoreRef.current = result.hadNext
         setHasMore(result.hadNext)
       })
       .catch((error: unknown) => {
@@ -199,8 +206,9 @@ export default function MyPage() {
   }, [loggedIn, tab])
 
   const loadMore = useCallback(async () => {
-    if (!loggedIn || tab === 'themes' || !hasMore || loadingMore || listLoading) return
+    if (!loggedIn || tab === 'themes' || !hasMoreRef.current || loadingMoreRef.current) return
     const generation = listGenRef.current
+    loadingMoreRef.current = true
     setLoadingMore(true)
     setListError('')
     try {
@@ -221,15 +229,36 @@ export default function MyPage() {
       else if (tab === 'scraps') setScraps(append)
       else setPosts(append)
       cursorRef.current = result.nextCursor
+      hasMoreRef.current = result.hadNext
       setHasMore(result.hadNext)
     } catch (error: unknown) {
       if (generation !== listGenRef.current) return
       setListError(error instanceof Error ? error.message : '글을 더 불러오지 못했습니다.')
       if (error instanceof ApiError && error.status === 401) setLoggedIn(false)
     } finally {
-      if (generation === listGenRef.current) setLoadingMore(false)
+      if (generation === listGenRef.current) {
+        loadingMoreRef.current = false
+        setLoadingMore(false)
+      }
     }
-  }, [hasMore, listLoading, loadingMore, loggedIn, tab])
+  }, [loggedIn, tab])
+
+  // 글 카드 맨 아래가 보이면 nextCursor 로 다음 페이지를 붙인다
+  useEffect(() => {
+    const node = sentinelRef.current
+    if (!node || tab === 'themes' || listLoading || !hasMore) return
+
+    const observer = new IntersectionObserver(
+      (entries) => {
+        if (entries.some((entry) => entry.isIntersecting)) {
+          void loadMore()
+        }
+      },
+      { rootMargin: '240px' },
+    )
+    observer.observe(node)
+    return () => observer.disconnect()
+  }, [hasMore, listLoading, loadMore, tab, posts.length, liked.length, scraps.length])
 
   useEffect(() => {
     if (!menuId) return
@@ -466,9 +495,9 @@ export default function MyPage() {
                     })
                   )}
                   {loggedIn && hasMore && source.length > 0 && (
-                    <button type="button" className="feed-more" disabled={loadingMore} onClick={() => void loadMore()}>
-                      {loadingMore ? '글을 불러오는 중...' : '더 보기'}
-                    </button>
+                    <div ref={sentinelRef} className="feed-more" aria-live="polite">
+                      {loadingMore ? '글을 불러오는 중...' : ''}
+                    </div>
                   )}
                   {listError && source.length > 0 && (
                     <div className="empty" role="alert">

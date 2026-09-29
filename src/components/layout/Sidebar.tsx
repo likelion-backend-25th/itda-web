@@ -58,7 +58,6 @@ export default function Sidebar({
   onToggleCategories,
   onWrite,
 }: SidebarProps) {
-  const compact = categoryItems !== categories
   const loggedIn = useSyncExternalStore(subscribeSession, getLoggedIn)
   const suspended = useSyncExternalStore(subscribeViewer, getViewerProfile)?.status === 'SUSPENDED'
 
@@ -142,7 +141,7 @@ export default function Sidebar({
                   className={selected ? 'category-item active' : 'category-item'}
                   onClick={() => onCategoryChange(item.id)}
                 >
-                  {compact || item.id === 'all' ? (
+                  {item.id === 'all' ? (
                     <span className={selected ? 'category-dot on' : 'category-dot'} />
                   ) : (
                     categoryIcons[item.id]
