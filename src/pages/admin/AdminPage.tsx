@@ -613,7 +613,7 @@ function AdminBoard({ section }: { section: SectionId }) {
             <div className="pay-detail-ids">
               <p>
                 <small>결제 번호</small>
-                <strong>payment_id: {payment.paymentId}</strong>
+                <strong>{payment.paymentId}</strong>
               </p>
               <p>
                 <small>PG_provider</small>
@@ -621,11 +621,11 @@ function AdminBoard({ section }: { section: SectionId }) {
               </p>
             </div>
             <label>
-              imp_uid
-              <input readOnly value={payment.impUid} />
+              payment id
+              <input readOnly value={payment.servicePaymentId} />
             </label>
             <label>
-              merchant_uid
+              transaction id
               <input readOnly value={payment.merchantUid} />
             </label>
             <label>

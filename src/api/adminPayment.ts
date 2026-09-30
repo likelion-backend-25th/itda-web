@@ -8,6 +8,7 @@ type AdminPaymentBody = {
   paymentType: string
   targetId: number
   transactionId: string
+  servicePaymentId: string
   amount: number
   paymentStatus: string
   paymentMethod: string
@@ -60,6 +61,7 @@ function toPayment(item: AdminPaymentBody): AdminPayment {
     expiresOn: '—',
     payType: item.paymentMethod,
     paymentId,
+    servicePaymentId: item.servicePaymentId,
     pgProvider: '—',
     impUid: '—',
     merchantUid: item.transactionId,
@@ -88,6 +90,7 @@ function normalizeList(raw: unknown): AdminPaymentBody[] {
         paymentType: asString(record.paymentType),
         targetId,
         transactionId: asString(record.transactionId),
+        servicePaymentId: asString(record.servicePaymentId),
         amount,
         paymentStatus: asString(record.paymentStatus),
         paymentMethod: asString(record.paymentMethod),
