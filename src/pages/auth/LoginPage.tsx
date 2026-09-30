@@ -43,7 +43,7 @@ export default function LoginPage() {
     try {
       const tokens = await login({ email: id, password })
       applyAccessToken(tokens.accessToken, tokens.expiresIn)
-      navigate(hasAdminRole() ? '/admin/members' : redirectTo, { replace: true })
+      navigate(hasAdminRole() ? '/admin' : redirectTo, { replace: true })
     } catch (err: unknown) {
       const message = err instanceof Error ? err.message : '로그인에 실패했습니다.'
       setError(message)
