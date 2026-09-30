@@ -130,6 +130,7 @@ function toAdminTheme(record: Record<string, unknown>): AdminTheme | null {
     description: asString(record.description),
     price: formatPrice(price),
     code: themeCode,
+    cssText: asString(record.cssText),
     image: resolveThemeThumbnailUrl(asString(record.thumbnailUrl) || null) ?? '',
     tone: toneFromThemeCode(themeCode),
     // ON_SALE = 활성화, HIDDEN = 비활성화
@@ -155,13 +156,14 @@ function thumbnailForRequest(image: string): string | null {
   return trimmed
 }
 
+/** 등록·수정 모두 theme_code 대신 css_text를 보낸다. 코드는 서버가 유지한다. */
 function toThemeRequest(draft: ThemeDraft) {
   return {
     themeName: draft.name.trim(),
     description: draft.description.trim(),
     price: parsePrice(draft.price),
     thumbnailUrl: thumbnailForRequest(draft.image),
-    themeCode: draft.code.trim(),
+    cssText: draft.cssText.trim(),
   }
 }
 

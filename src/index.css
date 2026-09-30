@@ -4510,13 +4510,29 @@ img.sub-photo {
   font-weight: 800;
 }
 
-.theme-form-fields input {
-  height: 42px;
+.theme-form-fields input,
+.theme-form-fields textarea {
   padding: 0 12px;
   border: 1px solid #e3ebf3;
   border-radius: 10px;
   color: #243044;
   font-weight: 600;
+}
+
+.theme-form-fields input {
+  height: 42px;
+}
+
+.theme-form-fields textarea {
+  min-height: 120px;
+  padding: 10px 12px;
+  resize: vertical;
+  line-height: 1.5;
+  font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+}
+
+.theme-form-fields label:has(textarea) {
+  align-items: start;
 }
 
 .theme-form-error {
