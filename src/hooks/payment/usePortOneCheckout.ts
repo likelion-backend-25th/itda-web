@@ -3,7 +3,7 @@ import { useNavigate } from 'react-router'
 import { completePayment, preparePayment } from '@/api/payment'
 import { getLoggedIn } from '@/data/session'
 import { openPortOneCheckout } from '@/lib/portone'
-import type { PayMethod, PaymentType } from '@/types/payment'
+import type { PayMethod, PaymentPrepareResponse, PaymentType } from '@/types/payment'
 
 interface StartCheckoutInput {
   paymentType: PaymentType
@@ -32,8 +32,8 @@ export function usePortOneCheckout() {
     setReceipt(null)
   }, [])
 
-  const startCheckout = useCallback(
-    async (input: StartCheckoutInput) => {
+  const payPrepared = useCallback(
+    async (prepared: PaymentPrepareResponse, orderName: string) => {
       if (!getLoggedIn()) {
         navigate('/login')
         return null
@@ -43,17 +43,12 @@ export function usePortOneCheckout() {
       setPhase('window')
       setError('')
       try {
-        const prepared = await preparePayment({
-          paymentType: input.paymentType,
-          targetId: input.targetId,
-          payMethod: input.payMethod,
-        })
         const result = await openPortOneCheckout({
           paymentId: prepared.paymentId,
           amount: prepared.amount,
           storeId: prepared.storeId,
           channelKey: prepared.channelKey,
-          orderName: input.orderName,
+          orderName,
         })
         if (!result.ok) {
           setError(result.message)
@@ -64,7 +59,7 @@ export function usePortOneCheckout() {
         const completed = await completePayment({ paymentId: result.paymentId })
         setReceipt({
           paymentId: completed.paymentId || result.paymentId,
-          orderName: input.orderName,
+          orderName,
           amount: typeof completed.amount === 'number' ? completed.amount : prepared.amount,
         })
         return result
@@ -80,5 +75,33 @@ export function usePortOneCheckout() {
     [navigate],
   )
 
-  return { startCheckout, busy, phase, error, receipt, reset }
+  const startCheckout = useCallback(
+    async (input: StartCheckoutInput) => {
+      if (!getLoggedIn()) {
+        navigate('/login')
+        return null
+      }
+
+      setBusy(true)
+      setError('')
+      try {
+        const prepared = await preparePayment({
+          paymentType: input.paymentType,
+          targetId: input.targetId,
+          payMethod: input.payMethod,
+        })
+        setBusy(false)
+        return payPrepared(prepared, input.orderName)
+      } catch (caught: unknown) {
+        const message = caught instanceof Error ? caught.message : '결제를 시작하지 못했습니다.'
+        setError(message)
+        setBusy(false)
+        setPhase('idle')
+        return null
+      }
+    },
+    [navigate, payPrepared],
+  )
+
+  return { startCheckout, payPrepared, busy, phase, error, receipt, reset }
 }
