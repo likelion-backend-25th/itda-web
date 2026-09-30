@@ -14,6 +14,8 @@ export interface MemberProfileResponse {
   followerCount: number
   followingCount: number
   postCount: number
+  /** common_code id (게시글 카테고리 type=3) */
+  interestCategoryIds: number[]
 }
 
 /** GET /api/v1/members/{id}/followers */

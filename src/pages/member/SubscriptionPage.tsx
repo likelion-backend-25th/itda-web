@@ -1,6 +1,6 @@
 ﻿import { useEffect, useMemo, useState, useSyncExternalStore } from 'react'
 import { Link, Navigate, useNavigate, useParams } from 'react-router'
-import { DEFAULT_AVATAR, resolveMemberImageUrl } from '@/api/member'
+import { DEFAULT_AVATAR, fetchMyProfile, resolveMemberImageUrl, updateMyProfile, updateMyInterests } from '@/api/member'
 import { unsubscribeAndRefund } from '@/api/payment'
 import { fetchMonthlyIncome, fetchMySubscriptions, fetchSubscriberCount } from '@/api/subscription'
 import UnsubscribeRefundDialog from '@/components/payment/UnsubscribeRefundDialog'
@@ -14,11 +14,12 @@ import { GearIcon } from '@/components/icons'
 import { myPageCategories, type CategoryId } from '@/data/feed'
 import { getLoggedIn, subscribeSession } from '@/data/session'
 import { members } from '@/data/members'
-import { ensureViewerLoaded, getViewerProfile, refreshViewerProfile, subscribeViewer } from '@/data/viewer'
+import { ensureViewerLoaded, getViewerProfile, refreshViewerProfile, setViewerProfile, subscribeViewer } from '@/data/viewer'
 import { useFollow } from '@/hooks/member/useFollow'
 import { useMyFollows } from '@/hooks/member/useMyFollows'
 import { useViewerUser } from '@/hooks/member/useViewerUser'
 import { usePublishPost } from '@/hooks/post/usePublishPost'
+import { categoryIdsFromInterestIds, interestIdsFromCategoryIds } from '@/data/interests'
 import type { MySubscriptionResponse } from '@/types/subscription'
 
 type SubscriptionTab = 'users' | 'manage'
@@ -57,7 +58,7 @@ export default function SubscriptionPage() {
     name: '',
     bio: '',
     avatar: DEFAULT_AVATAR,
-    interests: ['food', 'travel'],
+    interests: [],
   })
   const [subscriptions, setSubscriptions] = useState<MySubscriptionResponse[]>([])
   const [subscriptionsLoading, setSubscriptionsLoading] = useState(false)
@@ -86,7 +87,7 @@ export default function SubscriptionPage() {
       name: me.nickname || viewer.name,
       bio: me.introduction?.trim() || viewer.bio,
       avatar: resolveMemberImageUrl(me.profileImage) || viewer.avatar || DEFAULT_AVATAR,
-      interests: ['food', 'travel'],
+      interests: interestIdsFromCategoryIds(me.interestCategoryIds),
     })
   }, [me, viewer.avatar, viewer.bio, viewer.name])
 
@@ -453,8 +454,31 @@ export default function SubscriptionPage() {
         <ProfileEditModal
           profile={profile}
           onClose={() => setSettingsOpen(false)}
-          onSaveProfile={(next) => setProfile((current) => ({ ...current, ...next }))}
-          onSaveInterests={(interests) => setProfile((current) => ({ ...current, interests }))}
+          onSaveProfile={async (next) => {
+            await updateMyProfile({
+              nickname: next.name,
+              introduction: next.bio,
+              profileImage: next.avatarFile,
+              removeProfileImage: next.removeAvatar,
+            })
+            const me = await fetchMyProfile()
+            setViewerProfile(me)
+            setProfile((current) => ({
+              ...current,
+              name: me.nickname || next.name,
+              bio: me.introduction?.trim() || next.bio,
+              avatar: resolveMemberImageUrl(me.profileImage) || DEFAULT_AVATAR,
+            }))
+          }}
+          onSaveInterests={async (interests) => {
+            await updateMyInterests(categoryIdsFromInterestIds(interests))
+            const me = await fetchMyProfile()
+            setViewerProfile(me)
+            setProfile((current) => ({
+              ...current,
+              interests: interestIdsFromCategoryIds(me.interestCategoryIds),
+            }))
+          }}
         />
       )}
     </div>

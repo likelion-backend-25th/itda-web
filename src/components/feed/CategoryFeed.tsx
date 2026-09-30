@@ -2,7 +2,7 @@ import { useCallback, useEffect, useMemo, useState, useSyncExternalStore } from 
 import { useLocation, useNavigate } from 'react-router'
 import EditPostModal from './EditPostModal'
 import PostCard from './PostCard'
-import { categories, currentUser, initialPosts, postPath, type CategoryId, type Post } from '@/data/feed'
+import { categories, currentUser, initialPosts, openPostDetail, type CategoryId, type Post } from '@/data/feed'
 import { profilePath } from '@/data/members'
 import type { MyPost } from '@/data/mypage'
 import { getLoggedIn, subscribeSession } from '@/data/session'
@@ -22,9 +22,9 @@ export default function CategoryFeed({ category, query }: CategoryFeedProps) {
 
   const openPost = useCallback(
     (id: string) => {
-      navigate(postPath(id), { state: { from: `${location.pathname}${location.search}` } })
+      openPostDetail(navigate, location, id)
     },
-    [location.pathname, location.search, navigate],
+    [location, navigate],
   )
 
   useEffect(() => {

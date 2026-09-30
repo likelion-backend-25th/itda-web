@@ -2,6 +2,7 @@ import { useEffect, useId, useRef, useState, useSyncExternalStore } from 'react'
 import { createPortal } from 'react-dom'
 import { useNavigate } from 'react-router'
 import { logout } from '@/api/auth'
+import { DEFAULT_AVATAR } from '@/api/member'
 import { creatorSubscriberCount, getMemberships, subscribeMemberships } from '@/data/subscriptions'
 import WithdrawModal, { type WithdrawKind } from './WithdrawModal'
 import { CloseIcon } from '@/components/icons'
@@ -38,11 +39,20 @@ export type ProfileForm = {
   interests: InterestId[]
 }
 
+export type ProfileSaveInput = {
+  name: string
+  bio: string
+  /** 새로 고른 파일만. 없으면 서버가 기존 이미지 유지 */
+  avatarFile: File | null
+  /** true면 서버에 removeProfileImage 전달 */
+  removeAvatar: boolean
+}
+
 type ProfileEditModalProps = {
   profile: ProfileForm
   onClose: () => void
-  onSaveProfile: (next: Pick<ProfileForm, 'name' | 'bio' | 'avatar'>) => void
-  onSaveInterests: (interests: InterestId[]) => void
+  onSaveProfile: (next: ProfileSaveInput) => void | Promise<void>
+  onSaveInterests: (interests: InterestId[]) => void | Promise<void>
 }
 
 export default function ProfileEditModal({
@@ -58,7 +68,13 @@ export default function ProfileEditModal({
   const [name, setName] = useState(profile.name)
   const [bio, setBio] = useState(profile.bio)
   const [avatar, setAvatar] = useState(profile.avatar)
+  const [avatarFile, setAvatarFile] = useState<File | null>(null)
+  const [removeAvatar, setRemoveAvatar] = useState(false)
+  const [saving, setSaving] = useState(false)
+  const [saveError, setSaveError] = useState('')
   const [selected, setSelected] = useState<InterestId[]>(profile.interests)
+  const [interestSaving, setInterestSaving] = useState(false)
+  const [interestError, setInterestError] = useState('')
   const [withdrawOpen, setWithdrawOpen] = useState(false)
   const [confirmCancel, setConfirmCancel] = useState(false)
   const withdrawOpenRef = useRef(false)
@@ -99,23 +115,80 @@ export default function ProfileEditModal({
     return () => window.removeEventListener('keydown', onKeyDown)
   }, [confirmCancel])
 
+  // 서버에서 받은 관심사로 체크 상태 동기화
+  useEffect(() => {
+    setSelected(profile.interests)
+  }, [profile.interests])
+
   function resetProfile() {
     setName(profile.name)
     setBio(profile.bio)
     setAvatar(profile.avatar)
+    setAvatarFile(null)
+    setRemoveAvatar(false)
+    setSaveError('')
   }
 
   function changeAvatar(file: File | undefined) {
     if (!file) return
+    setAvatarFile(file)
+    setRemoveAvatar(false)
+    setSaveError('')
     const reader = new FileReader()
     reader.onload = () => setAvatar(String(reader.result))
     reader.readAsDataURL(file)
   }
 
+  function clearAvatar() {
+    setAvatarFile(null)
+    setRemoveAvatar(true)
+    setAvatar(DEFAULT_AVATAR)
+    setSaveError('')
+  }
+
+  async function handleSaveProfile() {
+    if (name.trim().length === 0 || saving) return
+    setSaving(true)
+    setSaveError('')
+    try {
+      await onSaveProfile({
+        name: name.trim(),
+        bio: bio.trim(),
+        avatarFile,
+        removeAvatar,
+      })
+      setAvatarFile(null)
+      setRemoveAvatar(false)
+    } catch (error: unknown) {
+      setSaveError(error instanceof Error ? error.message : '회원 정보 저장에 실패했습니다.')
+    } finally {
+      setSaving(false)
+    }
+  }
+
   function toggleInterest(id: InterestId) {
+    setInterestError('')
     setSelected((current) =>
       current.includes(id) ? current.filter((item) => item !== id) : [...current, id],
     )
+  }
+
+  async function handleApplyInterests() {
+    if (interestSaving) return
+    if (selected.length === 0) {
+      setInterestError('관심사를 하나 이상 선택해 주세요.')
+      return
+    }
+    setInterestSaving(true)
+    setInterestError('')
+    try {
+      await onSaveInterests(selected)
+      onClose()
+    } catch (error: unknown) {
+      setInterestError(error instanceof Error ? error.message : '관심사 저장에 실패했습니다.')
+    } finally {
+      setInterestSaving(false)
+    }
   }
 
   return createPortal(
@@ -139,13 +212,21 @@ export default function ProfileEditModal({
           <div className="profile-photo">
             <img src={avatar} alt="" />
             <small>50 x 50</small>
-            <button type="button" onClick={() => fileRef.current?.click()}>
+            <button type="button" onClick={() => fileRef.current?.click()} disabled={saving}>
               변경
+            </button>
+            <button
+              type="button"
+              className="profile-photo-clear"
+              onClick={clearAvatar}
+              disabled={saving || (avatar === DEFAULT_AVATAR && !avatarFile && !removeAvatar)}
+            >
+              기본
             </button>
             <input
               ref={fileRef}
               type="file"
-              accept="image/*"
+              accept="image/jpeg,image/png"
               hidden
               onChange={(event) => {
                 changeAvatar(event.target.files?.[0])
@@ -163,18 +244,19 @@ export default function ProfileEditModal({
               <input value={bio} maxLength={80} onChange={(event) => setBio(event.target.value)} />
             </label>
             <div className="profile-actions">
-              <button type="button" className="profile-cancel" onClick={resetProfile}>
+              <button type="button" className="profile-cancel" onClick={resetProfile} disabled={saving}>
                 취소
               </button>
               <button
                 type="button"
                 className="profile-save"
-                disabled={name.trim().length === 0}
-                onClick={() => onSaveProfile({ name: name.trim(), bio: bio.trim(), avatar })}
+                disabled={name.trim().length === 0 || saving}
+                onClick={() => void handleSaveProfile()}
               >
-                저장
+                {saving ? '저장 중…' : '저장'}
               </button>
             </div>
+            {saveError ? <p className="profile-save-error">{saveError}</p> : null}
           </div>
         </div>
 
@@ -199,24 +281,28 @@ export default function ProfileEditModal({
             )
           })}
         </div>
+        {interestError ? <p className="profile-save-error">{interestError}</p> : null}
 
         <footer className="profile-edit-foot">
           <button type="button" className="leave-link" onClick={() => setWithdrawOpen(true)}>
             회원 탈퇴
           </button>
           <div className="edit-apply">
-            <button type="button" className="interest-cancel" onClick={() => setConfirmCancel(true)}>
+            <button
+              type="button"
+              className="interest-cancel"
+              onClick={() => setConfirmCancel(true)}
+              disabled={interestSaving}
+            >
               취소
             </button>
             <button
               type="button"
               className="theme-apply interest-apply"
-              onClick={() => {
-                onSaveInterests(selected)
-                onClose()
-              }}
+              disabled={interestSaving || selected.length === 0}
+              onClick={() => void handleApplyInterests()}
             >
-              적용
+              {interestSaving ? '적용 중…' : '적용'}
             </button>
           </div>
         </footer>

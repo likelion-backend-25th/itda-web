@@ -1,5 +1,4 @@
 import { fetchOwnedThemeList, fetchThemeStyles } from '@/api/theme'
-import { toneFromThemeCode } from '@/components/theme/ThemeShot'
 import { ApiError } from '@/lib/apiClient'
 import {
   cachePaidThemeCss,
@@ -9,19 +8,12 @@ import {
   injectPaidThemeCss,
 } from '@/lib/themeStyles'
 
-/** 화면 전체에 입히는 팔레트. 기본 light + DB 스타일 테마 */
-export type AppThemeId =
-  | 'light'
-  | 'ocean'
-  | 'sunset'
-  | 'forest'
-  | 'dark'
-  | 'lavender'
-  | 'cream'
-  | 'sky'
-  | 'hidden'
-  | 'watermelon'
-  | 'skiper'
+/**
+ * data-theme 에 올라가는 값.
+ * 기본(light)만 번들 CSS. 그 외는 서버 themeCode(소문자) + styles API css_text.
+ * 관리자가 새 코드를 등록해도 FE 화이트리스트 없이 동작한다.
+ */
+export type AppThemeId = string
 
 type AppliedTheme = {
   palette: AppThemeId
@@ -30,42 +22,33 @@ type AppliedTheme = {
 }
 
 const STORAGE_KEY = 'itda-applied-theme'
-/** 번들에 CSS가 있는 팔레트는 light만. dark 포함 나머지는 styles API */
-const FREE_THEMES = new Set<AppThemeId>(['light'])
-const APP_THEMES: AppThemeId[] = [
-  'light',
-  'ocean',
-  'sunset',
-  'forest',
-  'dark',
-  'lavender',
-  'cream',
-  'sky',
-  'hidden',
-  'watermelon',
-  'skiper',
-]
 
-function isAppThemeId(value: string): value is AppThemeId {
-  return (APP_THEMES as string[]).includes(value)
+function normalizeThemeCode(themeCode: string): string {
+  return themeCode.trim().toLowerCase()
 }
 
+/** 번들 기본 테마(css_text 없음). data-theme attribute 를 제거한다 */
+export function isFreeThemeCode(themeCode: string): boolean {
+  const code = normalizeThemeCode(themeCode)
+  return code === '' || code === 'default' || code === 'basic' || code === 'light'
+}
+
+/** @deprecated isFreeThemeCode 사용 */
 export function isFreeAppTheme(palette: AppThemeId): boolean {
-  return FREE_THEMES.has(palette)
+  return isFreeThemeCode(palette)
 }
 
-/** themeCode를 화면 팔레트로 맞춘다. OCEAN, DEFAULT 같은 서버 코드도 포함한다 */
+/**
+ * themeCode → data-theme / 비교용 키.
+ * 별칭만 정규화하고, 그 외는 서버 코드를 소문자 그대로 쓴다.
+ */
 export function resolveAppTheme(themeCode: string): AppThemeId {
-  const lower = themeCode.trim().toLowerCase()
-  if (lower === 'default' || lower === 'basic' || lower === 'light') return 'light'
+  const lower = normalizeThemeCode(themeCode)
+  if (isFreeThemeCode(lower)) return 'light'
   if (lower === 'cream' || lower === 'cotton') return 'cream'
   if (lower === 'sky' || lower === 'skylight') return 'sky'
   if (lower === 'hidden' || lower === 'hide') return 'hidden'
-  if (isAppThemeId(lower)) return lower
-  const tone = toneFromThemeCode(themeCode)
-  if (tone === 'light') return 'light'
-  if (isAppThemeId(tone)) return tone
-  return 'light'
+  return lower
 }
 
 function readStored(): AppliedTheme {
@@ -73,15 +56,18 @@ function readStored(): AppliedTheme {
   try {
     const raw = localStorage.getItem(STORAGE_KEY)
     if (!raw) return fallback
-    if (isAppThemeId(raw)) return { palette: raw, themeId: null }
+    // 예전 포맷: "ocean"
+    if (typeof raw === 'string' && !raw.startsWith('{')) {
+      const palette = resolveAppTheme(raw)
+      return { palette, themeId: null }
+    }
     const parsed: unknown = JSON.parse(raw)
     if (typeof parsed !== 'object' || parsed === null) return fallback
-    if (!('palette' in parsed) || typeof parsed.palette !== 'string' || !isAppThemeId(parsed.palette)) {
-      return fallback
-    }
+    if (!('palette' in parsed) || typeof parsed.palette !== 'string') return fallback
+    const palette = resolveAppTheme(parsed.palette)
     const themeId =
       'themeId' in parsed && typeof parsed.themeId === 'number' ? parsed.themeId : null
-    return { palette: parsed.palette, themeId }
+    return { palette, themeId }
   } catch {
     return fallback
   }
@@ -96,9 +82,10 @@ function emit() {
   listeners.forEach((listener) => listener())
 }
 
+/** 서버 themeCode(소문자)를 data-theme 에 올린다. css_text 셀렉터와 맞춰야 한다. */
 function paint(palette: AppThemeId) {
   if (typeof document === 'undefined') return
-  if (palette === 'light') {
+  if (isFreeThemeCode(palette) || palette === 'light') {
     delete document.documentElement.dataset.theme
   } else {
     document.documentElement.dataset.theme = palette
@@ -151,17 +138,20 @@ export function getAppliedTheme(): AppliedTheme {
   return applied
 }
 
-async function ensurePaidCss(themeId: number): Promise<string> {
+async function ensurePaidCss(themeId: number): Promise<{ cssText: string; themeCode: string }> {
   const cached = getCachedPaidThemeCss(themeId)
-  if (cached) return cached
+  if (cached) {
+    // 캐시에는 css만 있으므로 themeCode는 호출부 값을 쓴다
+    return { cssText: cached, themeCode: '' }
+  }
   const styles = await fetchThemeStyles(themeId)
   cachePaidThemeCss(themeId, styles.cssText)
-  return styles.cssText
+  return { cssText: styles.cssText, themeCode: styles.themeCode }
 }
 
 /**
- * 테마 적용. 유료는 styles API로 CSS를 받은 뒤에만 data-theme 을 올린다.
- * themeId 없이 유료 팔레트만 넘기면 light로 폴백한다.
+ * 테마 적용. 유료는 styles API로 CSS를 받은 뒤
+ * 서버 themeCode(소문자)로 data-theme 을 올린다.
  */
 export async function applyAppThemeAsync(
   themeCode: string,
@@ -170,14 +160,14 @@ export async function applyAppThemeAsync(
   const generation = ++applyGeneration
   const palette = resolveAppTheme(themeCode)
 
-  if (isFreeAppTheme(palette)) {
+  if (isFreeThemeCode(themeCode)) {
     clearPaidThemeCss()
-    paint(palette)
-    if (applied.palette === palette && applied.themeId === themeId) {
+    paint('light')
+    if (applied.palette === 'light' && applied.themeId === themeId) {
       emit()
       return
     }
-    persist({ palette, themeId })
+    persist({ palette: 'light', themeId })
     return
   }
 
@@ -187,11 +177,13 @@ export async function applyAppThemeAsync(
   }
 
   try {
-    const cssText = await ensurePaidCss(themeId)
+    const { cssText, themeCode: styleCode } = await ensurePaidCss(themeId)
     if (generation !== applyGeneration) return
     injectPaidThemeCss(cssText)
-    paint(palette)
-    persist({ palette, themeId })
+    // styles 응답 코드를 우선해 css_text 셀렉터와 맞춘다
+    const attr = resolveAppTheme(styleCode || themeCode)
+    paint(attr)
+    persist({ palette: attr, themeId })
   } catch (error: unknown) {
     if (generation !== applyGeneration) return
     fallbackToLight()
@@ -216,9 +208,9 @@ export function applyAppTheme(themeCode: string, themeId: number | null = null) 
 export function restoreAppTheme() {
   const { palette, themeId } = applied
 
-  if (isFreeAppTheme(palette)) {
+  if (isFreeThemeCode(palette)) {
     clearPaidThemeCss()
-    paint(palette)
+    paint('light')
     return
   }
 

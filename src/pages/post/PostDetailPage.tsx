@@ -1,20 +1,17 @@
 import { useCallback, useEffect, useRef, useState, useSyncExternalStore } from 'react'
-import { Link, useLocation, useNavigate, useParams } from 'react-router'
+import { createPortal } from 'react-dom'
+import { useLocation, useNavigate, useParams } from 'react-router'
 import { fetchPostById, toFeedPost, togglePostLike, togglePostScrap } from '@/api/post'
 import { createReply, deleteReply, fetchReplies, toFeedComment, updateReply } from '@/api/reply'
 import { resolveMemberImageUrl } from '@/api/member'
-import Header from '@/components/layout/Header'
 import PostDetail from '@/components/feed/PostDetail'
 import type { Post } from '@/data/feed'
+import type { PostModalState } from '@/data/feed'
 import { getLoggedIn, setLoggedIn, subscribeSession } from '@/data/session'
 import { ensureViewerLoaded, getViewerProfile, subscribeViewer } from '@/data/viewer'
 import { useViewerUser } from '@/hooks/member/useViewerUser'
 import { ApiError } from '@/lib/apiClient'
 import { hasAdminRole } from '@/lib/authToken'
-
-type LocationState = {
-  from?: string
-}
 
 export default function PostDetailPage() {
   const { postId } = useParams()
@@ -23,7 +20,6 @@ export default function PostDetailPage() {
   const loggedIn = useSyncExternalStore(subscribeSession, getLoggedIn)
   const profile = useSyncExternalStore(subscribeViewer, getViewerProfile)
   const user = useViewerUser()
-  const [query, setQuery] = useState('')
   const [post, setPost] = useState<Post | null>(null)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState('')
@@ -31,18 +27,17 @@ export default function PostDetailPage() {
   const actionLockRef = useRef(new Set<string>())
   const profileRef = useRef(profile)
   profileRef.current = profile
+  const background = (location.state as PostModalState | null)?.backgroundLocation
 
   const closeDetail = useCallback(() => {
-    const from = (location.state as LocationState | null)?.from
-    if (from) {
-      navigate(from)
+    // 피드 위 모달로 연 경우: 히스토리 뒤로 → URL·배경 화면 복구
+    if (background) {
+      navigate(-1)
       return
     }
-    // 앱 안에서 들어온 경우 뒤로, 공유 링크로 바로 온 경우 홈
-    const idx = (window.history.state as { idx?: number } | null)?.idx
-    if (typeof idx === 'number' && idx > 0) navigate(-1)
-    else navigate('/')
-  }, [location.state, navigate])
+    // 공유 링크 직접 진입: 홈으로
+    navigate('/', { replace: true })
+  }, [background, navigate])
 
   useEffect(() => {
     if (!loggedIn) return
@@ -218,44 +213,52 @@ export default function PostDetailPage() {
     }
   }
 
-  return (
-    <div className="page">
-      <div className="shell">
-        <Header query={query} user={user} onQueryChange={setQuery} />
-        <main className="feed" aria-label="게시글 상세">
-          {loading ? (
-            <div className="empty">글을 불러오는 중...</div>
-          ) : error ? (
-            <div className="empty" role="alert">
-              <p>{error}</p>
+  if (loading || error) {
+    return createPortal(
+      <div className="detail-backdrop" onClick={closeDetail}>
+        <div
+          className="detail-dialog"
+          role="dialog"
+          aria-modal="true"
+          onClick={(event) => event.stopPropagation()}
+        >
+          <div className="empty" role={error ? 'alert' : undefined}>
+            {loading ? '글을 불러오는 중...' : error}
+            {error ? (
               <p>
-                <Link to="/">홈으로 돌아가기</Link>
+                <button type="button" className="leave-link" onClick={closeDetail}>
+                  닫기
+                </button>
               </p>
-            </div>
-          ) : null}
-        </main>
-      </div>
-      {post && (
-        <PostDetail
-          post={post}
-          user={user}
-          onClose={closeDetail}
-          onToggleLike={(id) => {
-            void toggleLike(id)
-          }}
-          onToggleBookmark={(id) => {
-            void toggleBookmark(id)
-          }}
-          notice={actionError}
-          viewerMemberId={profile?.id}
-          canModerateReplies={
-            profile?.role === 'ADMIN' || profile?.role === 'ROLE_ADMIN' || hasAdminRole()
-          }
-          onAddComment={addComment}
-          onUpdateComment={updateComment}
-          onDeleteComment={deleteComment}
-        />
-      )}
-    </div>
+            ) : null}
+          </div>
+        </div>
+      </div>,
+      document.body,
+    )
+  }
+
+  if (!post) return null
+
+  return (
+    <PostDetail
+      post={post}
+      user={user}
+      onClose={closeDetail}
+      onToggleLike={(id) => {
+        void toggleLike(id)
+      }}
+      onToggleBookmark={(id) => {
+        void toggleBookmark(id)
+      }}
+      notice={actionError}
+      viewerMemberId={profile?.id}
+      canModerateReplies={
+        profile?.role === 'ADMIN' || profile?.role === 'ROLE_ADMIN' || hasAdminRole()
+      }
+      onAddComment={addComment}
+      onUpdateComment={updateComment}
+      onDeleteComment={deleteComment}
+    />
   )
 }
