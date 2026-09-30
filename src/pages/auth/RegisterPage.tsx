@@ -3,6 +3,7 @@ import { useNavigate } from 'react-router'
 import { applyAccessToken, login, signup } from '@/api/auth'
 import AuthCard, { AuthSwitch } from '@/components/auth/AuthCard'
 import type { InterestId } from '@/components/profile/ProfileEditModal'
+import { INTEREST_CATEGORY_ID } from '@/data/interests'
 import {
   ChefHatIcon,
   EyeIcon,
@@ -17,20 +18,6 @@ import {
   RunIcon,
   UserIcon,
 } from '@/components/icons'
-
-/** UI 관심사 → 백엔드 interestCategoryIds */
-const INTEREST_CATEGORY_ID: Record<InterestId, number> = {
-  food: 8,
-  travel: 9,
-  workout: 10,
-  reading: 11,
-  music: 12,
-  cooking: 13,
-  craft: 14,
-  drawing: 15,
-  game: 16,
-  etc: 17,
-}
 
 const interests: { id: InterestId; label: string; Icon: ComponentType }[] = [
   { id: 'food', label: '맛집', Icon: ForkKnifeIcon },

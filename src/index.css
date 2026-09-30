@@ -2387,6 +2387,12 @@ img.sub-photo {
   margin-top: 4px;
 }
 
+.profile-photo-clear {
+  background: transparent !important;
+  color: var(--muted) !important;
+  border: 1px solid var(--line);
+}
+
 .profile-row {
   display: grid;
   grid-template-columns: 56px minmax(0, 1fr);
@@ -2434,6 +2440,12 @@ img.sub-photo {
 
 .profile-save:disabled {
   opacity: 0.45;
+}
+
+.profile-save-error {
+  margin: 8px 0 0;
+  color: var(--danger, #c0392b);
+  font-size: 0.85rem;
 }
 
 .profile-edit-line {

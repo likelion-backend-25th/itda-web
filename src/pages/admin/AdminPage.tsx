@@ -460,7 +460,7 @@ function AdminBoard({ section }: { section: SectionId }) {
         <div className="admin-themes">
           {themePage.visible.map((theme) => (
             <article key={theme.id} className={theme.active ? 'admin-theme' : 'admin-theme off'}>
-              <ThemeShot tone={theme.tone} />
+              <ThemeShot tone={theme.tone} thumbnailUrl={theme.image || null} />
               <strong>{theme.name}</strong>
               <div>
                 <button

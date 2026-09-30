@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState, useSyncExternalStore } from 'react'
 import { Link, useLocation, useNavigate } from 'react-router'
-import { resolveMemberImageUrl, toFeedUser } from '@/api/member'
+import { resolveMemberImageUrl, toFeedUser, updateMyProfile, fetchMyProfile, updateMyInterests } from '@/api/member'
 import { fetchMyLikedPosts, fetchMyPosts, fetchMyScrappedPosts, toMyPost } from '@/api/mypage'
 import { categoryIdForUpdate, deletePost, togglePostLike, togglePostScrap, updatePost } from '@/api/post'
 import { applyTheme, fetchOwnedThemeList } from '@/api/theme'
@@ -19,13 +19,18 @@ import { usePublishPost } from '@/hooks/post/usePublishPost'
 import { applyAppThemeAsync, getAppliedTheme, resolveAppTheme, subscribeAppTheme } from '@/data/appTheme'
 import { syncOwnedThemes } from '@/data/themes'
 import { getLoggedIn, setLoggedIn, subscribeSession } from '@/data/session'
-import { ensureViewerLoaded, getViewerProfile, setViewerProfile, subscribeViewer } from '@/data/viewer'
+import {
+  ensureViewerLoaded,
+  getViewerProfile,
+  setViewerProfile,
+  subscribeViewer,
+} from '@/data/viewer'
 import { useFollow } from '@/hooks/member/useFollow'
 import { useMyFollows } from '@/hooks/member/useMyFollows'
 import { useViewerUser } from '@/hooks/member/useViewerUser'
 import { ApiError } from '@/lib/apiClient'
 import type { ThemeResponse } from '@/types/theme'
-import { pageProfile, type MyPost, type OwnedTheme } from '@/data/mypage'
+import { interestIdsFromCategoryIds, categoryIdsFromInterestIds } from '@/data/interests'
 
 type MyTab = 'posts' | 'likes' | 'scraps' | 'themes'
 
@@ -92,7 +97,7 @@ export default function MyPage() {
     name: cachedViewer.name || '',
     bio: cachedViewer.bio || '',
     avatar: cachedViewer.avatar || '',
-    interests: ['food', 'travel', 'cooking', 'game'],
+    interests: [],
   }))
   const viewer = {
     name: profile.name || cachedViewer.name,
@@ -125,6 +130,7 @@ export default function MyPage() {
           name: feed.name,
           bio: feed.bio || current.bio,
           avatar,
+          interests: interestIdsFromCategoryIds(me.interestCategoryIds),
         }))
       } catch (error: unknown) {
         if (cancelled) return
@@ -547,8 +553,32 @@ export default function MyPage() {
         <ProfileEditModal
           profile={profile}
           onClose={() => setSettingsOpen(false)}
-          onSaveProfile={(next) => setProfile((current) => ({ ...current, ...next }))}
-          onSaveInterests={(interests) => setProfile((current) => ({ ...current, interests }))}
+          onSaveProfile={async (next) => {
+            await updateMyProfile({
+              nickname: next.name,
+              introduction: next.bio,
+              profileImage: next.avatarFile,
+              removeProfileImage: next.removeAvatar,
+            })
+            const me = await fetchMyProfile()
+            setViewerProfile(me)
+            const feed = toFeedUser(me)
+            setProfile((current) => ({
+              ...current,
+              name: feed.name,
+              bio: feed.bio,
+              avatar: resolveMemberImageUrl(me.profileImage),
+            }))
+          }}
+          onSaveInterests={async (interests) => {
+            await updateMyInterests(categoryIdsFromInterestIds(interests))
+            const me = await fetchMyProfile()
+            setViewerProfile(me)
+            setProfile((current) => ({
+              ...current,
+              interests: interestIdsFromCategoryIds(me.interestCategoryIds),
+            }))
+          }}
         />
       )}
 

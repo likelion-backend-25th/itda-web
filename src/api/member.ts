@@ -46,6 +46,12 @@ export function normalizeMemberProfile(raw: unknown): MemberProfileResponse {
     followerCount: asNumber(record.followerCount) ?? 0,
     followingCount: asNumber(record.followingCount) ?? 0,
     postCount: asNumber(record.postCount) ?? 0,
+    interestCategoryIds: Array.isArray(record.interestCategoryIds)
+      ? record.interestCategoryIds.flatMap((item) => {
+          const idValue = asNumber(item)
+          return idValue == null ? [] : [idValue]
+        })
+      : [],
   }
 }
 
@@ -73,6 +79,54 @@ async function fetchFollowMembers(path: string): Promise<FollowerResponse[]> {
 /** GET /api/v1/members/me */
 export function fetchMyProfile(): Promise<MemberProfileResponse> {
   return apiJson<unknown>('/members/me').then(normalizeMemberProfile)
+}
+
+export type UpdateMyProfilePayload = {
+  nickname: string
+  introduction?: string | null
+  /** 새 파일만 전달. 없으면 백엔드가 기존 profile_image 유지 */
+  profileImage?: File | null
+  /** true면 프로필 이미지 초기화. 새 파일이 있으면 무시되고 교체 우선 */
+  removeProfileImage?: boolean
+}
+
+/**
+ * PUT /api/v1/members/me → 204
+ * @RequestPart("request") { nickname, introduction, removeProfileImage? }
+ * + @RequestPart("profileImage")?
+ */
+export async function updateMyProfile({
+  nickname,
+  introduction,
+  profileImage,
+  removeProfileImage = false,
+}: UpdateMyProfilePayload): Promise<void> {
+  const form = new FormData()
+  form.append(
+    'request',
+    new Blob(
+      [
+        JSON.stringify({
+          nickname,
+          introduction: introduction?.trim() ?? '',
+          removeProfileImage: Boolean(removeProfileImage) && !(profileImage && profileImage.size > 0),
+        }),
+      ],
+      { type: 'application/json' },
+    ),
+  )
+  if (profileImage && profileImage.size > 0) {
+    form.append('profileImage', profileImage, profileImage.name || 'profile.png')
+  }
+  await apiFetch('/members/me', { method: 'PUT', body: form })
+}
+
+/** PUT /api/v1/members/me/interests → 204 (전체 교체) */
+export async function updateMyInterests(interestCategoryIds: number[]): Promise<void> {
+  await apiFetch('/members/me/interests', {
+    method: 'PUT',
+    body: JSON.stringify({ interestCategoryIds }),
+  })
 }
 
 /** GET /api/v1/members/{memberId} */
