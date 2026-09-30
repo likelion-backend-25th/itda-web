@@ -36,7 +36,7 @@ function toSubscription(item: Record<string, unknown>): AdminSubscription | null
     targetNickname: asString(item.targetNickname) || '—',
     status: statusLabel(asString(item.subscriptionStatus)),
     startedOn: formatDay(asString(item.startedAt)),
-    endedOn: formatDay(asString(item.endedAt)),
+    endedOn: formatDay(asString(item.endedAt) || asString(item.nextBillingAt)),
   }
 }
 

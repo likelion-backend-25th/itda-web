@@ -376,7 +376,10 @@ export default function SubscriptionPage() {
                           <strong className="sub-name">{item.nickname}</strong>
                         )}
                       </div>
-                      <p className="sub-days">{item.remainingDays}일 남음</p>
+                      <p className="sub-days">
+                        {item.nextBillingAt ? `${item.nextBillingAt.slice(0, 10)} 만료 · ` : ''}
+                        {item.remainingDays}일 남음
+                      </p>
                       <button
                         type="button"
                         className="sub-cancel"
