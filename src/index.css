@@ -992,14 +992,14 @@ button.stat {
   z-index: 40;
   display: grid;
   place-items: center;
-  padding: 28px 16px;
+  padding: 16px;
   background: color-mix(in srgb, var(--bg) 55%, rgba(12, 18, 28, 0.72));
   backdrop-filter: blur(4px);
 }
 
 .detail-dialog {
-  width: min(760px, 100%);
-  max-height: min(860px, calc(100vh - 48px));
+  width: min(840px, 100%);
+  max-height: calc(100vh - 32px);
   overflow: auto;
   background: var(--surface);
   color: var(--text);
@@ -1118,6 +1118,9 @@ button.stat {
 
 .detail-comments {
   margin-top: 22px;
+  /* 댓글 더보기(수정·삭제)가 상세 창과 스크롤바에 가리지 않게 여백을 둔다 */
+  margin-right: 16px;
+  padding-bottom: 84px;
   display: flex;
   flex-direction: column;
   gap: 18px;
@@ -1210,6 +1213,10 @@ a.comment-avatar {
 
 .comment-top .more {
   margin-left: auto;
+}
+
+.comment:has(.post-menu) {
+  margin-bottom: 72px;
 }
 
 .comment p {
@@ -1890,7 +1897,7 @@ img.sub-photo {
 }
 
 .post-menu.in-comment {
-  top: 28px;
+  top: 32px;
   right: 0;
   left: auto;
 }
