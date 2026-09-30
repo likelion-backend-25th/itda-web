@@ -64,6 +64,7 @@ export type ThemeDraft = {
   description: string
   price: string
   code: string
+  cssText: string
   image: string
 }
 

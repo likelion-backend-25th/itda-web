@@ -120,6 +120,7 @@ const newTheme: ThemeDraft = {
   description: '따뜻한 봄 분위기의 테마입니다.',
   price: '3,900',
   code: '',
+  cssText: '',
   image: '',
 }
 
@@ -129,6 +130,7 @@ function themeDraft(theme: AdminTheme): ThemeDraft {
     description: theme.description,
     price: theme.price,
     code: theme.code,
+    cssText: theme.cssText ?? '',
     image: theme.image,
   }
 }

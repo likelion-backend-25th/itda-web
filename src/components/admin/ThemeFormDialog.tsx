@@ -51,7 +51,7 @@ export function ThemeFormDialog({ mode, value, onChange, onClose, onSubmit, erro
   return (
     <div className="detail-backdrop" onClick={onClose}>
       <form className="theme-form" onSubmit={submit} onClick={(event) => event.stopPropagation()}>
-        <h2>테마 상세 등록</h2>
+        <h2>{mode === 'edit' ? '테마 상세 수정' : '테마 상세 등록'}</h2>
         <button type="button" className="detail-close" aria-label="닫기" onClick={onClose}>
           <CloseIcon />
         </button>
@@ -112,11 +112,11 @@ export function ThemeFormDialog({ mode, value, onChange, onClose, onSubmit, erro
             <input value={value.price} onChange={(event) => setField('price', event.target.value)} />
           </label>
           <label>
-            테마 코드
-            <input
-              value={value.code}
-              placeholder="사용 중이지 않은 코드"
-              onChange={(event) => setField('code', event.target.value)}
+            css_text
+            <textarea
+              value={value.cssText}
+              placeholder="테마에 적용할 CSS"
+              onChange={(event) => setField('cssText', event.target.value)}
             />
           </label>
         </div>
@@ -128,7 +128,9 @@ export function ThemeFormDialog({ mode, value, onChange, onClose, onSubmit, erro
         <div className="theme-form-submit">
           <button
             type="submit"
-            disabled={value.name.trim().length === 0 || value.code.trim().length === 0}
+            disabled={
+              value.name.trim().length === 0 || value.cssText.trim().length === 0
+            }
           >
             {mode === 'edit' ? '수정' : '등록'}
           </button>
