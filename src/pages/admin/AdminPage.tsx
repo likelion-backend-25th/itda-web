@@ -382,8 +382,17 @@ function AdminBoard({ section }: { section: SectionId }) {
 
   async function saveTheme() {
     const name = themeForm.name.trim()
+    const code = themeForm.code.trim()
     if (!name) return
-    const next = { ...themeForm, name }
+    if (!editing && !code) {
+      setBoardError('테마 코드를 입력해 주세요.')
+      return
+    }
+    if (!themeForm.cssText.trim()) {
+      setBoardError('css_text를 입력해 주세요.')
+      return
+    }
+    const next = { ...themeForm, name, code }
     setBoardError(null)
     try {
       if (editing) {

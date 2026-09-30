@@ -7,7 +7,7 @@ import Header from '@/components/layout/Header'
 import PostCard from '@/components/feed/PostCard'
 import Sidebar from '@/components/layout/Sidebar'
 import WritePostModal, { type PostDraft } from '@/components/feed/WritePostModal'
-import { categories, postPath, type CategoryId, type Post } from '@/data/feed'
+import { categories, openPostDetail, type CategoryId, type Post } from '@/data/feed'
 import { getLoggedIn, setLoggedIn, subscribeSession } from '@/data/session'
 import { ensureViewerLoaded, getViewerProfile, subscribeViewer } from '@/data/viewer'
 import { profilePath } from '@/data/members'
@@ -51,9 +51,9 @@ export default function HomePage() {
 
   const openPost = useCallback(
     (id: string) => {
-      navigate(postPath(id), { state: { from: `${location.pathname}${location.search}` } })
+      openPostDetail(navigate, location, id)
     },
-    [location.pathname, location.search, navigate],
+    [location, navigate],
   )
 
   // 로그인 후 내 프로필은 viewer 캐시로 공유 (페이지 이동 시 목 사용자 깜빡임 방지)

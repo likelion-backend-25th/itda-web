@@ -14,7 +14,7 @@ import ThemeDetail from '@/components/theme/ThemeDetail'
 import ProfileEditModal, { type ProfileForm } from '@/components/profile/ProfileEditModal'
 import ThemeShot, { toneFromThemeCode } from '@/components/theme/ThemeShot'
 import { GearIcon, HeadsetIcon } from '@/components/icons'
-import { myPageCategories, postPath, type CategoryId } from '@/data/feed'
+import { myPageCategories, openPostDetail, type CategoryId } from '@/data/feed'
 import { usePublishPost } from '@/hooks/post/usePublishPost'
 import { applyAppThemeAsync, getAppliedTheme, resolveAppTheme, subscribeAppTheme } from '@/data/appTheme'
 import { syncOwnedThemes } from '@/data/themes'
@@ -108,9 +108,9 @@ export default function MyPage() {
 
   const openPost = useCallback(
     (id: string) => {
-      navigate(postPath(id), { state: { from: `${location.pathname}${location.search}` } })
+      openPostDetail(navigate, location, id)
     },
-    [location.pathname, location.search, navigate],
+    [location, navigate],
   )
 
   // GET /members/me — 캐시 공유. 있으면 즉시 반영, 없으면 한 번만 조회

@@ -156,13 +156,14 @@ function thumbnailForRequest(image: string): string | null {
   return trimmed
 }
 
-/** 등록·수정 모두 theme_code 대신 css_text를 보낸다. 코드는 서버가 유지한다. */
+/** 등록·수정 요청. themeCode는 css_text의 data-theme 과 맞춰야 한다. */
 function toThemeRequest(draft: ThemeDraft) {
   return {
     themeName: draft.name.trim(),
     description: draft.description.trim(),
     price: parsePrice(draft.price),
     thumbnailUrl: thumbnailForRequest(draft.image),
+    themeCode: draft.code.trim(),
     cssText: draft.cssText.trim(),
   }
 }

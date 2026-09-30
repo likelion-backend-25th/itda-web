@@ -9,7 +9,7 @@ import Header from '@/components/layout/Header'
 import Sidebar from '@/components/layout/Sidebar'
 import WritePostModal, { type PostDraft } from '@/components/feed/WritePostModal'
 import { BookmarkIcon, CommentIcon, CrownIcon, DotsIcon, EyeIcon, HeartIcon } from '@/components/icons'
-import { initialPosts, myPageCategories, postPath, type CategoryId, type Post } from '@/data/feed'
+import { initialPosts, myPageCategories, openPostDetail, type CategoryId, type Post } from '@/data/feed'
 import { memberFollowIds } from '@/data/follows'
 import { followListItemsFromIds, memberById, type MemberProfile } from '@/data/members'
 import { setSubscribed } from '@/data/subscriptions'
@@ -164,9 +164,9 @@ export default function MemberPage() {
 
   const openPost = useCallback(
     (id: string) => {
-      navigate(postPath(id), { state: { from: `${location.pathname}${location.search}` } })
+      openPostDetail(navigate, location, id)
     },
-    [location.pathname, location.search, navigate],
+    [location, navigate],
   )
 
   // GET /api/v1/subscriptions/{targetId} — subscribed로 버튼 문구를 정한다

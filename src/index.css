@@ -4657,6 +4657,19 @@ img.sub-photo {
   height: 42px;
 }
 
+.theme-form-fields input:read-only {
+  background: #f4f7fb;
+  color: #66758a;
+}
+
+.theme-form-hint {
+  margin: -4px 0 0 100px;
+  color: var(--muted);
+  font-size: 12px;
+  font-weight: 600;
+  line-height: 1.45;
+}
+
 .theme-form-fields textarea {
   min-height: 120px;
   padding: 10px 12px;

@@ -123,7 +123,7 @@ export default function RegisterPage() {
             <input
               type="email"
               name="email"
-              placeholder="email"
+              placeholder="이메일"
               autoComplete="email"
               value={email}
               onChange={(event) => setEmail(event.target.value)}
@@ -134,7 +134,7 @@ export default function RegisterPage() {
             <input
               type={visible ? 'text' : 'password'}
               name="password"
-              placeholder="password"
+              placeholder="비밀번호"
               autoComplete="new-password"
               value={password}
               onChange={(event) => setPassword(event.target.value)}
@@ -153,7 +153,7 @@ export default function RegisterPage() {
             <input
               type="text"
               name="nickname"
-              placeholder="nickname"
+              placeholder="닉네임"
               autoComplete="nickname"
               value={nickname}
               onChange={(event) => setNickname(event.target.value)}
@@ -205,7 +205,7 @@ export default function RegisterPage() {
               </>
             )}
           </label>
-          <p className="profile-picker-note">미선택 시 기본 프로필 · 선택 시 서버가 S3에 저장합니다</p>
+          <p className="profile-picker-note">미선택 시 기본 프로필로 적용됩니다</p>
           {error && <p className="auth-error">{error}</p>}
           <button type="submit" className="auth-submit" disabled={loading}>
             {loading ? '가입 중…' : '회원가입'}

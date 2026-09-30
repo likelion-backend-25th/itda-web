@@ -63,7 +63,7 @@ export default function LoginPage() {
         <input
           type="email"
           name="email"
-          placeholder="email"
+          placeholder="이메일"
           autoComplete="email"
           value={email}
           onChange={(event) => setEmail(event.target.value)}
@@ -74,7 +74,7 @@ export default function LoginPage() {
         <input
           type={visible ? 'text' : 'password'}
           name="password"
-          placeholder="password"
+          placeholder="비밀번호"
           autoComplete="current-password"
           value={password}
           onChange={(event) => setPassword(event.target.value)}

@@ -41,12 +41,19 @@ export function ThemeFormDialog({ mode, value, onChange, onClose, onSubmit, erro
   function submit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault()
     if (value.name.trim().length === 0) return
+    if (mode === 'add' && value.code.trim().length === 0) return
+    if (value.cssText.trim().length === 0) return
     onSubmit()
   }
 
   function setField(key: keyof ThemeDraft, next: string) {
     onChange({ ...value, [key]: next })
   }
+
+  const canSubmit =
+    value.name.trim().length > 0 &&
+    value.cssText.trim().length > 0 &&
+    (mode === 'edit' || value.code.trim().length > 0)
 
   return (
     <div className="detail-backdrop" onClick={onClose}>
@@ -112,10 +119,24 @@ export function ThemeFormDialog({ mode, value, onChange, onClose, onSubmit, erro
             <input value={value.price} onChange={(event) => setField('price', event.target.value)} />
           </label>
           <label>
+            테마 코드
+            <input
+              value={value.code}
+              placeholder="예: SPRING"
+              readOnly={mode === 'edit'}
+              aria-describedby="theme-code-hint"
+              onChange={(event) => setField('code', event.target.value)}
+            />
+          </label>
+          <p id="theme-code-hint" className="theme-form-hint">
+            css_text의 data-theme 과 같아야 합니다. (SPRING → data-theme=&apos;spring&apos;)
+            {mode === 'edit' ? ' 수정 시 코드는 변경할 수 없습니다.' : ''}
+          </p>
+          <label>
             css_text
             <textarea
               value={value.cssText}
-              placeholder="테마에 적용할 CSS"
+              placeholder={":root[data-theme='spring']{ --bg:#ffe8f0; ... }"}
               onChange={(event) => setField('cssText', event.target.value)}
             />
           </label>
@@ -126,12 +147,7 @@ export function ThemeFormDialog({ mode, value, onChange, onClose, onSubmit, erro
           </p>
         )}
         <div className="theme-form-submit">
-          <button
-            type="submit"
-            disabled={
-              value.name.trim().length === 0 || value.cssText.trim().length === 0
-            }
-          >
+          <button type="submit" disabled={!canSubmit}>
             {mode === 'edit' ? '수정' : '등록'}
           </button>
         </div>
