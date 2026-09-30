@@ -1272,6 +1272,8 @@ a.comment-avatar {
   display: flex;
   flex-direction: column;
   min-height: calc(100vh - 190px);
+  /* 우측 하단 고정 고객센터에 마지막 글이 가리지 않게 */
+  padding-bottom: 88px;
 }
 
 .my-summary,
@@ -3463,9 +3465,10 @@ img.sub-photo {
 }
 
 .support {
-  position: absolute;
-  left: calc(100% + 16px);
-  bottom: 12px;
+  position: fixed;
+  right: 24px;
+  bottom: 24px;
+  z-index: 30;
   display: flex;
   width: max-content;
   margin: 0;
@@ -3476,10 +3479,19 @@ img.sub-photo {
   display: flex;
   align-items: center;
   gap: 8px;
+  padding: 12px 16px;
+  border: 1px solid var(--line);
+  border-radius: 16px;
+  background: var(--surface);
+  box-shadow: var(--shadow);
   color: var(--text);
   font-weight: 800;
   font-size: 14px;
   text-decoration: none;
+}
+
+.support-fab:hover {
+  background: var(--search-bg);
 }
 
 .support-fab svg {
@@ -3823,11 +3835,8 @@ img.sub-photo {
   }
 
   .support {
-    position: static;
-    width: auto;
-    justify-content: flex-end;
-    margin-top: auto;
-    padding: 28px 8px 4px;
+    right: 16px;
+    bottom: 16px;
   }
 
   .my-post-body,
