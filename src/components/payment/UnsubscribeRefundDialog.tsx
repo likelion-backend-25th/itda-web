@@ -4,6 +4,7 @@ type UnsubscribeRefundDialogProps = {
   name: string
   busy: boolean
   error: string
+  done: boolean
   onClose: () => void
   onConfirm: () => void
 }
@@ -12,6 +13,7 @@ export default function UnsubscribeRefundDialog({
   name,
   busy,
   error,
+  done,
   onClose,
   onConfirm,
 }: UnsubscribeRefundDialogProps) {
@@ -43,15 +45,26 @@ export default function UnsubscribeRefundDialog({
         aria-labelledby={titleId}
         onClick={(event) => event.stopPropagation()}
       >
-        <h2 id={titleId}>구독을 해제할까요?</h2>
-        <p>{name} 구독을 해제하면 남은 구독일 수만큼 환불이 진행됩니다.</p>
-        {error && <p className="pay-error">{error}</p>}
-        <button ref={cancelRef} type="button" className="pay-back" disabled={busy} onClick={onClose}>
-          취소
-        </button>
-        <button type="button" className="pay-submit" disabled={busy} onClick={onConfirm}>
-          {busy ? '환불 처리 중…' : '해제하고 환불'}
-        </button>
+        {done ? (
+          <>
+            <h2 id={titleId}>사용자가 결제를 취소하였습니다</h2>
+            <button type="button" className="pay-submit" onClick={onClose}>
+              확인
+            </button>
+          </>
+        ) : (
+          <>
+            <h2 id={titleId}>구독을 해제할까요?</h2>
+            <p>{name} 구독을 해제하면 남은 구독일 수만큼 환불이 진행됩니다.</p>
+            {error && <p className="pay-error">{error}</p>}
+            <button ref={cancelRef} type="button" className="pay-back" disabled={busy} onClick={onClose}>
+              취소
+            </button>
+            <button type="button" className="pay-submit" disabled={busy} onClick={onConfirm}>
+              {busy ? '환불 처리 중…' : '해제하고 환불'}
+            </button>
+          </>
+        )}
       </div>
     </div>
   )

@@ -110,3 +110,8 @@ export async function refundSubscriptionByTarget(targetId: number): Promise<Paym
   }
   return requestPaymentRefund(payment.paymentId, '구독 해제')
 }
+
+/** 구독 해지는 결제 환불로만 한다. 환불이 구독 행까지 지운다. */
+export async function unsubscribeAndRefund(targetId: number): Promise<void> {
+  await refundSubscriptionByTarget(targetId)
+}

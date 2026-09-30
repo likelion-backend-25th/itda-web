@@ -1,8 +1,8 @@
 ﻿import { useCallback, useEffect, useMemo, useRef, useState, useSyncExternalStore } from 'react'
 import { Navigate, useLocation, useNavigate, useParams } from 'react-router'
 import { fetchMemberProfile, resolveMemberImageUrl, toFeedUser } from '@/api/member'
-import { refundSubscriptionByTarget } from '@/api/payment'
-import { cancelSubscription, fetchSubscriptionStatus } from '@/api/subscription'
+import { unsubscribeAndRefund } from '@/api/payment'
+import { fetchSubscriptionStatus } from '@/api/subscription'
 import UnsubscribeRefundDialog from '@/components/payment/UnsubscribeRefundDialog'
 import FollowList, { type FollowTab } from '@/components/profile/FollowList'
 import Header from '@/components/layout/Header'
@@ -69,6 +69,7 @@ export default function MemberPage() {
   const [subscribeBusy, setSubscribeBusy] = useState(false)
   const [subscribeError, setSubscribeError] = useState<string | null>(null)
   const [unsubscribeOpen, setUnsubscribeOpen] = useState(false)
+  const [refundDone, setRefundDone] = useState(false)
   const loggedIn = useSyncExternalStore(subscribeSession, getLoggedIn)
   const viewer = useViewerUser()
   const viewerProfile = useSyncExternalStore(subscribeViewer, getViewerProfile)
@@ -210,12 +211,11 @@ export default function MemberPage() {
     setSubscribeBusy(true)
     setSubscribeError(null)
     try {
-      await refundSubscriptionByTarget(member.backendId)
-      await cancelSubscription(member.backendId)
+      await unsubscribeAndRefund(member.backendId)
       setSubscribedFlag(false)
       setSubscribed(member.id, false)
-      setUnsubscribeOpen(false)
       setTab('public')
+      setRefundDone(true)
     } catch (error: unknown) {
       const message = error instanceof Error ? error.message : '구독 취소에 실패했습니다.'
       setSubscribeError(message)
@@ -324,13 +324,14 @@ export default function MemberPage() {
                     <button
                       type="button"
                       className="member-subscribe"
-                      disabled={!statusReady || subscribeBusy}
+                      disabled={(!subscribed && !statusReady) || subscribeBusy}
                       onClick={() => {
                         if (!loggedIn) {
                           navigate('/login')
                           return
                         }
                         if (subscribed) {
+                          setRefundDone(false)
                           setUnsubscribeOpen(true)
                           return
                         }
@@ -461,10 +462,14 @@ export default function MemberPage() {
           name={member.name}
           busy={subscribeBusy}
           error={subscribeError ?? ''}
+          done={refundDone}
           onClose={() => {
             if (subscribeBusy) return
+            const profileId = member.id
             setUnsubscribeOpen(false)
+            setRefundDone(false)
             setSubscribeError(null)
+            if (refundDone) navigate(`/member/${profileId}`, { replace: true })
           }}
           onConfirm={() => {
             void cancelMembership()
