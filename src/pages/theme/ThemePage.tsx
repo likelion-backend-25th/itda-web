@@ -248,7 +248,21 @@ export default function ThemePage() {
     setKeyword(draft)
   }
 
-  function grantAndApply(theme: ThemeResponse) {
+  /** 구매·무료 수령 성공: 보유만 반영 (적용은 별도) */
+  function markOwned(theme: ThemeResponse) {
+    setThemeOwned(theme.themeCode.trim().toLowerCase())
+    setThemes((current) =>
+      current.map((item) =>
+        item.id === theme.id ? { ...item, isOwned: true } : item,
+      ),
+    )
+    setDetail((current) =>
+      current && current.id === theme.id ? { ...current, isOwned: true } : current,
+    )
+  }
+
+  /** 보유 테마 적용: 서버 theme_id + CSS */
+  function handleApply(theme: ThemeResponse) {
     void (async () => {
       try {
         // 서버 member.theme_id 먼저 저장해야 마이페이지에서 덮어쓰지 않음
@@ -287,7 +301,7 @@ export default function ThemePage() {
     if (theme.price <= 0) {
       try {
         await claimFreeTheme(theme.id)
-        grantAndApply(theme)
+        markOwned(theme)
       } catch (err: unknown) {
         setLoginHint(err instanceof Error ? err.message : '무료 수령에 실패했습니다.')
       }
@@ -299,7 +313,7 @@ export default function ThemePage() {
       orderName: theme.themeName,
       payMethod,
     })
-    if (result) grantAndApply(theme)
+    if (result) markOwned(theme)
   }
 
   return (
@@ -464,7 +478,7 @@ export default function ThemePage() {
                       적용 중
                     </button>
                   ) : selected.isOwned ? (
-                    <button type="button" className="shop-purchase" onClick={() => grantAndApply(selected)}>
+                    <button type="button" className="shop-purchase" onClick={() => handleApply(selected)}>
                       적용
                     </button>
                   ) : (
