@@ -1,7 +1,9 @@
 ﻿import { useEffect, useMemo, useState, useSyncExternalStore } from 'react'
 import { Link, Navigate, useNavigate, useParams } from 'react-router'
 import { DEFAULT_AVATAR, resolveMemberImageUrl } from '@/api/member'
+import { refundSubscriptionByTarget } from '@/api/payment'
 import { cancelSubscription, fetchMonthlyIncome, fetchMySubscriptions, fetchSubscriberCount } from '@/api/subscription'
+import UnsubscribeRefundDialog from '@/components/payment/UnsubscribeRefundDialog'
 import CategoryFeed from '@/components/feed/CategoryFeed'
 import Header from '@/components/layout/Header'
 import FollowList, { type FollowTab } from '@/components/profile/FollowList'
@@ -61,6 +63,7 @@ export default function SubscriptionPage() {
   const [subscriptionsLoading, setSubscriptionsLoading] = useState(false)
   const [subscriptionsError, setSubscriptionsError] = useState<string | null>(null)
   const [cancelingId, setCancelingId] = useState<number | null>(null)
+  const [pendingCancel, setPendingCancel] = useState<MySubscriptionResponse | null>(null)
   const [subscriberCount, setSubscriberCount] = useState<number | null>(null)
   const [subscriberCountError, setSubscriberCountError] = useState<string | null>(null)
   const [monthlyIncome, setMonthlyIncome] = useState<number | null>(null)
@@ -173,13 +176,15 @@ export default function SubscriptionPage() {
     return subscriptions.filter((item) => item.nickname.toLowerCase().includes(keyword))
   }, [query, subscriptions])
 
-  async function unsubscribe(item: MySubscriptionResponse) {
-    if (cancelingId != null) return
-    setCancelingId(item.subscriptionId)
+  async function confirmUnsubscribe() {
+    if (!pendingCancel || cancelingId != null) return
+    setCancelingId(pendingCancel.subscriptionId)
     setSubscriptionsError(null)
     try {
-      await cancelSubscription(item.targetId)
-      setSubscriptions((current) => current.filter((row) => row.subscriptionId !== item.subscriptionId))
+      await refundSubscriptionByTarget(pendingCancel.targetId)
+      await cancelSubscription(pendingCancel.targetId)
+      setSubscriptions((current) => current.filter((row) => row.subscriptionId !== pendingCancel.subscriptionId))
+      setPendingCancel(null)
     } catch (error: unknown) {
       const message = error instanceof Error ? error.message : '구독 해제에 실패했습니다.'
       setSubscriptionsError(message)
@@ -381,9 +386,7 @@ export default function SubscriptionPage() {
                         type="button"
                         className="sub-cancel"
                         disabled={cancelingId === item.subscriptionId}
-                        onClick={() => {
-                          void unsubscribe(item)
-                        }}
+                        onClick={() => setPendingCancel(item)}
                       >
                         구독해제
                       </button>
@@ -424,6 +427,21 @@ export default function SubscriptionPage() {
             await publish(draft)
             setWriting(false)
             navigate('/')
+          }}
+        />
+      )}
+      {pendingCancel && (
+        <UnsubscribeRefundDialog
+          name={pendingCancel.nickname}
+          busy={cancelingId === pendingCancel.subscriptionId}
+          error={subscriptionsError ?? ''}
+          onClose={() => {
+            if (cancelingId != null) return
+            setPendingCancel(null)
+            setSubscriptionsError(null)
+          }}
+          onConfirm={() => {
+            void confirmUnsubscribe()
           }}
         />
       )}

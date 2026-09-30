@@ -1,10 +1,11 @@
-import { apiFetch, apiJson } from '@/lib/apiClient'
+import { apiJson } from '@/lib/apiClient'
 import type {
   MyPaymentResponse,
   PaymentCompleteRequest,
   PaymentCompleteResponse,
   PaymentPrepareRequest,
   PaymentPrepareResponse,
+  PaymentRefundResponse,
 } from '@/types/payment'
 
 /** 결제 대기 건을 만들고 PortOne용 paymentId를 받는다 */
@@ -43,15 +44,26 @@ function createdOn(value: unknown): string {
   return ''
 }
 
+/** 목록의 paymentId는 payment.payment_id 문자열이다 */
+function portonePaymentId(value: unknown): string {
+  if (typeof value !== 'string') return ''
+  const paymentId = value.trim()
+  if (paymentId === '' || /^\d+$/.test(paymentId)) return ''
+  return paymentId
+}
+
 function toMyPayment(item: unknown): MyPaymentResponse | null {
   if (typeof item !== 'object' || item === null) return null
   const record = item as Record<string, unknown>
-  const paymentId = asNumber(record.paymentId)
+  const id = asNumber(record.id)
   const amount = asNumber(record.amount)
-  if (paymentId == null || amount == null) return null
+  const targetId = asNumber(record.targetId)
+  if (id == null || amount == null || targetId == null) return null
   return {
-    paymentId,
+    id,
+    paymentId: portonePaymentId(record.paymentId),
     paymentType: typeof record.paymentType === 'string' ? record.paymentType : '',
+    targetId,
     amount,
     createdAt: createdOn(record.createdAt),
     paymentStatus: typeof record.paymentStatus === 'string' ? record.paymentStatus : '',
@@ -69,7 +81,32 @@ export async function fetchMyPayments(): Promise<MyPaymentResponse[]> {
   })
 }
 
-/** POST /api/v1/customer/payments/{paymentId}/refund — 본문 없는 200 */
-export async function requestPaymentRefund(paymentId: number): Promise<void> {
-  await apiFetch(`/customer/payments/${paymentId}/refund`, { method: 'POST' })
+/** POST /api/v1/payments/refund/{paymentId}. paymentId는 payment.payment_id. PortOne 취소는 서버가 보낸다 */
+export function requestPaymentRefund(
+  paymentId: string,
+  reason = '사용자 요청',
+): Promise<PaymentRefundResponse> {
+  if (paymentId.trim() === '' || /^\d+$/.test(paymentId.trim())) {
+    throw new Error('환불은 payment_id로 요청해야 합니다.')
+  }
+  return apiJson<PaymentRefundResponse>(`/payments/refund/${encodeURIComponent(paymentId.trim())}`, {
+    method: 'POST',
+    body: JSON.stringify({ reason }),
+  })
+}
+
+/** 구독 해제 전, 해당 창작자 구독 결제를 payment_id로 환불한다 */
+export async function refundSubscriptionByTarget(targetId: number): Promise<PaymentRefundResponse> {
+  const payments = await fetchMyPayments()
+  const payment = payments.find(
+    (item) =>
+      item.paymentType === 'SUBSCRIPTION' &&
+      item.targetId === targetId &&
+      item.refundAvailable &&
+      item.paymentId !== '',
+  )
+  if (!payment) {
+    throw new Error('환불할 구독 결제의 payment_id를 찾지 못했습니다.')
+  }
+  return requestPaymentRefund(payment.paymentId, '구독 해제')
 }
