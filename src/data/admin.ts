@@ -21,8 +21,11 @@ export type AdminPayment = {
   expiresOn: string
   payType: string
   paymentId: string
+  /** payment.payment_id */
+  servicePaymentId: string
   pgProvider: string
   impUid: string
+  /** payment.transaction_id */
   merchantUid: string
   amount: string
   payMethod: string
@@ -147,6 +150,7 @@ const initial = {
       expiresOn: seed[4],
       payType: seed[5],
       paymentId: String(1234 + index),
+      servicePaymentId: `imp_${202409010000 + index}`,
       pgProvider: providers[index % providers.length],
       impUid: `imp_${202409010000 + index}`,
       merchantUid: `merchant_${1234 + index}`,
