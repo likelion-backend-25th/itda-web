@@ -372,6 +372,7 @@ img {
   display: flex;
   align-items: center;
   gap: 8px;
+  margin: 0;
   width: min(100%, 560px);
   justify-self: center;
   height: 44px;

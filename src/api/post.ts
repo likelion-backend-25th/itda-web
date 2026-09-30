@@ -131,6 +131,38 @@ export function toFeedPost(dto: PostResponse, viewer: MemberProfileResponse | nu
   }
 }
 
+const SEARCH_PAGE_SIZE = 10
+
+export type PostSearchPage = {
+  posts: PostResponse[]
+  nextCursor: number | null
+  hasNext: boolean
+}
+
+/**
+ * GET /posts/search. 응답은 목록만 오고, 길이가 size 이면 다음 커서가 있다.
+ * cursor 는 마지막 글 id 보다 작은 글을 이어서 받는다.
+ */
+export async function searchPosts(
+  keyword: string,
+  cursor?: number | null,
+  size = SEARCH_PAGE_SIZE,
+): Promise<PostSearchPage> {
+  const params = new URLSearchParams()
+  const trimmed = keyword.trim()
+  if (trimmed) params.set('keyword', trimmed)
+  if (cursor != null) params.set('cursor', String(cursor))
+  params.set('size', String(size))
+  const raw = await apiJson<PostResponse[]>(`/posts/search?${params}`)
+  const posts = Array.isArray(raw) ? raw : []
+  const last = posts[posts.length - 1]
+  return {
+    posts,
+    nextCursor: last ? last.id : null,
+    hasNext: posts.length >= size,
+  }
+}
+
 /** 메인 피드. publicCursor / subscribedCursor 로 다음 페이지를 받는다. */
 export function fetchPosts(query: PostFeedQuery = {}): Promise<PostFeedResponse> {
   const params = new URLSearchParams()

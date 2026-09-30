@@ -1,4 +1,4 @@
-﻿import { useSyncExternalStore } from 'react'
+﻿import { useSyncExternalStore, type FormEvent } from 'react'
 import { Link, useNavigate } from 'react-router'
 import { logout } from '@/api/auth'
 import { DEFAULT_AVATAR } from '@/api/member'
@@ -16,6 +16,16 @@ export default function Header({ query, user, onQueryChange }: HeaderProps) {
   const navigate = useNavigate()
   const loggedIn = useSyncExternalStore(subscribeSession, getLoggedIn)
 
+  function submitSearch(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault()
+    const keyword = query.trim()
+    if (!keyword) {
+      navigate('/')
+      return
+    }
+    navigate(`/?keyword=${encodeURIComponent(keyword)}`)
+  }
+
   return (
     <header className="topbar">
       <div className="brand">
@@ -28,15 +38,16 @@ export default function Header({ query, user, onQueryChange }: HeaderProps) {
         </span>
       </div>
 
-      <label className="search">
+      <form className="search" role="search" onSubmit={submitSearch}>
         <SearchIcon />
         <input
           type="search"
           value={query}
           placeholder="관심 있는 내용을 검색해보세요!"
+          aria-label="관심 있는 내용을 검색해보세요!"
           onChange={(event) => onQueryChange(event.target.value)}
         />
-      </label>
+      </form>
 
       <div className="top-actions">
         {loggedIn ? (

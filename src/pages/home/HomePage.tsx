@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState, useSyncExternalStore } from 'react'
-import { useLocation, useNavigate } from 'react-router'
+import { useLocation, useNavigate, useSearchParams } from 'react-router'
 import { resolveMemberImageUrl } from '@/api/member'
-import { categoryIdForFeed, categoryIdForUpdate, deletePost, fetchPosts, toFeedPost, togglePostLike, togglePostScrap, updatePost, type PostFeedQuery } from '@/api/post'
+import { categoryIdForFeed, categoryIdForUpdate, deletePost, fetchPosts, searchPosts, toFeedPost, togglePostLike, togglePostScrap, updatePost, type PostFeedQuery } from '@/api/post'
 import EditPostModal from '@/components/feed/EditPostModal'
 import Header from '@/components/layout/Header'
 import PostCard from '@/components/feed/PostCard'
@@ -19,8 +19,10 @@ import type { MyPost } from '@/data/mypage'
 export default function HomePage() {
   const navigate = useNavigate()
   const location = useLocation()
+  const [searchParams] = useSearchParams()
+  const keyword = (searchParams.get('keyword') ?? '').trim()
   const loggedIn = useSyncExternalStore(subscribeSession, getLoggedIn)
-  const [query, setQuery] = useState('')
+  const [query, setQuery] = useState(keyword)
   const [category, setCategory] = useState<CategoryId>('all')
   const [categoriesOpen, setCategoriesOpen] = useState(true)
   const [posts, setPosts] = useState<Post[]>([])
@@ -31,6 +33,8 @@ export default function HomePage() {
   const actionLockRef = useRef(new Set<string>())
   const [hasNext, setHasNext] = useState(false)
   const feedCursorRef = useRef<PostFeedQuery>({})
+  const searchKeywordRef = useRef('')
+  const searchCursorRef = useRef<number | null>(null)
   const hasNextRef = useRef(false)
   const loadingMoreRef = useRef(false)
   const feedGenerationRef = useRef(0)
@@ -79,7 +83,13 @@ export default function HomePage() {
     }
   }, [loggedIn])
 
-  // 로그인 상태가 바뀌면 구독 글 포함 여부가 달라지므로 피드를 처음부터 다시 받는다
+  // 주소의 keyword 와 검색창을 맞춘다. 다른 페이지에서 검색해 들어와도 입력값이 남는다.
+  useEffect(() => {
+    setQuery(keyword)
+  }, [keyword])
+
+  // 로그인 상태가 바뀌면 구독 글 포함 여부가 달라지므로 목록을 처음부터 다시 받는다.
+  // keyword 가 있으면 /posts/search, 없으면 메인 피드를 받는다.
   useEffect(() => {
     let cancelled = false
 
@@ -87,11 +97,23 @@ export default function HomePage() {
       const generation = ++feedGenerationRef.current
       const categoryId = categoryIdForFeed(category)
       hasNextRef.current = false
-      feedCursorRef.current = { categoryId }
       loadingMoreRef.current = false
+      searchKeywordRef.current = keyword
+      searchCursorRef.current = null
+      feedCursorRef.current = { categoryId }
       setFeedLoading(true)
       setFeedError('')
+      if (keyword) setPosts([])
       try {
+        if (keyword) {
+          const result = await searchPosts(keyword)
+          if (cancelled || generation !== feedGenerationRef.current) return
+          setPosts(result.posts.map((post) => toFeedPost(post, profileRef.current)))
+          searchCursorRef.current = result.nextCursor
+          hasNextRef.current = result.hasNext
+          setHasNext(result.hasNext)
+          return
+        }
         const result = await fetchPosts({ categoryId })
         if (cancelled || generation !== feedGenerationRef.current) return
         setPosts(result.posts.map((post) => toFeedPost(post, profileRef.current)))
@@ -120,7 +142,7 @@ export default function HomePage() {
     return () => {
       cancelled = true
     }
-  }, [category, loggedIn])
+  }, [category, keyword, loggedIn])
 
   // 프로필이 늦게 도착해도 내 글 닉네임·아바타를 맞춘다
   useEffect(() => {
@@ -147,6 +169,19 @@ export default function HomePage() {
     setLoadingMore(true)
     setFeedError('')
     try {
+      if (searchKeywordRef.current) {
+        const result = await searchPosts(searchKeywordRef.current, searchCursorRef.current)
+        if (generation !== feedGenerationRef.current) return
+        const incoming = result.posts.map((post) => toFeedPost(post, profileRef.current))
+        setPosts((current) => {
+          const seen = new Set(current.map((post) => post.id))
+          return [...current, ...incoming.filter((post) => !seen.has(post.id))]
+        })
+        searchCursorRef.current = result.nextCursor
+        hasNextRef.current = result.hasNext
+        setHasNext(result.hasNext)
+        return
+      }
       const result = await fetchPosts(feedCursorRef.current)
       if (generation !== feedGenerationRef.current) return
       const incoming = result.posts.map((post) => toFeedPost(post, profileRef.current))
@@ -247,19 +282,11 @@ export default function HomePage() {
   }
 
   const visiblePosts = useMemo(() => {
-    const keyword = query.trim().toLowerCase()
+    if (keyword) return posts
     // 카드 이름은 응답 categoryName. 서버 categoryId 조회 결과와 사이드바 한글 이름이 같은 글만 남긴다.
     const selectedLabel = categories.find((item) => item.id === category)?.label
-    return posts.filter((post) => {
-      const categoryMatch = category === 'all' || post.categoryLabel === selectedLabel
-      const keywordMatch =
-        keyword.length === 0 ||
-        post.author.toLowerCase().includes(keyword) ||
-        post.categoryLabel.toLowerCase().includes(keyword) ||
-        post.content.toLowerCase().includes(keyword)
-      return categoryMatch && keywordMatch
-    })
-  }, [category, posts, query])
+    return posts.filter((post) => category === 'all' || post.categoryLabel === selectedLabel)
+  }, [category, keyword, posts])
 
   async function toggleLike(id: string) {
     if (!loggedIn) {
@@ -333,11 +360,15 @@ export default function HomePage() {
             user={user}
             category={category}
             categoriesOpen={categoriesOpen}
-            onCategoryChange={setCategory}
+            onCategoryChange={(next) => {
+              setCategory(next)
+              if (keyword) navigate('/')
+            }}
             onToggleCategories={() => setCategoriesOpen((open) => !open)}
             onWrite={() => setWriting(true)}
           />
-          <main className="feed" aria-label="피드">
+          <main className="feed" aria-label={keyword ? '검색 결과' : '피드'}>
+            {keyword && <h2 className="my-heading">‘{keyword}’ 검색 결과</h2>}
             {profileError && loggedIn && (
               <div className="empty" role="alert">
                 {profileError}
@@ -350,7 +381,7 @@ export default function HomePage() {
                 {feedError}
               </div>
             ) : visiblePosts.length === 0 ? (
-              <div className="empty">해당하는 글이 없습니다.</div>
+              <div className="empty">{keyword ? '검색 결과가 없습니다.' : '해당하는 글이 없습니다.'}</div>
             ) : (
               visiblePosts.map((post) => (
                 <PostCard
