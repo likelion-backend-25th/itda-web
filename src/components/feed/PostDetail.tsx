@@ -1,6 +1,7 @@
 import { useEffect, useId, useRef, useState, useSyncExternalStore, type FormEvent } from 'react'
 import { createPortal } from 'react-dom'
 import { Link } from 'react-router'
+import { DEFAULT_AVATAR } from '@/api/member'
 import type { FeedUser, Post } from '@/data/feed'
 import { profileHrefForMember } from '@/data/members'
 import { getViewerProfile, subscribeViewer } from '@/data/viewer'
@@ -226,7 +227,13 @@ export default function PostDetail({
 
         <section className="detail-comments" aria-label="댓글">
           <div className="composer">
-            <img src={user.avatar} alt="" />
+            <img
+              src={user.avatar || DEFAULT_AVATAR}
+              alt=""
+              onError={(event) => {
+                event.currentTarget.src = DEFAULT_AVATAR
+              }}
+            />
             <div>
               <strong>{user.name}</strong>
               {suspended ? (
