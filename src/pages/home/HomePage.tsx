@@ -106,7 +106,7 @@ export default function HomePage() {
       if (keyword) setPosts([])
       try {
         if (keyword) {
-          const result = await searchPosts(keyword)
+          const result = await searchPosts({ keyword })
           if (cancelled || generation !== feedGenerationRef.current) return
           setPosts(result.posts.map((post) => toFeedPost(post, profileRef.current)))
           searchCursorRef.current = result.nextCursor
@@ -170,7 +170,10 @@ export default function HomePage() {
     setFeedError('')
     try {
       if (searchKeywordRef.current) {
-        const result = await searchPosts(searchKeywordRef.current, searchCursorRef.current)
+        const result = await searchPosts({
+          keyword: searchKeywordRef.current,
+          cursor: searchCursorRef.current,
+        })
         if (generation !== feedGenerationRef.current) return
         const incoming = result.posts.map((post) => toFeedPost(post, profileRef.current))
         setPosts((current) => {

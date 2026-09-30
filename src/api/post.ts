@@ -139,19 +139,28 @@ export type PostSearchPage = {
   hasNext: boolean
 }
 
+export type PostSearchQuery = {
+  keyword?: string
+  /** 이 회원들이 쓴 글만. 프로필 탭에서 한 명을 넘긴다. */
+  targetMemberIds?: number[]
+  cursor?: number | null
+  size?: number
+}
+
 /**
  * GET /posts/search. 응답은 목록만 오고, 길이가 size 이면 다음 커서가 있다.
  * cursor 는 마지막 글 id 보다 작은 글을 이어서 받는다.
+ * 로그인하지 않으면 공개 글만, 구독 중이면 그 회원의 구독자 전용 글도 포함된다.
  */
-export async function searchPosts(
-  keyword: string,
-  cursor?: number | null,
-  size = SEARCH_PAGE_SIZE,
-): Promise<PostSearchPage> {
+export async function searchPosts(query: PostSearchQuery = {}): Promise<PostSearchPage> {
   const params = new URLSearchParams()
-  const trimmed = keyword.trim()
+  const trimmed = query.keyword?.trim() ?? ''
   if (trimmed) params.set('keyword', trimmed)
-  if (cursor != null) params.set('cursor', String(cursor))
+  for (const id of query.targetMemberIds ?? []) {
+    params.append('targetMemberIds', String(id))
+  }
+  if (query.cursor != null) params.set('cursor', String(query.cursor))
+  const size = query.size ?? SEARCH_PAGE_SIZE
   params.set('size', String(size))
   const raw = await apiJson<PostResponse[]>(`/posts/search?${params}`)
   const posts = Array.isArray(raw) ? raw : []
