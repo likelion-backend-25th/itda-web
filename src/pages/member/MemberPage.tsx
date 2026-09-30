@@ -1,7 +1,9 @@
 ﻿import { useCallback, useEffect, useMemo, useRef, useState, useSyncExternalStore } from 'react'
 import { Navigate, useLocation, useNavigate, useParams } from 'react-router'
 import { fetchMemberProfile, resolveMemberImageUrl, toFeedUser } from '@/api/member'
+import { refundSubscriptionByTarget } from '@/api/payment'
 import { cancelSubscription, fetchSubscriptionStatus } from '@/api/subscription'
+import UnsubscribeRefundDialog from '@/components/payment/UnsubscribeRefundDialog'
 import FollowList, { type FollowTab } from '@/components/profile/FollowList'
 import Header from '@/components/layout/Header'
 import Sidebar from '@/components/layout/Sidebar'
@@ -66,6 +68,7 @@ export default function MemberPage() {
   const [statusReady, setStatusReady] = useState(false)
   const [subscribeBusy, setSubscribeBusy] = useState(false)
   const [subscribeError, setSubscribeError] = useState<string | null>(null)
+  const [unsubscribeOpen, setUnsubscribeOpen] = useState(false)
   const loggedIn = useSyncExternalStore(subscribeSession, getLoggedIn)
   const viewer = useViewerUser()
   const viewerProfile = useSyncExternalStore(subscribeViewer, getViewerProfile)
@@ -207,9 +210,11 @@ export default function MemberPage() {
     setSubscribeBusy(true)
     setSubscribeError(null)
     try {
+      await refundSubscriptionByTarget(member.backendId)
       await cancelSubscription(member.backendId)
       setSubscribedFlag(false)
       setSubscribed(member.id, false)
+      setUnsubscribeOpen(false)
       setTab('public')
     } catch (error: unknown) {
       const message = error instanceof Error ? error.message : '구독 취소에 실패했습니다.'
@@ -326,7 +331,7 @@ export default function MemberPage() {
                           return
                         }
                         if (subscribed) {
-                          void cancelMembership()
+                          setUnsubscribeOpen(true)
                           return
                         }
                         navigate(`/member/${member.id}/pay`)
@@ -449,6 +454,21 @@ export default function MemberPage() {
           followersError={followerItems.error}
           followingLoading={followingItems.loading}
           followingError={followingItems.error}
+        />
+      )}
+      {unsubscribeOpen && member && (
+        <UnsubscribeRefundDialog
+          name={member.name}
+          busy={subscribeBusy}
+          error={subscribeError ?? ''}
+          onClose={() => {
+            if (subscribeBusy) return
+            setUnsubscribeOpen(false)
+            setSubscribeError(null)
+          }}
+          onConfirm={() => {
+            void cancelMembership()
+          }}
         />
       )}
       {writing && (

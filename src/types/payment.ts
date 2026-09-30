@@ -30,10 +30,26 @@ export interface PaymentCompleteResponse {
   transactionId: string
 }
 
-/** GET /api/v1/customer/payments 한 건 */
+/** POST /api/v1/payments/refund/{paymentId} */
+export interface PaymentRefundRequest {
+  reason: string
+}
+
+/** 환불 처리 결과 */
+export interface PaymentRefundResponse {
+  paymentId: string
+  cancellationId: string
+  refundAmount: number
+  deductionAmount: number
+}
+
+/** GET /api/v1/customer/payments 한 건. paymentId는 payment.payment_id (ITDA-…) */
 export interface MyPaymentResponse {
-  paymentId: number
+  id: number
+  /** payment.payment_id. ITDA-… 가 없으면 빈 문자열 */
+  paymentId: string
   paymentType: string
+  targetId: number
   amount: number
   createdAt: string
   paymentStatus: string

@@ -44,7 +44,7 @@ export default function SupportPage() {
   const [payments, setPayments] = useState<MyPaymentResponse[]>([])
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
-  const [refundingId, setRefundingId] = useState<number | null>(null)
+  const [refundingId, setRefundingId] = useState<string | null>(null)
 
   // GET /api/v1/customer/payments
   useEffect(() => {
@@ -81,14 +81,18 @@ export default function SupportPage() {
 
   async function requestRefund(payment: MyPaymentResponse) {
     if (refundingId != null || isRefundClosed(payment) || !payment.refundAvailable) return
+    if (payment.paymentId === '') {
+      setError('환불에 필요한 payment_id가 없습니다.')
+      return
+    }
     setRefundingId(payment.paymentId)
     setError(null)
     try {
       await requestPaymentRefund(payment.paymentId)
       setPayments((current) =>
         current.map((item) =>
-          item.paymentId === payment.paymentId
-            ? { ...item, paymentStatus: '환불 대기', refundAvailable: false }
+          item.id === payment.id
+            ? { ...item, paymentStatus: '환불 완료', refundAvailable: false }
             : item,
         ),
       )
@@ -135,11 +139,11 @@ export default function SupportPage() {
               ) : (
                 payments.map((payment) => {
                   const closed = isRefundClosed(payment)
-                  const busy = refundingId === payment.paymentId
+                  const busy = refundingId === payment.paymentId && payment.paymentId !== ''
                   return (
-                    <article key={payment.paymentId} className="refund-row">
+                    <article key={payment.id} className="refund-row">
                       <p>
-                        <span>{payment.paymentId}</span>
+                        <span>{payment.paymentId || payment.id}</span>
                         <span>{paymentTypeLabel(payment.paymentType)}</span>
                         <span>{payment.amount.toLocaleString('ko-KR')}원</span>
                         <span>{payment.createdAt || '—'}</span>
