@@ -19,7 +19,32 @@ import { useFollow } from '@/hooks/member/useFollow'
 import { useMemberFollows } from '@/hooks/member/useMemberFollows'
 import { useViewerUser } from '@/hooks/member/useViewerUser'
 import { usePublishPost } from '@/hooks/post/usePublishPost'
+import { searchPosts, toFeedPost, togglePostLike, togglePostScrap } from '@/api/post'
 import { ApiError } from '@/lib/apiClient'
+import type { PostResponse } from '@/types/post'
+
+/** 이 탭에 해당하는 글이 나올 때까지 cursor 로 다음 페이지를 받는다. */
+async function collectMemberPosts(
+  targetId: number,
+  exclusive: boolean,
+  cursor: number | null,
+  isCancelled: () => boolean,
+) {
+  let nextCursor = cursor
+  let hasNext = true
+  const matched: PostResponse[] = []
+  while (hasNext && matched.length === 0) {
+    if (isCancelled()) return null
+    const page = await searchPosts({ targetMemberIds: [targetId], cursor: nextCursor })
+    if (isCancelled()) return null
+    for (const post of page.posts) {
+      if (post.subscriberOnly === exclusive) matched.push(post)
+    }
+    nextCursor = page.nextCursor
+    hasNext = page.hasNext
+  }
+  return { posts: matched, nextCursor, hasNext }
+}
 
 function toMemberView(profile: {
   id: number
@@ -63,6 +88,15 @@ export default function MemberPage() {
   const [tab, setTab] = useState<'public' | 'exclusive'>('public')
   const [followTab, setFollowTab] = useState<FollowTab | null>(null)
   const [posts, setPosts] = useState<Post[]>([])
+  const [listLoading, setListLoading] = useState(false)
+  const [loadingMore, setLoadingMore] = useState(false)
+  const [listError, setListError] = useState('')
+  const [hasMore, setHasMore] = useState(false)
+  const cursorRef = useRef<number | null>(null)
+  const hasMoreRef = useRef(false)
+  const loadingMoreRef = useRef(false)
+  const listGenRef = useRef(0)
+  const sentinelRef = useRef<HTMLDivElement>(null)
   const [writing, setWriting] = useState(false)
   const [subscribed, setSubscribedFlag] = useState(false)
   const [statusReady, setStatusReady] = useState(false)
@@ -159,8 +193,100 @@ export default function MemberPage() {
     setFollowTab(null)
     setTab('public')
     setCategory('all')
-    setPosts(member ? initialPosts.filter((post) => post.author === member.name) : [])
-  }, [member])
+    if (!isNumericRoute) {
+      setPosts(member ? initialPosts.filter((post) => post.author === member.name) : [])
+      setHasMore(false)
+    }
+  }, [isNumericRoute, member])
+
+  // 게시글 탭은 공개 글, 구독자 전용 탭은 구독 중인 경우의 subscriberOnly 글
+  useEffect(() => {
+    if (!isNumericRoute) return
+    const generation = ++listGenRef.current
+    const exclusive = tab === 'exclusive'
+    cursorRef.current = null
+    hasMoreRef.current = false
+    loadingMoreRef.current = false
+    setHasMore(false)
+    setListError('')
+    setPosts([])
+
+    if (exclusive && loggedIn && !statusReady) {
+      setListLoading(true)
+      return
+    }
+    if (exclusive && !subscribed) {
+      setListLoading(false)
+      return
+    }
+
+    setListLoading(true)
+    void collectMemberPosts(numericId, exclusive, null, () => generation !== listGenRef.current)
+      .then((result) => {
+        if (!result || generation !== listGenRef.current) return
+        setPosts(result.posts.map((item) => toFeedPost(item, getViewerProfile())))
+        cursorRef.current = result.nextCursor
+        hasMoreRef.current = result.hasNext
+        setHasMore(result.hasNext)
+      })
+      .catch((error: unknown) => {
+        if (generation !== listGenRef.current) return
+        setListError(error instanceof Error ? error.message : '글을 불러오지 못했습니다.')
+        if (error instanceof ApiError && error.status === 401 && loggedIn) setLoggedIn(false)
+      })
+      .finally(() => {
+        if (generation === listGenRef.current) setListLoading(false)
+      })
+  }, [isNumericRoute, loggedIn, numericId, statusReady, subscribed, tab])
+
+  const loadMore = useCallback(async () => {
+    if (!isNumericRoute || !hasMoreRef.current || loadingMoreRef.current) return
+    if (tab === 'exclusive' && !subscribed) return
+    const generation = listGenRef.current
+    const exclusive = tab === 'exclusive'
+    loadingMoreRef.current = true
+    setLoadingMore(true)
+    setListError('')
+    try {
+      const result = await collectMemberPosts(
+        numericId,
+        exclusive,
+        cursorRef.current,
+        () => generation !== listGenRef.current,
+      )
+      if (!result || generation !== listGenRef.current) return
+      const mapped = result.posts.map((item) => toFeedPost(item, getViewerProfile()))
+      setPosts((current) => {
+        const seen = new Set(current.map((item) => item.id))
+        return [...current, ...mapped.filter((item) => !seen.has(item.id))]
+      })
+      cursorRef.current = result.nextCursor
+      hasMoreRef.current = result.hasNext
+      setHasMore(result.hasNext)
+    } catch (error: unknown) {
+      if (generation !== listGenRef.current) return
+      setListError(error instanceof Error ? error.message : '글을 더 불러오지 못했습니다.')
+      if (error instanceof ApiError && error.status === 401) setLoggedIn(false)
+    } finally {
+      if (generation === listGenRef.current) {
+        loadingMoreRef.current = false
+        setLoadingMore(false)
+      }
+    }
+  }, [isNumericRoute, numericId, subscribed, tab])
+
+  useEffect(() => {
+    const node = sentinelRef.current
+    if (!node || !isNumericRoute || listLoading || !hasMore) return
+    const observer = new IntersectionObserver(
+      (entries) => {
+        if (entries.some((entry) => entry.isIntersecting)) void loadMore()
+      },
+      { rootMargin: '240px' },
+    )
+    observer.observe(node)
+    return () => observer.disconnect()
+  }, [hasMore, isNumericRoute, listLoading, loadMore, posts.length])
 
   const openPost = useCallback(
     (id: string) => {
@@ -226,34 +352,72 @@ export default function MemberPage() {
 
   const visiblePosts = useMemo(() => {
     const keyword = query.trim().toLowerCase()
-    const exclusive = subscribed && tab === 'exclusive'
     return posts.filter((post) => {
-      const audienceMatch = exclusive ? post.visibility === 'subscribers' : post.visibility !== 'subscribers'
       const categoryMatch = category === 'all' || post.category === category
       const keywordMatch =
         keyword.length === 0 ||
         post.content.toLowerCase().includes(keyword) ||
         post.categoryLabel.toLowerCase().includes(keyword)
-      return audienceMatch && categoryMatch && keywordMatch
+      return categoryMatch && keywordMatch
     })
-  }, [category, posts, query, subscribed, tab])
+  }, [category, posts, query])
 
   if (member?.name === viewer.name) return <Navigate to="/mypage" replace />
 
-  function toggleLike(id: string) {
-    setPosts((current) =>
-      current.map((post) =>
-        post.id === id
-          ? { ...post, liked: !post.liked, likes: post.likes + (post.liked ? -1 : 1) }
-          : post,
-      ),
-    )
+  async function toggleLike(id: string) {
+    if (!isNumericRoute) {
+      setPosts((current) =>
+        current.map((post) =>
+          post.id === id
+            ? { ...post, liked: !post.liked, likes: post.likes + (post.liked ? -1 : 1) }
+            : post,
+        ),
+      )
+      return
+    }
+    if (!loggedIn) {
+      navigate('/login')
+      return
+    }
+    const numericPostId = Number(id)
+    if (!Number.isInteger(numericPostId)) return
+    setListError('')
+    try {
+      const result = await togglePostLike(numericPostId)
+      setPosts((current) =>
+        current.map((post) =>
+          post.id === id ? { ...post, liked: result.liked, likes: result.likesCount } : post,
+        ),
+      )
+    } catch (error: unknown) {
+      setListError(error instanceof Error ? error.message : '좋아요를 반영하지 못했습니다.')
+      if (error instanceof ApiError && error.status === 401) setLoggedIn(false)
+    }
   }
 
-  function toggleBookmark(id: string) {
-    setPosts((current) =>
-      current.map((post) => (post.id === id ? { ...post, bookmarked: !post.bookmarked } : post)),
-    )
+  async function toggleBookmark(id: string) {
+    if (!isNumericRoute) {
+      setPosts((current) =>
+        current.map((post) => (post.id === id ? { ...post, bookmarked: !post.bookmarked } : post)),
+      )
+      return
+    }
+    if (!loggedIn) {
+      navigate('/login')
+      return
+    }
+    const numericPostId = Number(id)
+    if (!Number.isInteger(numericPostId)) return
+    setListError('')
+    try {
+      const result = await togglePostScrap(numericPostId)
+      setPosts((current) =>
+        current.map((post) => (post.id === id ? { ...post, bookmarked: result.scrapped } : post)),
+      )
+    } catch (error: unknown) {
+      setListError(error instanceof Error ? error.message : '스크랩을 반영하지 못했습니다.')
+      if (error instanceof ApiError && error.status === 401) setLoggedIn(false)
+    }
   }
 
   return (
@@ -344,34 +508,38 @@ export default function MemberPage() {
                   </div>
                 </section>
 
-                {subscribed ? (
-                  <div className="my-tabs" role="tablist" aria-label="게시글 종류">
-                    <button
-                      type="button"
-                      role="tab"
-                      aria-selected={tab === 'public'}
-                      className={tab === 'public' ? 'my-tab active' : 'my-tab'}
-                      onClick={() => setTab('public')}
-                    >
-                      게시글
-                    </button>
-                    <button
-                      type="button"
-                      role="tab"
-                      aria-selected={tab === 'exclusive'}
-                      className={tab === 'exclusive' ? 'my-tab active' : 'my-tab'}
-                      onClick={() => setTab('exclusive')}
-                    >
-                      구독자 전용 게시글
-                    </button>
-                  </div>
-                ) : (
-                  <h3 className="my-heading">게시글</h3>
-                )}
+                <div className="my-tabs" role="tablist" aria-label="게시글 종류">
+                  <button
+                    type="button"
+                    role="tab"
+                    aria-selected={tab === 'public'}
+                    className={tab === 'public' ? 'my-tab active' : 'my-tab'}
+                    onClick={() => setTab('public')}
+                  >
+                    게시글
+                  </button>
+                  <button
+                    type="button"
+                    role="tab"
+                    aria-selected={tab === 'exclusive'}
+                    className={tab === 'exclusive' ? 'my-tab active' : 'my-tab'}
+                    onClick={() => setTab('exclusive')}
+                  >
+                    구독자 전용 게시글
+                  </button>
+                </div>
                 <div className="my-feed">
-                  {visiblePosts.length === 0 ? (
+                  {listLoading && posts.length === 0 ? (
+                    <div className="empty">글을 불러오는 중...</div>
+                  ) : listError && posts.length === 0 ? (
+                    <div className="empty" role="alert">
+                      {listError}
+                    </div>
+                  ) : tab === 'exclusive' && !subscribed ? (
+                    <div className="empty">구독한 사람만 볼 수 있습니다.</div>
+                  ) : visiblePosts.length === 0 ? (
                     <div className="empty">
-                      {subscribed && tab === 'exclusive' ? '구독자 전용 글이 없습니다.' : '작성한 글이 없습니다.'}
+                      {tab === 'exclusive' ? '구독자 전용 글이 없습니다.' : '작성한 글이 없습니다.'}
                     </div>
                   ) : (
                     visiblePosts.map((post) => (
@@ -427,6 +595,16 @@ export default function MemberPage() {
                         </footer>
                       </article>
                     ))
+                  )}
+                  {isNumericRoute && hasMore && posts.length > 0 && (
+                    <div ref={sentinelRef} className="feed-more" aria-live="polite">
+                      {loadingMore ? '글을 불러오는 중...' : ''}
+                    </div>
+                  )}
+                  {listError && posts.length > 0 && (
+                    <div className="empty" role="alert">
+                      {listError}
+                    </div>
                   )}
                 </div>
               </>
