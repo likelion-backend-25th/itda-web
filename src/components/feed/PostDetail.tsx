@@ -82,6 +82,14 @@ export default function PostDetail({
 
   useEffect(() => {
     if (!menuCommentId) return
+    const menu = document.querySelector('.post-menu.in-comment')
+    const dialog = menu?.closest('.detail-dialog')
+    if (menu instanceof HTMLElement && dialog instanceof HTMLElement) {
+      const menuBox = menu.getBoundingClientRect()
+      const dialogBox = dialog.getBoundingClientRect()
+      const overflowBottom = menuBox.bottom - (dialogBox.bottom - 16)
+      if (overflowBottom > 0) dialog.scrollTop += overflowBottom
+    }
     function closeMenu() {
       setMenuCommentId(null)
     }
