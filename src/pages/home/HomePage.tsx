@@ -315,6 +315,18 @@ export default function HomePage() {
     if (!Number.isInteger(numericId) || actionLockRef.current.has(`like:${id}`)) return
     actionLockRef.current.add(`like:${id}`)
     setActionError('')
+    const previous = { liked: target?.liked === true, likes: target?.likes ?? 0 }
+    setPosts((current) =>
+      current.map((post) =>
+        post.id === id
+          ? {
+              ...post,
+              liked: !previous.liked,
+              likes: Math.max(0, post.likes + (previous.liked ? -1 : 1)),
+            }
+          : post,
+      ),
+    )
     try {
       const result = await togglePostLike(numericId)
       setPosts((current) =>
@@ -323,6 +335,11 @@ export default function HomePage() {
         ),
       )
     } catch (error: unknown) {
+      setPosts((current) =>
+        current.map((post) =>
+          post.id === id ? { ...post, liked: previous.liked, likes: previous.likes } : post,
+        ),
+      )
       const message = error instanceof Error ? error.message : '좋아요를 반영하지 못했습니다.'
       setActionError(message)
       if (error instanceof ApiError && error.status === 401) setLoggedIn(false)
@@ -342,6 +359,10 @@ export default function HomePage() {
     if (!Number.isInteger(numericId) || actionLockRef.current.has(`scrap:${id}`)) return
     actionLockRef.current.add(`scrap:${id}`)
     setActionError('')
+    const previous = target?.bookmarked === true
+    setPosts((current) =>
+      current.map((post) => (post.id === id ? { ...post, bookmarked: !previous } : post)),
+    )
     try {
       const result = await togglePostScrap(numericId)
       setPosts((current) =>
@@ -350,6 +371,9 @@ export default function HomePage() {
         ),
       )
     } catch (error: unknown) {
+      setPosts((current) =>
+        current.map((post) => (post.id === id ? { ...post, bookmarked: previous } : post)),
+      )
       const message = error instanceof Error ? error.message : '스크랩을 반영하지 못했습니다.'
       setActionError(message)
       if (error instanceof ApiError && error.status === 401) setLoggedIn(false)

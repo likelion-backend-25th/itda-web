@@ -114,6 +114,16 @@ export default function PostDetailPage() {
     if (!Number.isInteger(numericId) || actionLockRef.current.has(`like:${id}`)) return
     actionLockRef.current.add(`like:${id}`)
     setActionError('')
+    const previous = { liked: post?.liked === true, likes: post?.likes ?? 0 }
+    setPost((current) =>
+      current && current.id === id
+        ? {
+            ...current,
+            liked: !previous.liked,
+            likes: Math.max(0, current.likes + (previous.liked ? -1 : 1)),
+          }
+        : current,
+    )
     try {
       const result = await togglePostLike(numericId)
       setPost((current) =>
@@ -122,6 +132,11 @@ export default function PostDetailPage() {
           : current,
       )
     } catch (err: unknown) {
+      setPost((current) =>
+        current && current.id === id
+          ? { ...current, liked: previous.liked, likes: previous.likes }
+          : current,
+      )
       setActionError(err instanceof Error ? err.message : '좋아요를 반영하지 못했습니다.')
       if (err instanceof ApiError && err.status === 401) setLoggedIn(false)
     } finally {
@@ -139,12 +154,19 @@ export default function PostDetailPage() {
     if (!Number.isInteger(numericId) || actionLockRef.current.has(`scrap:${id}`)) return
     actionLockRef.current.add(`scrap:${id}`)
     setActionError('')
+    const previous = post?.bookmarked === true
+    setPost((current) =>
+      current && current.id === id ? { ...current, bookmarked: !previous } : current,
+    )
     try {
       const result = await togglePostScrap(numericId)
       setPost((current) =>
         current && current.id === id ? { ...current, bookmarked: result.scrapped } : current,
       )
     } catch (err: unknown) {
+      setPost((current) =>
+        current && current.id === id ? { ...current, bookmarked: previous } : current,
+      )
       setActionError(err instanceof Error ? err.message : '스크랩을 반영하지 못했습니다.')
       if (err instanceof ApiError && err.status === 401) setLoggedIn(false)
     } finally {
