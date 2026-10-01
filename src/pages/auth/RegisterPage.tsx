@@ -113,6 +113,7 @@ export default function RegisterPage() {
   return (
     <AuthCard
       className={step === 'interest' ? 'is-interest' : undefined}
+      subtitle="회원가입"
       onSubmit={submit}
       footer={<AuthSwitch prompt="이미 계정이 있으신가요?" to="/login" label="로그인" />}
     >
