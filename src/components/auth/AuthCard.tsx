@@ -5,11 +5,13 @@ type AuthCardProps = {
   children: ReactNode
   footer: ReactNode
   className?: string
+  /** ITDA 제목 아래 보조 문구. 회원가입 화면에서만 쓴다. */
+  subtitle?: string
   noValidate?: boolean
   onSubmit: (event: FormEvent<HTMLFormElement>) => void
 }
 
-export default function AuthCard({ children, footer, className, noValidate, onSubmit }: AuthCardProps) {
+export default function AuthCard({ children, footer, className, subtitle, noValidate, onSubmit }: AuthCardProps) {
   return (
     <div className="auth-page">
       <span className="auth-blob top" aria-hidden="true" />
@@ -20,6 +22,7 @@ export default function AuthCard({ children, footer, className, noValidate, onSu
         onSubmit={onSubmit}
       >
         <h1>ITDA</h1>
+        {subtitle ? <p className="auth-subtitle">{subtitle}</p> : null}
         {children}
         {footer}
       </form>
