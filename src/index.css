@@ -4807,6 +4807,24 @@ a.sub-photo {
   color: var(--on-accent);
 }
 
+.admin-confirm-dialog p {
+  margin: 0;
+  color: var(--text-soft);
+  font-size: 15px;
+  font-weight: 650;
+  line-height: 1.5;
+}
+
+.admin-confirm-dialog .admin-confirm-target {
+  color: var(--text);
+  font-size: 16px;
+}
+
+.admin-confirm-dialog .admin-confirm-ok {
+  background: var(--blue);
+  color: var(--on-accent);
+}
+
 @media (max-width: 980px) {
   .admin-page,
   .admin-row.members,
