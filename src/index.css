@@ -4063,9 +4063,12 @@ img.sub-photo {
   grid-template-columns: 52px repeat(5, minmax(0, 1fr)) auto;
 }
 
-.admin-row.pays,
-.admin-row.refunds {
+.admin-row.pays {
   grid-template-columns: repeat(6, minmax(0, 1fr)) auto;
+}
+
+.admin-row.refunds {
+  grid-template-columns: repeat(6, minmax(0, 1fr));
 }
 
 .admin-row.subscriptions {

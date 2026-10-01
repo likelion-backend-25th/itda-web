@@ -106,10 +106,12 @@ export async function fetchAdminPayments(): Promise<AdminPayment[]> {
   return normalizeList(raw).map(toPayment)
 }
 
-/** GET /api/v1/admin/payments/refunds — 환불 대기(PS05)만, 결제 목록과 같은 칸 */
+/** GET /api/v1/admin/payments/refunds — 환불 완료(PS04)만, 결제 목록과 같은 칸 */
 export async function fetchAdminRefunds(): Promise<AdminPayment[]> {
   const raw = await apiJson<unknown>('/admin/payments/refunds')
-  return normalizeList(raw).map(toPayment)
+  return normalizeList(raw)
+    .map(toPayment)
+    .filter((item) => item.status.includes('환불 완료'))
 }
 
 /** PATCH /api/v1/admin/payments/{paymentId}/refund */
