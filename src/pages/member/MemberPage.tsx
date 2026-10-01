@@ -12,6 +12,7 @@ import { BookmarkIcon, CommentIcon, CrownIcon, DotsIcon, EyeIcon, HeartIcon } fr
 import SubOnlyBadge from '@/components/feed/SubOnlyBadge'
 import { myPageCategories, openPostDetail, type CategoryId, type Post } from '@/data/feed'
 import { type MemberProfile } from '@/data/members'
+import { subscribePostComments, subscribePostViews } from '@/data/postViewSync'
 import { setSubscribed } from '@/data/subscriptions'
 import { getLoggedIn, setLoggedIn, subscribeSession } from '@/data/session'
 import { getViewerProfile, subscribeViewer } from '@/data/viewer'
@@ -281,6 +282,26 @@ export default function MemberPage() {
     },
     [location, navigate],
   )
+
+  // 상세에서 바뀐 조회수·댓글 수를 프로필 글 목록에 반영
+  useEffect(() => {
+    const unsubViews = subscribePostViews((postId, views) => {
+      setPosts((current) =>
+        current.map((item) => (item.id === postId && item.views !== views ? { ...item, views } : item)),
+      )
+    })
+    const unsubComments = subscribePostComments((postId, comments) => {
+      setPosts((current) =>
+        current.map((item) =>
+          item.id === postId && item.comments !== comments ? { ...item, comments } : item,
+        ),
+      )
+    })
+    return () => {
+      unsubViews()
+      unsubComments()
+    }
+  }, [])
 
   // GET /api/v1/subscriptions/{targetId} — subscribed로 버튼 문구를 정한다
   useEffect(() => {

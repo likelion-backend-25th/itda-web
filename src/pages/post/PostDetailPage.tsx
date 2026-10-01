@@ -7,7 +7,7 @@ import { resolveMemberImageUrl } from '@/api/member'
 import PostDetail from '@/components/feed/PostDetail'
 import type { Post } from '@/data/feed'
 import type { PostModalState } from '@/data/feed'
-import { publishPostViews } from '@/data/postViewSync'
+import { publishPostComments, publishPostViews } from '@/data/postViewSync'
 import { getLoggedIn, setLoggedIn, subscribeSession } from '@/data/session'
 import { ensureViewerLoaded, getViewerProfile, subscribeViewer } from '@/data/viewer'
 import { useViewerUser } from '@/hooks/member/useViewerUser'
@@ -181,15 +181,16 @@ export default function PostDetailPage() {
     try {
       const created = await createReply(numericId, { content })
       const comment = toFeedComment(created)
-      setPost((current) =>
-        current && current.id === id
-          ? {
-              ...current,
-              comments: current.comments + 1,
-              thread: [...current.thread, comment],
-            }
-          : current,
-      )
+      setPost((current) => {
+        if (!current || current.id !== id) return current
+        const next = {
+          ...current,
+          comments: current.comments + 1,
+          thread: [...current.thread, comment],
+        }
+        publishPostComments(id, next.comments)
+        return next
+      })
     } catch (err: unknown) {
       if (err instanceof ApiError && err.status === 401) setLoggedIn(false)
       throw err instanceof Error ? err : new Error('댓글을 등록하지 못했습니다.')
@@ -231,7 +232,9 @@ export default function PostDetailPage() {
         if (!current || current.id !== targetPostId) return current
         const thread = current.thread.filter((item) => item.id !== commentId)
         if (thread.length === current.thread.length) return current
-        return { ...current, thread, comments: Math.max(0, current.comments - 1) }
+        const next = { ...current, thread, comments: Math.max(0, current.comments - 1) }
+        publishPostComments(targetPostId, next.comments)
+        return next
       })
     } catch (err: unknown) {
       if (err instanceof ApiError && err.status === 401) setLoggedIn(false)
