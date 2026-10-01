@@ -1132,8 +1132,6 @@ button.stat {
 
 .detail-date {
   margin-left: auto;
-  padding-left: 18px;
-  border-left: 1px solid var(--line);
   color: var(--muted);
   font-size: 13px;
 }
