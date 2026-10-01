@@ -16,12 +16,12 @@ import {
 } from '@/api/admin'
 import { fetchAdminPayments, fetchAdminRefunds } from '@/api/adminPayment'
 import { fetchAdminSubscriptions } from '@/api/adminSubscription'
-import type { AdminMember, AdminPayment, AdminPost, AdminSubscription, AdminTheme } from '@/data/admin'
+import type { AdminMember, AdminPayment, AdminPost, AdminRefund, AdminSubscription, AdminTheme } from '@/data/admin'
 
 type DashData = {
   members: AdminMember[]
   payments: AdminPayment[]
-  refunds: AdminPayment[]
+  refunds: AdminRefund[]
   subscriptions: AdminSubscription[]
   posts: AdminPost[]
   replies: AdminPost[]
@@ -227,10 +227,10 @@ export default function AdminDashboard() {
             <ul>
               {data.refunds.slice(0, 5).map((item) => (
                 <li key={item.id}>
-                  <strong>#{item.orderNo}</strong>
-                  <span>{item.paymentType}</span>
-                  <span>{won(item.amount)}</span>
-                  <time>{item.paidOn}</time>
+                  <strong>#{item.id}</strong>
+                  <span>차감 {won(item.deductionAmount)}</span>
+                  <span>{won(item.refundAmount)}</span>
+                  <time>{item.requestedOn}</time>
                 </li>
               ))}
             </ul>

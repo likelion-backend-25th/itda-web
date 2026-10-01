@@ -44,14 +44,16 @@ export type AdminSubscription = {
   endedOn: string
 }
 
+/** payment_refund 한 건 */
 export type AdminRefund = {
   id: string
-  orderNo: string
-  email: string
-  purchaseType: string
-  payType: string
-  purchasedOn: string
-  refunded: boolean
+  paymentId: string
+  cancellationId: string
+  refundReason: string
+  refundAmount: string
+  deductionAmount: string
+  requestedOn: string
+  refundedOn: string
 }
 
 export type AdminPost = {

@@ -20,6 +20,7 @@ import {
   type AdminMember,
   type AdminPayment,
   type AdminPost,
+  type AdminRefund,
   type AdminSubscription,
   type AdminTheme,
   type ThemeDraft,
@@ -67,10 +68,10 @@ const searchFields: Record<SectionId, { value: string; label: string }[]> = {
     { value: 'payType', label: '결제 유형' },
   ],
   refunds: [
-    { value: 'orderNo', label: '결제 번호' },
-    { value: 'memberId', label: 'member_id' },
-    { value: 'paymentType', label: 'payment_type' },
-    { value: 'payType', label: '결제 유형' },
+    { value: 'id', label: '환불 번호' },
+    { value: 'refundAmount', label: '환불 금액' },
+    { value: 'requestedOn', label: '신청일' },
+    { value: 'refundedOn', label: '환불일' },
   ],
   subscriptions: [
     { value: 'subscriptionId', label: '구독 번호' },
@@ -188,11 +189,12 @@ function AdminBoard({ section }: { section: SectionId }) {
   const [keyword, setKeyword] = useState('')
   const [page, setPage] = useState(1)
   const [payment, setPayment] = useState<AdminPayment | null>(null)
+  const [refund, setRefund] = useState<AdminRefund | null>(null)
   const [editing, setEditing] = useState<AdminTheme | null>(null)
   const [adding, setAdding] = useState(false)
   const [themeForm, setThemeForm] = useState<ThemeDraft>(newTheme)
   const [apiPayments, setApiPayments] = useState<AdminPayment[]>([])
-  const [apiRefunds, setApiRefunds] = useState<AdminPayment[]>([])
+  const [apiRefunds, setApiRefunds] = useState<AdminRefund[]>([])
   const [apiMembers, setApiMembers] = useState<AdminMember[]>([])
   const [apiPosts, setApiPosts] = useState<AdminPost[]>([])
   const [apiThemes, setApiThemes] = useState<AdminTheme[]>([])
@@ -278,13 +280,21 @@ function AdminBoard({ section }: { section: SectionId }) {
     setKeyword('')
     setPage(1)
     setPayment(null)
+    setRefund(null)
     setEditing(null)
     setAdding(false)
   }, [section])
 
   const memberPage = slicePage(filterRows(apiMembers, field, keyword), page)
   const paymentPage = slicePage(filterRows(apiPayments, field, keyword), page)
-  const subscriptionPage = slicePage(filterRows(apiSubscriptions, field, keyword), page)
+  const subscriptionPage = slicePage(
+    filterRows(
+      apiSubscriptions.filter((item) => item.status === '구독 중'),
+      field,
+      keyword,
+    ),
+    page,
+  )
   const refundPage = slicePage(filterRows(apiRefunds, field, keyword), page)
   const postPage = slicePage(filterRows(apiPosts, field, keyword), page)
   const themePage = slicePage(filterRows(apiThemes, field, keyword), page)
@@ -546,12 +556,14 @@ function AdminBoard({ section }: { section: SectionId }) {
           {section === 'refunds' &&
             refundPage.visible.map((item) => (
               <article key={item.id} className="admin-row refunds">
-                <Cell label="결제 번호" value={item.orderNo} />
-                <Cell label="member_id" value={item.memberId} />
-                <Cell label="payment_type" value={item.paymentType} />
-                <Cell label="결제일" value={item.paidOn} />
-                <Cell label="결제금액" value={formatAmount(item.amount)} />
-                <Cell label="결제 유형" value={item.payType} />
+                <Cell label="환불 번호" value={item.id} />
+                <Cell label="환불 금액" value={formatAmount(item.refundAmount)} />
+                <Cell label="차감 금액" value={formatAmount(item.deductionAmount)} />
+                <Cell label="신청일" value={item.requestedOn} />
+                <Cell label="환불일" value={item.refundedOn} />
+                <button type="button" className="admin-danger" onClick={() => setRefund(item)}>
+                  상세보기
+                </button>
               </article>
             ))}
           {section === 'posts' &&
@@ -624,6 +636,52 @@ function AdminBoard({ section }: { section: SectionId }) {
             <label className="pay-detail-paid">
               paid_at
               <input readOnly value={payment.paidAt} />
+            </label>
+          </div>
+        </div>
+      )}
+
+      {refund && (
+        <div className="detail-backdrop" onClick={() => setRefund(null)}>
+          <div
+            className="pay-detail"
+            role="dialog"
+            aria-modal="true"
+            aria-label="환불 상세"
+            onClick={(event) => event.stopPropagation()}
+          >
+            <button type="button" className="detail-close" aria-label="닫기" onClick={() => setRefund(null)}>
+              <CloseIcon />
+            </button>
+            <div className="pay-detail-ids">
+              <p>
+                <small>환불 번호</small>
+                <strong>{refund.id}</strong>
+              </p>
+            </div>
+            <label>
+              payment id
+              <input readOnly value={refund.paymentId} />
+            </label>
+            <label>
+              cancellation id
+              <input readOnly value={refund.cancellationId} />
+            </label>
+            <label>
+              환불 금액
+              <input readOnly value={formatAmount(refund.refundAmount)} />
+            </label>
+            <label>
+              차감 금액
+              <input readOnly value={formatAmount(refund.deductionAmount)} />
+            </label>
+            <label>
+              신청일
+              <input readOnly value={refund.requestedOn} />
+            </label>
+            <label className="pay-detail-paid">
+              환불일
+              <input readOnly value={refund.refundedOn} />
             </label>
           </div>
         </div>
