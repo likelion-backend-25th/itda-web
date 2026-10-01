@@ -13,7 +13,6 @@ import WritePostModal, { type PostDraft } from '@/components/feed/WritePostModal
 import { GearIcon } from '@/components/icons'
 import { myPageCategories, type CategoryId } from '@/data/feed'
 import { getLoggedIn, subscribeSession } from '@/data/session'
-import { members } from '@/data/members'
 import { ensureViewerLoaded, getViewerProfile, refreshViewerProfile, setViewerProfile, subscribeViewer } from '@/data/viewer'
 import { useFollow } from '@/hooks/member/useFollow'
 import { useMyFollows } from '@/hooks/member/useMyFollows'
@@ -25,13 +24,6 @@ import type { MySubscriptionResponse } from '@/types/subscription'
 type SubscriptionTab = 'users' | 'manage'
 
 const banks = ['국민', '신한', '우리', '하나', '농협', '기업', '카카오뱅크', '토스뱅크']
-
-/** 백엔드 회원 id가 목 프로필 하나와만 맞을 때 프로필로 이동 */
-function subscriptionProfileHref(targetId: number): string | null {
-  const matched = members.filter((member) => member.backendId === targetId)
-  if (matched.length !== 1) return null
-  return `/member/${matched[0].id}`
-}
 
 export default function SubscriptionPage() {
   const { memberId = '' } = useParams()
@@ -349,38 +341,23 @@ export default function SubscriptionPage() {
                 <div className="empty">구독한 사용자가 없습니다.</div>
               ) : (
                 visible.map((item) => {
-                  const href = subscriptionProfileHref(item.targetId)
+                  const href = `/member/${item.targetId}`
                   const avatar = resolveMemberImageUrl(item.profileImage)
                   return (
                     <article key={item.subscriptionId} className="sub-card">
-                      {href ? (
-                        <Link to={href} className="sub-photo" aria-label={`${item.nickname} 프로필`}>
-                          <img
-                            src={avatar}
-                            alt=""
-                            onError={(event) => {
-                              event.currentTarget.src = DEFAULT_AVATAR
-                            }}
-                          />
-                        </Link>
-                      ) : (
+                      <Link to={href} className="sub-photo" aria-label={`${item.nickname} 프로필`}>
                         <img
-                          className="sub-photo"
                           src={avatar}
                           alt=""
                           onError={(event) => {
                             event.currentTarget.src = DEFAULT_AVATAR
                           }}
                         />
-                      )}
+                      </Link>
                       <div className="sub-copy">
-                        {href ? (
-                          <Link to={href} className="sub-name">
-                            {item.nickname}
-                          </Link>
-                        ) : (
-                          <strong className="sub-name">{item.nickname}</strong>
-                        )}
+                        <Link to={href} className="sub-name">
+                          {item.nickname}
+                        </Link>
                       </div>
                       <p className="sub-days">{item.remainingDays}일 남음</p>
                       <button

@@ -1286,6 +1286,7 @@ a.comment-avatar {
 
 .my-summary,
 .my-post,
+.my-feed .post,
 .theme-card {
   background: var(--surface);
   border: 1px solid var(--line);
@@ -1703,17 +1704,20 @@ a.comment-avatar {
   box-shadow: var(--shadow);
 }
 
-a.sub-photo,
-img.sub-photo {
+a.sub-photo {
   flex: 0 0 auto;
+  width: 72px;
+  height: 72px;
+  border-radius: 16px;
+  overflow: hidden;
+  background: #fff;
 }
 
-.sub-photo img,
-img.sub-photo {
-  width: 72px;
-  height: 84px;
-  border-radius: 14px;
-  object-fit: cover;
+.sub-photo img {
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
+  object-position: center;
 }
 
 .sub-copy {
@@ -4335,18 +4339,40 @@ img.sub-photo {
   font-size: 15px;
 }
 
-.admin-theme div {
+.admin-theme-actions {
   display: flex;
+  align-items: flex-end;
   gap: 8px;
 }
 
-.admin-theme div button {
+.admin-theme-actions > button,
+.theme-side-actions {
   flex: 1;
+  min-width: 0;
+}
+
+.theme-side-actions {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.admin-theme-actions > button,
+.theme-side-actions > button {
   height: 36px;
   border: 1px solid #ffc1c1;
   border-radius: 10px;
   color: #ff5a5a;
   font-weight: 800;
+}
+
+.theme-side-actions > button.theme-default {
+  height: 28px;
+  border-color: #c5dbf8;
+  border-radius: 8px;
+  color: var(--blue);
+  font-size: 12px;
+  font-weight: 700;
 }
 
 .admin-theme.off {

@@ -13,6 +13,8 @@ export type MyPost = {
   author: string
   avatar: string
   intro: string
+  /** 메인 피드와 같은 상대 시간. 예: 3분 전 */
+  time?: string
   category: PostCategory
   categoryLabel: string
   title: string
