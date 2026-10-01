@@ -4,7 +4,7 @@ import { logout } from '@/api/auth'
 import { DEFAULT_AVATAR } from '@/api/member'
 import type { FeedUser } from '@/data/feed'
 import { getLoggedIn, subscribeSession } from '@/data/session'
-import { BellIcon, ChevronDownIcon, LogoutIcon, SearchIcon } from '@/components/icons'
+import { ChevronDownIcon, LogoutIcon, SearchIcon } from '@/components/icons'
 
 type HeaderProps = {
   query: string
@@ -52,10 +52,12 @@ export default function Header({ query, user, onQueryChange }: HeaderProps) {
       <div className="top-actions">
         {loggedIn ? (
           <>
+            {/* 알림은 미구현
             <button type="button" className="top-action">
               <BellIcon />
               <span>알림</span>
             </button>
+            */}
             <Link to="/mypage" className="top-action profile-action">
               <img
                 src={user.avatar}

@@ -464,7 +464,7 @@ function AdminBoard({ section }: { section: SectionId }) {
             <article key={theme.id} className={theme.active ? 'admin-theme' : 'admin-theme off'}>
               <ThemeShot tone={theme.tone} thumbnailUrl={theme.image || null} />
               <strong>{theme.name}</strong>
-              <div>
+              <div className="admin-theme-actions">
                 <button
                   type="button"
                   onClick={() => {
@@ -475,16 +475,21 @@ function AdminBoard({ section }: { section: SectionId }) {
                 >
                   수정
                 </button>
-                <button
-                  type="button"
-                  className={theme.active ? undefined : 'theme-on'}
-                  disabled={busyId === theme.id}
-                  onClick={() => {
-                    void toggleThemeActive(theme)
-                  }}
-                >
-                  {theme.active ? '비활성화' : '활성화'}
-                </button>
+                <div className="theme-side-actions">
+                  <button type="button" className="theme-default">
+                    디폴트 테마로 설정
+                  </button>
+                  <button
+                    type="button"
+                    className={theme.active ? undefined : 'theme-on'}
+                    disabled={busyId === theme.id}
+                    onClick={() => {
+                      void toggleThemeActive(theme)
+                    }}
+                  >
+                    {theme.active ? '비활성화' : '활성화'}
+                  </button>
+                </div>
               </div>
             </article>
           ))}

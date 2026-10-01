@@ -59,6 +59,7 @@ export function toMyPost(dto: PostResponse, viewer: MemberProfileResponse | null
     author: feed.author,
     avatar: feed.avatar,
     intro: '',
+    time: feed.time,
     category: feed.category,
     categoryLabel: feed.categoryLabel,
     title: title.trim(),
