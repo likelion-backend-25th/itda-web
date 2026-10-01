@@ -68,7 +68,10 @@ export type ThemeDraft = {
   price: string
   code: string
   cssText: string
+  /** 미리보기 URL (data URL 또는 서버 presigned URL) */
   image: string
+  /** 등록 시 S3 업로드할 원본 파일 */
+  imageFile?: File | null
 }
 
 export type AdminTheme = ThemeDraft & {

@@ -18,10 +18,12 @@ import { myPageCategories, openPostDetail, type CategoryId } from '@/data/feed'
 import { usePublishPost } from '@/hooks/post/usePublishPost'
 import { applyAppThemeAsync, getAppliedTheme, resolveAppTheme, subscribeAppTheme } from '@/data/appTheme'
 import { syncOwnedThemes } from '@/data/themes'
+import { subscribePostViews } from '@/data/postViewSync'
 import { getLoggedIn, setLoggedIn, subscribeSession } from '@/data/session'
 import {
   ensureViewerLoaded,
   getViewerProfile,
+  refreshViewerProfile,
   setViewerProfile,
   subscribeViewer,
 } from '@/data/viewer'
@@ -31,6 +33,7 @@ import { useViewerUser } from '@/hooks/member/useViewerUser'
 import { ApiError } from '@/lib/apiClient'
 import type { ThemeResponse } from '@/types/theme'
 import { interestIdsFromCategoryIds, categoryIdsFromInterestIds } from '@/data/interests'
+import type { MyPost, OwnedTheme } from '@/data/mypage'
 
 type MyTab = 'posts' | 'likes' | 'scraps' | 'themes'
 
@@ -101,7 +104,8 @@ export default function MyPage() {
   }))
   const viewer = {
     name: profile.name || cachedViewer.name,
-    handle: cachedViewer.handle || pageProfile.handle,
+    // 새로고침 직후 viewer 캐시가 비어 있어도 폴백 참조로 렌더를 깨지 않게 한다
+    handle: cachedViewer.handle || '',
     avatar: profile.avatar || cachedViewer.avatar,
     bio: profile.bio ? `소개글 - ${profile.bio}` : cachedViewer.bio,
   }
@@ -112,6 +116,17 @@ export default function MyPage() {
     },
     [location, navigate],
   )
+
+  // 상세 조회수를 마이페이지 목록(작성/좋아요/스크랩)에 반영
+  useEffect(() => {
+    return subscribePostViews((postId, views) => {
+      const patch = (item: MyPost) =>
+        item.id === postId && item.views !== views ? { ...item, views } : item
+      setPosts((current) => current.map(patch))
+      setLiked((current) => current.map(patch))
+      setScraps((current) => current.map(patch))
+    })
+  }, [])
 
   // GET /members/me — 캐시 공유. 있으면 즉시 반영, 없으면 한 번만 조회
   useEffect(() => {
@@ -359,6 +374,7 @@ export default function MyPage() {
       setPosts((current) => current.filter((item) => item.id !== postId))
       setLiked((current) => current.filter((item) => item.id !== postId))
       setScraps((current) => current.filter((item) => item.id !== postId))
+      await refreshViewerProfile()
     } catch (error: unknown) {
       setActionError(error instanceof Error ? error.message : '글을 삭제하지 못했습니다.')
       if (error instanceof ApiError && error.status === 401) setLoggedIn(false)
@@ -621,6 +637,7 @@ export default function MyPage() {
             const created = await publish(draft)
             const post = toMyPost(created, getViewerProfile())
             setPosts((current) => [post, ...current.filter((item) => item.id !== post.id)])
+            await refreshViewerProfile()
             setTab('posts')
             setCategory((current) => (current === 'all' || current === draft.category ? current : 'all'))
             setWriting(false)

@@ -30,10 +30,12 @@ export function ThemeFormDialog({ mode, value, onChange, onClose, onSubmit, erro
     const file = event.target.files?.[0]
     event.target.value = ''
     if (!file) return
-    // 고른 사진을 미리보기와 사진 칸에 바로 넣는다.
+    // 미리보기는 data URL, 등록 시에는 imageFile 을 multipart 로 보낸다.
     const reader = new FileReader()
     reader.onload = () => {
-      if (typeof reader.result === 'string') onChange({ ...value, image: reader.result })
+      if (typeof reader.result === 'string') {
+        onChange({ ...value, image: reader.result, imageFile: file })
+      }
     }
     reader.readAsDataURL(file)
   }
@@ -46,7 +48,7 @@ export function ThemeFormDialog({ mode, value, onChange, onClose, onSubmit, erro
     onSubmit()
   }
 
-  function setField(key: keyof ThemeDraft, next: string) {
+  function setField(key: Exclude<keyof ThemeDraft, 'imageFile'>, next: string) {
     onChange({ ...value, [key]: next })
   }
 
