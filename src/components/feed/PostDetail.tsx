@@ -229,10 +229,7 @@ export default function PostDetail({
               <BookmarkIcon filled={post.bookmarked} />
             </button>
           )}
-          <p className="detail-date">
-            작성 {post.createdAt}
-            {post.updatedAt ? ` · 수정 ${post.updatedAt}` : ''}
-          </p>
+          <p className="detail-date">작성 {post.createdAt}</p>
         </div>
 
         <section className="detail-comments" aria-label="댓글">
