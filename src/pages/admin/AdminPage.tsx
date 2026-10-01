@@ -115,6 +115,7 @@ const newTheme: ThemeDraft = {
   code: '',
   cssText: '',
   image: '',
+  imageFile: null,
 }
 
 function themeDraft(theme: AdminTheme): ThemeDraft {
@@ -125,6 +126,7 @@ function themeDraft(theme: AdminTheme): ThemeDraft {
     code: theme.code,
     cssText: theme.cssText ?? '',
     image: theme.image,
+    imageFile: null,
   }
 }
 

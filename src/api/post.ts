@@ -198,9 +198,31 @@ export async function createPost({ request, image }: CreatePostPayload): Promise
   })
 }
 
+/** StrictMode 중복 호출·리마운트에도 GET은 한 번만 (조회수 +2 방지) */
+const postByIdInflight = new Map<number, Promise<PostResponse>>()
+const postByIdRecent = new Map<number, { at: number; data: PostResponse }>()
+const POST_BY_ID_RECENT_MS = 2000
+
 /** 게시글 단건. 상세를 열 때 최신 조회수·본문을 다시 받는다. */
 export function fetchPostById(id: number): Promise<PostResponse> {
-  return apiJson<PostResponse>(`/posts/${id}`)
+  const recent = postByIdRecent.get(id)
+  if (recent && Date.now() - recent.at < POST_BY_ID_RECENT_MS) {
+    return Promise.resolve(recent.data)
+  }
+
+  const existing = postByIdInflight.get(id)
+  if (existing) return existing
+
+  const request = apiJson<PostResponse>(`/posts/${id}`)
+    .then((data) => {
+      postByIdRecent.set(id, { at: Date.now(), data })
+      return data
+    })
+    .finally(() => {
+      postByIdInflight.delete(id)
+    })
+  postByIdInflight.set(id, request)
+  return request
 }
 
 /** 게시글 삭제. 성공 응답에는 본문이 없다. */

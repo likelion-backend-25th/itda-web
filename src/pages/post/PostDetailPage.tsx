@@ -7,6 +7,7 @@ import { resolveMemberImageUrl } from '@/api/member'
 import PostDetail from '@/components/feed/PostDetail'
 import type { Post } from '@/data/feed'
 import type { PostModalState } from '@/data/feed'
+import { publishPostViews } from '@/data/postViewSync'
 import { getLoggedIn, setLoggedIn, subscribeSession } from '@/data/session'
 import { ensureViewerLoaded, getViewerProfile, subscribeViewer } from '@/data/viewer'
 import { useViewerUser } from '@/hooks/member/useViewerUser'
@@ -63,10 +64,13 @@ export default function PostDetailPage() {
       try {
         const [detail, replies] = await Promise.all([fetchPostById(id), fetchReplies(id)])
         if (cancelled) return
-        setPost({
+        const mapped = {
           ...toFeedPost(detail, profileRef.current),
           thread: replies.map(toFeedComment),
-        })
+        }
+        setPost(mapped)
+        // 목록 카드 조회수를 상세 응답 기준으로 맞춤
+        publishPostViews(mapped.id, mapped.views)
       } catch (err: unknown) {
         if (cancelled) return
         setPost(null)
