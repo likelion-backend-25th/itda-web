@@ -1,7 +1,8 @@
-import { BrowserRouter, Route, Routes } from 'react-router'
+import { BrowserRouter, Route, Routes, useLocation } from 'react-router'
 import RequireAuth from '@/components/auth/RequireAuth'
 import { useOAuthTokenCapture } from '@/hooks/auth/useOAuthTokenCapture'
 import { useSessionThemeSync } from '@/hooks/theme/useSessionThemeSync'
+import type { PostModalState } from '@/data/feed'
 import AdminPage from '@/pages/admin/AdminPage'
 import HomePage from '@/pages/home/HomePage'
 import LoginPage from '@/pages/auth/LoginPage'
@@ -24,14 +25,18 @@ function SessionThemeSync() {
   return null
 }
 
-export default function App() {
+function AppRoutes() {
+  const location = useLocation()
+  const background = (location.state as PostModalState | null)?.backgroundLocation
+  const isPostDetailPath = /^\/posts\/[^/]+$/.test(location.pathname)
+
   return (
-    <BrowserRouter>
-      <OAuthTokenCapture />
-      <SessionThemeSync />
-      <Routes>
+    <>
+      {/* 모달일 때는 이전 화면(background)을 그대로 렌더해 피드를 유지한다 */}
+      <Routes location={background ?? location}>
         <Route path="/" element={<HomePage />} />
-        <Route path="/posts/:postId" element={<PostDetailPage />} />
+        {/* 공유 링크로 /posts/:id 직접 진입 시에도 홈 피드를 배경으로 둔다 */}
+        <Route path="/posts/:postId" element={<HomePage />} />
         <Route path="/login" element={<LoginPage />} />
         <Route path="/admin" element={<AdminPage />} />
         <Route path="/admin/:section" element={<AdminPage />} />
@@ -65,6 +70,22 @@ export default function App() {
         />
         <Route path="/member/:memberId" element={<MemberPage />} />
       </Routes>
+
+      {(background || isPostDetailPath) && (
+        <Routes>
+          <Route path="/posts/:postId" element={<PostDetailPage />} />
+        </Routes>
+      )}
+    </>
+  )
+}
+
+export default function App() {
+  return (
+    <BrowserRouter>
+      <OAuthTokenCapture />
+      <SessionThemeSync />
+      <AppRoutes />
     </BrowserRouter>
   )
 }

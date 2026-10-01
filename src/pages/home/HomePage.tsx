@@ -7,7 +7,8 @@ import Header from '@/components/layout/Header'
 import PostCard from '@/components/feed/PostCard'
 import Sidebar from '@/components/layout/Sidebar'
 import WritePostModal, { type PostDraft } from '@/components/feed/WritePostModal'
-import { categories, postPath, type CategoryId, type Post } from '@/data/feed'
+import { categories, openPostDetail, type CategoryId, type Post } from '@/data/feed'
+import { subscribePostViews } from '@/data/postViewSync'
 import { getLoggedIn, setLoggedIn, subscribeSession } from '@/data/session'
 import { ensureViewerLoaded, getViewerProfile, subscribeViewer } from '@/data/viewer'
 import { profilePath } from '@/data/members'
@@ -51,10 +52,19 @@ export default function HomePage() {
 
   const openPost = useCallback(
     (id: string) => {
-      navigate(postPath(id), { state: { from: `${location.pathname}${location.search}` } })
+      openPostDetail(navigate, location, id)
     },
-    [location.pathname, location.search, navigate],
+    [location, navigate],
   )
+
+  // 상세에서 조회한 viewCount를 피드 카드에 반영
+  useEffect(() => {
+    return subscribePostViews((postId, views) => {
+      setPosts((current) =>
+        current.map((item) => (item.id === postId && item.views !== views ? { ...item, views } : item)),
+      )
+    })
+  }, [])
 
   // 로그인 후 내 프로필은 viewer 캐시로 공유 (페이지 이동 시 목 사용자 깜빡임 방지)
   useEffect(() => {
@@ -106,7 +116,7 @@ export default function HomePage() {
       if (keyword) setPosts([])
       try {
         if (keyword) {
-          const result = await searchPosts(keyword)
+          const result = await searchPosts({ keyword })
           if (cancelled || generation !== feedGenerationRef.current) return
           setPosts(result.posts.map((post) => toFeedPost(post, profileRef.current)))
           searchCursorRef.current = result.nextCursor
@@ -170,7 +180,10 @@ export default function HomePage() {
     setFeedError('')
     try {
       if (searchKeywordRef.current) {
-        const result = await searchPosts(searchKeywordRef.current, searchCursorRef.current)
+        const result = await searchPosts({
+          keyword: searchKeywordRef.current,
+          cursor: searchCursorRef.current,
+        })
         if (generation !== feedGenerationRef.current) return
         const incoming = result.posts.map((post) => toFeedPost(post, profileRef.current))
         setPosts((current) => {

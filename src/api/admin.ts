@@ -130,6 +130,7 @@ function toAdminTheme(record: Record<string, unknown>): AdminTheme | null {
     description: asString(record.description),
     price: formatPrice(price),
     code: themeCode,
+    cssText: asString(record.cssText),
     image: resolveThemeThumbnailUrl(asString(record.thumbnailUrl) || null) ?? '',
     tone: toneFromThemeCode(themeCode),
     // ON_SALE = 활성화, HIDDEN = 비활성화
@@ -155,22 +156,32 @@ function thumbnailForRequest(image: string): string | null {
   return trimmed
 }
 
+/** 등록·수정 요청. themeCode는 css_text의 data-theme 과 맞춰야 한다. */
 function toThemeRequest(draft: ThemeDraft) {
   return {
     themeName: draft.name.trim(),
     description: draft.description.trim(),
     price: parsePrice(draft.price),
-    thumbnailUrl: thumbnailForRequest(draft.image),
+    // 새 파일이 있으면 BE가 S3 업로드 후 key 저장. JSON 쪽 thumbnailUrl 은 비운다.
+    thumbnailUrl: draft.imageFile ? null : thumbnailForRequest(draft.image),
     themeCode: draft.code.trim(),
+    cssText: draft.cssText.trim(),
   }
 }
 
-/** POST /api/v1/admin/themes */
+/** POST /api/v1/admin/themes — request(JSON) + themeImage(파일?) */
 export async function createAdminTheme(draft: ThemeDraft): Promise<void> {
+  const form = new FormData()
+  form.append(
+    'request',
+    new Blob([JSON.stringify(toThemeRequest(draft))], { type: 'application/json' }),
+  )
+  if (draft.imageFile && draft.imageFile.size > 0) {
+    form.append('themeImage', draft.imageFile, draft.imageFile.name || 'theme.png')
+  }
   await apiFetch('/admin/themes', {
     method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify(toThemeRequest(draft)),
+    body: form,
   })
 }
 

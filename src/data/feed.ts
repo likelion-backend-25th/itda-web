@@ -1,6 +1,24 @@
+import type { Location, NavigateFunction } from 'react-router'
+
 /** 공유·직접 진입용 게시글 상세 경로 */
 export function postPath(postId: string | number): string {
   return `/posts/${postId}`
+}
+
+/** 피드 위에 모달을 띄울 때 location.state 에 넣는 값 */
+export type PostModalState = {
+  backgroundLocation: Location
+}
+
+/** 현재 화면을 유지한 채 /posts/:id 로 이동해 상세 모달을 연다 */
+export function openPostDetail(
+  navigate: NavigateFunction,
+  location: Location,
+  postId: string | number,
+) {
+  navigate(postPath(postId), {
+    state: { backgroundLocation: location } satisfies PostModalState,
+  })
 }
 
 export type CategoryId =

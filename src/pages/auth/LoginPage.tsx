@@ -43,7 +43,7 @@ export default function LoginPage() {
     try {
       const tokens = await login({ email: id, password })
       applyAccessToken(tokens.accessToken, tokens.expiresIn)
-      navigate(hasAdminRole() ? '/admin/members' : redirectTo, { replace: true })
+      navigate(hasAdminRole() ? '/admin' : redirectTo, { replace: true })
     } catch (err: unknown) {
       const message = err instanceof Error ? err.message : '로그인에 실패했습니다.'
       setError(message)
@@ -63,7 +63,7 @@ export default function LoginPage() {
         <input
           type="email"
           name="email"
-          placeholder="email"
+          placeholder="이메일"
           autoComplete="email"
           value={email}
           onChange={(event) => setEmail(event.target.value)}
@@ -74,7 +74,7 @@ export default function LoginPage() {
         <input
           type={visible ? 'text' : 'password'}
           name="password"
-          placeholder="password"
+          placeholder="비밀번호"
           autoComplete="current-password"
           value={password}
           onChange={(event) => setPassword(event.target.value)}

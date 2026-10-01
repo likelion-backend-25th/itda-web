@@ -1,4 +1,5 @@
 import { useEffect, useSyncExternalStore } from 'react'
+import { DEFAULT_AVATAR } from '@/api/member'
 import type { FeedUser } from '@/data/feed'
 import { getLoggedIn, setLoggedIn, subscribeSession } from '@/data/session'
 import {
@@ -13,7 +14,7 @@ const guestUser: FeedUser = {
   name: '',
   handle: '',
   bio: '',
-  avatar: '',
+  avatar: DEFAULT_AVATAR,
 }
 
 /**

@@ -992,14 +992,14 @@ button.stat {
   z-index: 40;
   display: grid;
   place-items: center;
-  padding: 28px 16px;
+  padding: 16px;
   background: color-mix(in srgb, var(--bg) 55%, rgba(12, 18, 28, 0.72));
   backdrop-filter: blur(4px);
 }
 
 .detail-dialog {
-  width: min(760px, 100%);
-  max-height: min(860px, calc(100vh - 48px));
+  width: min(840px, 100%);
+  max-height: calc(100vh - 32px);
   overflow: auto;
   background: var(--surface);
   color: var(--text);
@@ -1067,9 +1067,10 @@ button.stat {
 }
 
 .detail-photos img {
+  display: block;
   width: 100%;
-  height: 228px;
-  object-fit: cover;
+  height: auto;
+  object-fit: contain;
   border-radius: 14px;
 }
 
@@ -1118,6 +1119,9 @@ button.stat {
 
 .detail-comments {
   margin-top: 22px;
+  /* 댓글 더보기(수정·삭제)가 상세 창과 스크롤바에 가리지 않게 여백을 둔다 */
+  margin-right: 16px;
+  padding-bottom: 84px;
   display: flex;
   flex-direction: column;
   gap: 18px;
@@ -1212,6 +1216,10 @@ a.comment-avatar {
   margin-left: auto;
 }
 
+.comment:has(.post-menu) {
+  margin-bottom: 72px;
+}
+
 .comment p {
   margin-top: 6px;
   color: var(--text);
@@ -1272,6 +1280,8 @@ a.comment-avatar {
   display: flex;
   flex-direction: column;
   min-height: calc(100vh - 190px);
+  /* 우측 하단 고정 고객센터에 마지막 글이 가리지 않게 */
+  padding-bottom: 88px;
 }
 
 .my-summary,
@@ -1888,7 +1898,7 @@ img.sub-photo {
 }
 
 .post-menu.in-comment {
-  top: 28px;
+  top: 32px;
   right: 0;
   left: auto;
 }
@@ -2387,6 +2397,12 @@ img.sub-photo {
   margin-top: 4px;
 }
 
+.profile-photo-clear {
+  background: transparent !important;
+  color: var(--muted) !important;
+  border: 1px solid var(--line);
+}
+
 .profile-row {
   display: grid;
   grid-template-columns: 56px minmax(0, 1fr);
@@ -2434,6 +2450,12 @@ img.sub-photo {
 
 .profile-save:disabled {
   opacity: 0.45;
+}
+
+.profile-save-error {
+  margin: 8px 0 0;
+  color: var(--danger, #c0392b);
+  font-size: 0.85rem;
 }
 
 .profile-edit-line {
@@ -3463,9 +3485,10 @@ img.sub-photo {
 }
 
 .support {
-  position: absolute;
-  left: calc(100% + 16px);
-  bottom: 12px;
+  position: fixed;
+  right: 24px;
+  bottom: 24px;
+  z-index: 30;
   display: flex;
   width: max-content;
   margin: 0;
@@ -3476,10 +3499,19 @@ img.sub-photo {
   display: flex;
   align-items: center;
   gap: 8px;
+  padding: 12px 16px;
+  border: 1px solid var(--line);
+  border-radius: 16px;
+  background: var(--surface);
+  box-shadow: var(--shadow);
   color: var(--text);
   font-weight: 800;
   font-size: 14px;
   text-decoration: none;
+}
+
+.support-fab:hover {
+  background: var(--search-bg);
 }
 
 .support-fab svg {
@@ -3823,11 +3855,8 @@ img.sub-photo {
   }
 
   .support {
-    position: static;
-    width: auto;
-    justify-content: flex-end;
-    margin-top: auto;
-    padding: 28px 8px 4px;
+    right: 16px;
+    bottom: 16px;
   }
 
   .my-post-body,
@@ -4043,13 +4072,135 @@ img.sub-photo {
   grid-template-columns: 0.7fr 1fr 1.5fr 1fr 0.7fr 0.9fr 0.9fr;
 }
 
-.admin-row.posts,
-.admin-row.reports {
+.admin-row.posts {
   grid-template-columns: 0.7fr 1fr 1.2fr 0.8fr 1fr auto;
 }
 
-.admin-row.reports {
-  grid-template-columns: 0.5fr 0.8fr 1.2fr 1.6fr 1fr auto;
+.admin-stats {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 12px;
+  margin-bottom: 16px;
+}
+
+.admin-stat {
+  display: grid;
+  grid-template-columns: auto 1fr;
+  grid-template-rows: auto auto auto;
+  column-gap: 12px;
+  align-items: center;
+  padding: 16px;
+  background: var(--surface);
+  border: 1px solid var(--line);
+  border-radius: 16px;
+  color: var(--text);
+  text-decoration: none;
+}
+
+.admin-stat:hover {
+  border-color: var(--blue);
+}
+
+.admin-stat-icon {
+  grid-row: 1 / span 3;
+  display: grid;
+  place-items: center;
+  width: 42px;
+  height: 42px;
+  border-radius: 12px;
+  background: var(--blue-soft);
+  color: var(--blue);
+}
+
+.admin-stat-icon svg {
+  width: 20px;
+  height: 20px;
+}
+
+.admin-stat small {
+  color: var(--text-soft);
+  font-size: 13px;
+  font-weight: 700;
+}
+
+.admin-stat strong {
+  font-size: 26px;
+  letter-spacing: -0.04em;
+  line-height: 1.2;
+}
+
+.admin-stat em {
+  color: #8b97a8;
+  font-size: 13px;
+  font-style: normal;
+  font-weight: 600;
+}
+
+.admin-panels {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 12px;
+}
+
+.admin-panel {
+  min-width: 0;
+  padding: 16px;
+  background: var(--surface);
+  border: 1px solid var(--line);
+  border-radius: 16px;
+}
+
+.admin-panel header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  margin-bottom: 10px;
+}
+
+.admin-panel h2 {
+  margin: 0;
+  font-size: 16px;
+  font-weight: 800;
+}
+
+.admin-panel header a {
+  color: var(--blue);
+  font-size: 13px;
+  font-weight: 800;
+  text-decoration: none;
+}
+
+.admin-panel ul {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.admin-panel li {
+  display: grid;
+  grid-template-columns: minmax(0, 1.1fr) minmax(0, 0.8fr) minmax(0, 0.9fr) auto;
+  gap: 8px;
+  align-items: center;
+  padding: 10px 0;
+  border-top: 1px solid var(--line);
+  font-size: 14px;
+}
+
+.admin-panel li strong,
+.admin-panel li span {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.admin-panel li time {
+  color: #8b97a8;
+  font-size: 13px;
+  white-space: nowrap;
 }
 
 .admin-row img {
@@ -4510,13 +4661,42 @@ img.sub-photo {
   font-weight: 800;
 }
 
-.theme-form-fields input {
-  height: 42px;
+.theme-form-fields input,
+.theme-form-fields textarea {
   padding: 0 12px;
   border: 1px solid #e3ebf3;
   border-radius: 10px;
   color: #243044;
   font-weight: 600;
+}
+
+.theme-form-fields input {
+  height: 42px;
+}
+
+.theme-form-fields input:read-only {
+  background: #f4f7fb;
+  color: #66758a;
+}
+
+.theme-form-hint {
+  margin: -4px 0 0 100px;
+  color: var(--muted);
+  font-size: 12px;
+  font-weight: 600;
+  line-height: 1.45;
+}
+
+.theme-form-fields textarea {
+  min-height: 120px;
+  padding: 10px 12px;
+  resize: vertical;
+  line-height: 1.5;
+  font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+}
+
+.theme-form-fields label:has(textarea) {
+  align-items: start;
 }
 
 .theme-form-error {
@@ -4605,8 +4785,10 @@ img.sub-photo {
   .admin-row.subscriptions,
   .admin-row.refunds,
   .admin-row.posts,
-  .admin-row.reports,
-  .admin-themes {
+  .admin-themes,
+  .admin-stats,
+  .admin-panels,
+  .admin-panel li {
     grid-template-columns: 1fr;
   }
 }

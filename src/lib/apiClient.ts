@@ -160,6 +160,10 @@ export async function apiFetch(path: string, options: ApiFetchOptions = {}): Pro
     return response
   } catch (error: unknown) {
     if (error instanceof ApiError) throw error
+    // 브라우저 TypeError("Failed to fetch") 등 네트워크 오류를 한국어로 통일
+    if (error instanceof TypeError || (error instanceof Error && /failed to fetch|networkerror|load failed/i.test(error.message))) {
+      throw new Error('서버에 연결하지 못했습니다. 네트워크 상태를 확인해 주세요.')
+    }
     const message = error instanceof Error ? error.message : '알 수 없는 오류'
     throw new Error(message)
   }

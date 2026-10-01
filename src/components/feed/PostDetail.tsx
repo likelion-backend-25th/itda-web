@@ -1,6 +1,7 @@
 import { useEffect, useId, useRef, useState, useSyncExternalStore, type FormEvent } from 'react'
 import { createPortal } from 'react-dom'
 import { Link } from 'react-router'
+import { DEFAULT_AVATAR } from '@/api/member'
 import type { FeedUser, Post } from '@/data/feed'
 import { profileHrefForMember } from '@/data/members'
 import { getViewerProfile, subscribeViewer } from '@/data/viewer'
@@ -38,6 +39,10 @@ export default function PostDetail({
   const suspended = useSyncExternalStore(subscribeViewer, getViewerProfile)?.status === 'SUSPENDED'
   const titleId = useId()
   const closeRef = useRef<HTMLButtonElement>(null)
+  const onCloseRef = useRef(onClose)
+  onCloseRef.current = onClose
+  // 글 카드 클릭 → 상세 진입 직후, 같은 포인터 이벤트가 백드롭/닫기에 먹으면 바로 홈으로 튕긴다
+  const ignoreCloseUntilRef = useRef(0)
   const [draft, setDraft] = useState('')
   const [savingComment, setSavingComment] = useState(false)
   const [commentError, setCommentError] = useState('')
@@ -46,12 +51,13 @@ export default function PostDetail({
   const [editDraft, setEditDraft] = useState('')
 
   useEffect(() => {
-    closeRef.current?.focus()
+    ignoreCloseUntilRef.current = Date.now() + 400
+    closeRef.current?.focus({ preventScroll: true })
     const previousOverflow = document.body.style.overflow
     document.body.style.overflow = 'hidden'
 
     function onKeyDown(event: KeyboardEvent) {
-      if (event.key === 'Escape') onClose()
+      if (event.key === 'Escape') onCloseRef.current()
     }
 
     window.addEventListener('keydown', onKeyDown)
@@ -59,7 +65,12 @@ export default function PostDetail({
       document.body.style.overflow = previousOverflow
       window.removeEventListener('keydown', onKeyDown)
     }
-  }, [onClose])
+  }, [])
+
+  function requestClose() {
+    if (Date.now() < ignoreCloseUntilRef.current) return
+    onCloseRef.current()
+  }
 
   useEffect(() => {
     setDraft('')
@@ -71,6 +82,14 @@ export default function PostDetail({
 
   useEffect(() => {
     if (!menuCommentId) return
+    const menu = document.querySelector('.post-menu.in-comment')
+    const dialog = menu?.closest('.detail-dialog')
+    if (menu instanceof HTMLElement && dialog instanceof HTMLElement) {
+      const menuBox = menu.getBoundingClientRect()
+      const dialogBox = dialog.getBoundingClientRect()
+      const overflowBottom = menuBox.bottom - (dialogBox.bottom - 16)
+      if (overflowBottom > 0) dialog.scrollTop += overflowBottom
+    }
     function closeMenu() {
       setMenuCommentId(null)
     }
@@ -129,7 +148,7 @@ export default function PostDetail({
   }
 
   return createPortal(
-    <div className="detail-backdrop" onClick={onClose}>
+    <div className="detail-backdrop" onClick={requestClose}>
       <div
         className="detail-dialog"
         role="dialog"
@@ -141,7 +160,7 @@ export default function PostDetail({
           <span className="detail-chip" id={titleId}>
             {post.categoryLabel}
           </span>
-          <button ref={closeRef} type="button" className="detail-close" aria-label="닫기" onClick={onClose}>
+          <button ref={closeRef} type="button" className="detail-close" aria-label="닫기" onClick={requestClose}>
             <CloseIcon />
           </button>
         </header>
@@ -216,7 +235,13 @@ export default function PostDetail({
 
         <section className="detail-comments" aria-label="댓글">
           <div className="composer">
-            <img src={user.avatar} alt="" />
+            <img
+              src={user.avatar || DEFAULT_AVATAR}
+              alt=""
+              onError={(event) => {
+                event.currentTarget.src = DEFAULT_AVATAR
+              }}
+            />
             <div>
               <strong>{user.name}</strong>
               {suspended ? (

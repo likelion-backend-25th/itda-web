@@ -3,6 +3,7 @@ import { useNavigate } from 'react-router'
 import { applyAccessToken, login, signup } from '@/api/auth'
 import AuthCard, { AuthSwitch } from '@/components/auth/AuthCard'
 import type { InterestId } from '@/components/profile/ProfileEditModal'
+import { INTEREST_CATEGORY_ID } from '@/data/interests'
 import {
   ChefHatIcon,
   EyeIcon,
@@ -17,20 +18,6 @@ import {
   RunIcon,
   UserIcon,
 } from '@/components/icons'
-
-/** UI 관심사 → 백엔드 interestCategoryIds */
-const INTEREST_CATEGORY_ID: Record<InterestId, number> = {
-  food: 8,
-  travel: 9,
-  workout: 10,
-  reading: 11,
-  music: 12,
-  cooking: 13,
-  craft: 14,
-  drawing: 15,
-  game: 16,
-  etc: 17,
-}
 
 const interests: { id: InterestId; label: string; Icon: ComponentType }[] = [
   { id: 'food', label: '맛집', Icon: ForkKnifeIcon },
@@ -136,7 +123,7 @@ export default function RegisterPage() {
             <input
               type="email"
               name="email"
-              placeholder="email"
+              placeholder="이메일"
               autoComplete="email"
               value={email}
               onChange={(event) => setEmail(event.target.value)}
@@ -147,7 +134,7 @@ export default function RegisterPage() {
             <input
               type={visible ? 'text' : 'password'}
               name="password"
-              placeholder="password"
+              placeholder="비밀번호"
               autoComplete="new-password"
               value={password}
               onChange={(event) => setPassword(event.target.value)}
@@ -166,7 +153,7 @@ export default function RegisterPage() {
             <input
               type="text"
               name="nickname"
-              placeholder="nickname"
+              placeholder="닉네임"
               autoComplete="nickname"
               value={nickname}
               onChange={(event) => setNickname(event.target.value)}
@@ -218,7 +205,7 @@ export default function RegisterPage() {
               </>
             )}
           </label>
-          <p className="profile-picker-note">미선택 시 기본 프로필 · 선택 시 서버가 S3에 저장합니다</p>
+          <p className="profile-picker-note">미선택 시 기본 프로필로 적용됩니다</p>
           {error && <p className="auth-error">{error}</p>}
           <button type="submit" className="auth-submit" disabled={loading}>
             {loading ? '가입 중…' : '회원가입'}

@@ -21,8 +21,11 @@ export type AdminPayment = {
   expiresOn: string
   payType: string
   paymentId: string
+  /** payment.payment_id */
+  servicePaymentId: string
   pgProvider: string
   impUid: string
+  /** payment.transaction_id */
   merchantUid: string
   amount: string
   payMethod: string
@@ -64,21 +67,17 @@ export type ThemeDraft = {
   description: string
   price: string
   code: string
+  cssText: string
+  /** 미리보기 URL (data URL 또는 서버 presigned URL) */
   image: string
+  /** 등록 시 S3 업로드할 원본 파일 */
+  imageFile?: File | null
 }
 
 export type AdminTheme = ThemeDraft & {
   id: string
   tone: ThemeTone
   active: boolean
-}
-
-export type AdminReport = {
-  id: string
-  nickname: string
-  email: string
-  content: string
-  createdAt: string
 }
 
 const avatars = [
@@ -126,15 +125,6 @@ const postSeeds = [
   ['1204', '푸른고양이', 'bluecat@gmail.com', '주말에 카페 다녀왔...', '2024-09-12 20:18'],
 ] as const
 
-const reportSeeds = [
-  ['1042', '하늘바다', 'skysea92@naver.com', '불쾌한 욕설이 포함된 게시글입니다.', '2024-11-03 14:27'],
-  ['1098', '달콤한라떼', 'latte_bean@daum.net', '상업적 광고 링크를 지속적으로 작성합니다.', '2024-11-05 09:13'],
-  ['1121', '푸른고래', 'bluewhale@gmail.com', '다른 회원을 대상으로 한 비방 댓글입니다.', '2024-11-08 21:45'],
-  ['1155', '사과좋아', 'applelover@naver.com', '도배성 게시물로 커뮤니티 운영에 지장을 줍니다.', '2024-11-10 11:02'],
-  ['1180', '겨울소년', 'winter1204@daum.net', '음란한 내용이 포함된 게시글입니다.', '2024-11-12 18:36'],
-  ['1204', '별빛여행', 'starlight@hanmail.net', '허위 정보로 다른 사용자를 혼란스럽게 합니다.', '2024-11-14 16:09'],
-] as const
-
 function pages<T, R>(seeds: readonly T[], map: (seed: T, index: number) => R): R[] {
   return Array.from({ length: 24 }, (_, index) => map(seeds[index % seeds.length], index))
 }
@@ -163,6 +153,7 @@ const initial = {
       expiresOn: seed[4],
       payType: seed[5],
       paymentId: String(1234 + index),
+      servicePaymentId: `imp_${202409010000 + index}`,
       pgProvider: providers[index % providers.length],
       impUid: `imp_${202409010000 + index}`,
       merchantUid: `merchant_${1234 + index}`,
@@ -240,13 +231,6 @@ const initial = {
       active: true,
     },
   ] as AdminTheme[],
-  reports: pages(reportSeeds, (seed, index) => ({
-    id: index < 6 ? seed[0] : String(Number(seed[0]) + index),
-    nickname: index < 6 ? seed[1] : `${seed[1]}${index + 1}`,
-    email: index < 6 ? seed[2] : seed[2].replace('@', `${index}@`),
-    content: seed[3],
-    createdAt: seed[4],
-  })),
 }
 
 let snapshot = initial
@@ -281,10 +265,6 @@ export function markRefunded(id: string) {
 
 export function removePost(id: string) {
   emit({ ...snapshot, posts: snapshot.posts.filter((item) => item.id !== id) })
-}
-
-export function removeReport(id: string) {
-  emit({ ...snapshot, reports: snapshot.reports.filter((item) => item.id !== id) })
 }
 
 export function setThemeActive(id: string, active: boolean) {

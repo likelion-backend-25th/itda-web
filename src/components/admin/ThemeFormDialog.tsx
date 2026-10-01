@@ -30,10 +30,12 @@ export function ThemeFormDialog({ mode, value, onChange, onClose, onSubmit, erro
     const file = event.target.files?.[0]
     event.target.value = ''
     if (!file) return
-    // 고른 사진을 미리보기와 사진 칸에 바로 넣는다.
+    // 미리보기는 data URL, 등록 시에는 imageFile 을 multipart 로 보낸다.
     const reader = new FileReader()
     reader.onload = () => {
-      if (typeof reader.result === 'string') onChange({ ...value, image: reader.result })
+      if (typeof reader.result === 'string') {
+        onChange({ ...value, image: reader.result, imageFile: file })
+      }
     }
     reader.readAsDataURL(file)
   }
@@ -41,17 +43,24 @@ export function ThemeFormDialog({ mode, value, onChange, onClose, onSubmit, erro
   function submit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault()
     if (value.name.trim().length === 0) return
+    if (mode === 'add' && value.code.trim().length === 0) return
+    if (value.cssText.trim().length === 0) return
     onSubmit()
   }
 
-  function setField(key: keyof ThemeDraft, next: string) {
+  function setField(key: Exclude<keyof ThemeDraft, 'imageFile'>, next: string) {
     onChange({ ...value, [key]: next })
   }
+
+  const canSubmit =
+    value.name.trim().length > 0 &&
+    value.cssText.trim().length > 0 &&
+    (mode === 'edit' || value.code.trim().length > 0)
 
   return (
     <div className="detail-backdrop" onClick={onClose}>
       <form className="theme-form" onSubmit={submit} onClick={(event) => event.stopPropagation()}>
-        <h2>테마 상세 등록</h2>
+        <h2>{mode === 'edit' ? '테마 상세 수정' : '테마 상세 등록'}</h2>
         <button type="button" className="detail-close" aria-label="닫기" onClick={onClose}>
           <CloseIcon />
         </button>
@@ -115,8 +124,22 @@ export function ThemeFormDialog({ mode, value, onChange, onClose, onSubmit, erro
             테마 코드
             <input
               value={value.code}
-              placeholder="사용 중이지 않은 코드"
+              placeholder="예: SPRING"
+              readOnly={mode === 'edit'}
+              aria-describedby="theme-code-hint"
               onChange={(event) => setField('code', event.target.value)}
+            />
+          </label>
+          <p id="theme-code-hint" className="theme-form-hint">
+            css_text의 data-theme 과 같아야 합니다. (SPRING → data-theme=&apos;spring&apos;)
+            {mode === 'edit' ? ' 수정 시 코드는 변경할 수 없습니다.' : ''}
+          </p>
+          <label>
+            css_text
+            <textarea
+              value={value.cssText}
+              placeholder={":root[data-theme='spring']{ --bg:#ffe8f0; ... }"}
+              onChange={(event) => setField('cssText', event.target.value)}
             />
           </label>
         </div>
@@ -126,10 +149,7 @@ export function ThemeFormDialog({ mode, value, onChange, onClose, onSubmit, erro
           </p>
         )}
         <div className="theme-form-submit">
-          <button
-            type="submit"
-            disabled={value.name.trim().length === 0 || value.code.trim().length === 0}
-          >
+          <button type="submit" disabled={!canSubmit}>
             {mode === 'edit' ? '수정' : '등록'}
           </button>
         </div>

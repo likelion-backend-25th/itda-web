@@ -82,7 +82,7 @@ export default function SupportPage() {
   async function requestRefund(payment: MyPaymentResponse) {
     if (refundingId != null || isRefundClosed(payment) || !payment.refundAvailable) return
     if (payment.paymentId === '') {
-      setError('환불에 필요한 payment_id가 없습니다.')
+      setError('환불에 필요한 결제 정보가 없습니다.')
       return
     }
     setRefundingId(payment.paymentId)

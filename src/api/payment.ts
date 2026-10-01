@@ -87,7 +87,7 @@ export function requestPaymentRefund(
   reason = '사용자 요청',
 ): Promise<PaymentRefundResponse> {
   if (paymentId.trim() === '' || /^\d+$/.test(paymentId.trim())) {
-    throw new Error('환불은 payment_id로 요청해야 합니다.')
+    throw new Error('환불할 결제 정보가 올바르지 않습니다.')
   }
   return apiJson<PaymentRefundResponse>(`/payments/refund/${encodeURIComponent(paymentId.trim())}`, {
     method: 'POST',
@@ -106,7 +106,12 @@ export async function refundSubscriptionByTarget(targetId: number): Promise<Paym
       item.paymentId !== '',
   )
   if (!payment) {
-    throw new Error('환불할 구독 결제의 payment_id를 찾지 못했습니다.')
+    throw new Error('환불할 구독 결제를 찾지 못했습니다.')
   }
   return requestPaymentRefund(payment.paymentId, '구독 해제')
+}
+
+/** 구독 해지는 결제 환불로만 한다. 환불이 구독 행까지 지운다. */
+export async function unsubscribeAndRefund(targetId: number): Promise<void> {
+  await refundSubscriptionByTarget(targetId)
 }

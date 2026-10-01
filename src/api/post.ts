@@ -139,19 +139,28 @@ export type PostSearchPage = {
   hasNext: boolean
 }
 
+export type PostSearchQuery = {
+  keyword?: string
+  /** 이 회원들이 쓴 글만. 프로필 탭에서 한 명을 넘긴다. */
+  targetMemberIds?: number[]
+  cursor?: number | null
+  size?: number
+}
+
 /**
  * GET /posts/search. 응답은 목록만 오고, 길이가 size 이면 다음 커서가 있다.
  * cursor 는 마지막 글 id 보다 작은 글을 이어서 받는다.
+ * 로그인하지 않으면 공개 글만, 구독 중이면 그 회원의 구독자 전용 글도 포함된다.
  */
-export async function searchPosts(
-  keyword: string,
-  cursor?: number | null,
-  size = SEARCH_PAGE_SIZE,
-): Promise<PostSearchPage> {
+export async function searchPosts(query: PostSearchQuery = {}): Promise<PostSearchPage> {
   const params = new URLSearchParams()
-  const trimmed = keyword.trim()
+  const trimmed = query.keyword?.trim() ?? ''
   if (trimmed) params.set('keyword', trimmed)
-  if (cursor != null) params.set('cursor', String(cursor))
+  for (const id of query.targetMemberIds ?? []) {
+    params.append('targetMemberIds', String(id))
+  }
+  if (query.cursor != null) params.set('cursor', String(query.cursor))
+  const size = query.size ?? SEARCH_PAGE_SIZE
   params.set('size', String(size))
   const raw = await apiJson<PostResponse[]>(`/posts/search?${params}`)
   const posts = Array.isArray(raw) ? raw : []
@@ -189,9 +198,31 @@ export async function createPost({ request, image }: CreatePostPayload): Promise
   })
 }
 
+/** StrictMode 중복 호출·리마운트에도 GET은 한 번만 (조회수 +2 방지) */
+const postByIdInflight = new Map<number, Promise<PostResponse>>()
+const postByIdRecent = new Map<number, { at: number; data: PostResponse }>()
+const POST_BY_ID_RECENT_MS = 2000
+
 /** 게시글 단건. 상세를 열 때 최신 조회수·본문을 다시 받는다. */
 export function fetchPostById(id: number): Promise<PostResponse> {
-  return apiJson<PostResponse>(`/posts/${id}`)
+  const recent = postByIdRecent.get(id)
+  if (recent && Date.now() - recent.at < POST_BY_ID_RECENT_MS) {
+    return Promise.resolve(recent.data)
+  }
+
+  const existing = postByIdInflight.get(id)
+  if (existing) return existing
+
+  const request = apiJson<PostResponse>(`/posts/${id}`)
+    .then((data) => {
+      postByIdRecent.set(id, { at: Date.now(), data })
+      return data
+    })
+    .finally(() => {
+      postByIdInflight.delete(id)
+    })
+  postByIdInflight.set(id, request)
+  return request
 }
 
 /** 게시글 삭제. 성공 응답에는 본문이 없다. */

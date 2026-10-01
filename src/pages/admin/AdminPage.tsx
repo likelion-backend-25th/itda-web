@@ -3,23 +3,23 @@ import { Navigate, NavLink, useNavigate, useParams } from 'react-router'
 import { ThemeFormDialog } from '@/components/admin/ThemeFormDialog'
 import ThemeShot from '@/components/theme/ThemeShot'
 import {
-  AlertIcon,
   CardIcon,
   CloseIcon,
   CommentIcon,
   DocIcon,
+  GridIcon,
   LogoutIcon,
   PaletteIcon,
   RefreshIcon,
   SearchIcon,
   UsersIcon,
 } from '@/components/icons'
+import AdminDashboard from '@/pages/admin/AdminDashboard'
 import {
   adminPageSize,
   type AdminMember,
   type AdminPayment,
   type AdminPost,
-  type AdminReport,
   type AdminSubscription,
   type AdminTheme,
   type ThemeDraft,
@@ -49,7 +49,6 @@ const sections = [
   { id: 'subscriptions', label: '구독 관리', icon: DocIcon },
   { id: 'posts', label: '게시글/댓글 관리', icon: CommentIcon },
   { id: 'themes', label: '테마 관리', icon: PaletteIcon },
-  { id: 'reports', label: '신고 관리', icon: AlertIcon },
 ] as const
 
 type SectionId = (typeof sections)[number]['id']
@@ -87,12 +86,6 @@ const searchFields: Record<SectionId, { value: string; label: string }[]> = {
     { value: 'content', label: '내용' },
   ],
   themes: [{ value: 'name', label: '테마 이름' }],
-  reports: [
-    { value: 'id', label: 'id' },
-    { value: 'nickname', label: '닉네임' },
-    { value: 'email', label: '이메일' },
-    { value: 'content', label: '신고 내용' },
-  ],
 }
 
 function filterRows<T extends object>(rows: T[], field: string, keyword: string) {
@@ -120,7 +113,9 @@ const newTheme: ThemeDraft = {
   description: '따뜻한 봄 분위기의 테마입니다.',
   price: '3,900',
   code: '',
+  cssText: '',
   image: '',
+  imageFile: null,
 }
 
 function themeDraft(theme: AdminTheme): ThemeDraft {
@@ -129,7 +124,9 @@ function themeDraft(theme: AdminTheme): ThemeDraft {
     description: theme.description,
     price: theme.price,
     code: theme.code,
+    cssText: theme.cssText ?? '',
     image: theme.image,
+    imageFile: null,
   }
 }
 
@@ -145,7 +142,7 @@ export default function AdminPage() {
 
   if (!loggedIn) return <Navigate to="/login" replace />
   if (!admin) return <Navigate to="/" replace />
-  if (!isSection(section)) return <Navigate to="/admin/members" replace />
+  if (section && !isSection(section)) return <Navigate to="/admin" replace />
 
   return (
     <div className="admin-page">
@@ -162,6 +159,10 @@ export default function AdminPage() {
           로그아웃
         </button>
         <nav className="admin-nav" aria-label="관리자 메뉴">
+          <NavLink to="/admin" end className={({ isActive }) => (isActive ? 'admin-nav-item on' : 'admin-nav-item')}>
+            <GridIcon />
+            대시보드
+          </NavLink>
           {sections.map((item) => {
             const Icon = item.icon
             return (
@@ -177,7 +178,7 @@ export default function AdminPage() {
           })}
         </nav>
       </aside>
-      <AdminBoard section={section} />
+      {section ? <AdminBoard section={section} /> : <AdminDashboard />}
     </div>
   )
 }
@@ -289,7 +290,6 @@ function AdminBoard({ section }: { section: SectionId }) {
   const refundPage = slicePage(filterRows(apiRefunds, field, keyword), page)
   const postPage = slicePage(filterRows(apiPosts, field, keyword), page)
   const themePage = slicePage(filterRows(apiThemes, field, keyword), page)
-  const reportPage = slicePage(filterRows([] as AdminReport[], field, keyword), page)
   const active =
     section === 'members'
       ? memberPage
@@ -301,9 +301,7 @@ function AdminBoard({ section }: { section: SectionId }) {
             ? refundPage
             : section === 'posts'
               ? postPage
-              : section === 'themes'
-                ? themePage
-                : reportPage
+              : themePage
 
   async function acceptRefund(item: AdminPayment) {
     if (refundingId != null) return
@@ -386,8 +384,17 @@ function AdminBoard({ section }: { section: SectionId }) {
 
   async function saveTheme() {
     const name = themeForm.name.trim()
+    const code = themeForm.code.trim()
     if (!name) return
-    const next = { ...themeForm, name }
+    if (!editing && !code) {
+      setBoardError('테마 코드를 입력해 주세요.')
+      return
+    }
+    if (!themeForm.cssText.trim()) {
+      setBoardError('css_text를 입력해 주세요.')
+      return
+    }
+    const next = { ...themeForm, name, code }
     setBoardError(null)
     try {
       if (editing) {
@@ -429,9 +436,6 @@ function AdminBoard({ section }: { section: SectionId }) {
         </button>
       </form>
 
-      {section === 'reports' && (
-        <p className="admin-note">신고 관리 API가 준비되면 이 목록에 표시됩니다.</p>
-      )}
       {(section === 'payments' || section === 'refunds') && payError && active.visible.length > 0 && (
         <p className="admin-note" role="alert">
           {payError}
@@ -467,7 +471,7 @@ function AdminBoard({ section }: { section: SectionId }) {
         <div className="admin-themes">
           {themePage.visible.map((theme) => (
             <article key={theme.id} className={theme.active ? 'admin-theme' : 'admin-theme off'}>
-              <ThemeShot tone={theme.tone} />
+              <ThemeShot tone={theme.tone} thumbnailUrl={theme.image || null} />
               <strong>{theme.name}</strong>
               <div>
                 <button
@@ -600,16 +604,6 @@ function AdminBoard({ section }: { section: SectionId }) {
                 </button>
               </article>
             ))}
-          {section === 'reports' &&
-            reportPage.visible.map((item) => (
-              <article key={item.id} className="admin-row reports">
-                <Cell label="id" value={item.id} />
-                <Cell label="닉네임" value={item.nickname} />
-                <Cell label="이메일" value={item.email} />
-                <Cell label="신고 내용" value={item.content} />
-                <Cell label="작성일시" value={item.createdAt} />
-              </article>
-            ))}
         </div>
       )}
 
@@ -630,7 +624,7 @@ function AdminBoard({ section }: { section: SectionId }) {
             <div className="pay-detail-ids">
               <p>
                 <small>결제 번호</small>
-                <strong>payment_id: {payment.paymentId}</strong>
+                <strong>{payment.paymentId}</strong>
               </p>
               <p>
                 <small>PG_provider</small>
@@ -638,11 +632,11 @@ function AdminBoard({ section }: { section: SectionId }) {
               </p>
             </div>
             <label>
-              imp_uid
-              <input readOnly value={payment.impUid} />
+              payment id
+              <input readOnly value={payment.servicePaymentId} />
             </label>
             <label>
-              merchant_uid
+              transaction id
               <input readOnly value={payment.merchantUid} />
             </label>
             <label>

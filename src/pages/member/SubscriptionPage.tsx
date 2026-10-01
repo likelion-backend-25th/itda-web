@@ -1,8 +1,8 @@
 ﻿import { useEffect, useMemo, useState, useSyncExternalStore } from 'react'
 import { Link, Navigate, useNavigate, useParams } from 'react-router'
-import { DEFAULT_AVATAR, resolveMemberImageUrl } from '@/api/member'
-import { refundSubscriptionByTarget } from '@/api/payment'
-import { cancelSubscription, fetchMonthlyIncome, fetchMySubscriptions, fetchSubscriberCount } from '@/api/subscription'
+import { DEFAULT_AVATAR, fetchMyProfile, resolveMemberImageUrl, updateMyProfile, updateMyInterests } from '@/api/member'
+import { unsubscribeAndRefund } from '@/api/payment'
+import { fetchMonthlyIncome, fetchMySubscriptions, fetchSubscriberCount } from '@/api/subscription'
 import UnsubscribeRefundDialog from '@/components/payment/UnsubscribeRefundDialog'
 import CategoryFeed from '@/components/feed/CategoryFeed'
 import Header from '@/components/layout/Header'
@@ -14,11 +14,12 @@ import { GearIcon } from '@/components/icons'
 import { myPageCategories, type CategoryId } from '@/data/feed'
 import { getLoggedIn, subscribeSession } from '@/data/session'
 import { members } from '@/data/members'
-import { ensureViewerLoaded, getViewerProfile, refreshViewerProfile, subscribeViewer } from '@/data/viewer'
+import { ensureViewerLoaded, getViewerProfile, refreshViewerProfile, setViewerProfile, subscribeViewer } from '@/data/viewer'
 import { useFollow } from '@/hooks/member/useFollow'
 import { useMyFollows } from '@/hooks/member/useMyFollows'
 import { useViewerUser } from '@/hooks/member/useViewerUser'
 import { usePublishPost } from '@/hooks/post/usePublishPost'
+import { categoryIdsFromInterestIds, interestIdsFromCategoryIds } from '@/data/interests'
 import type { MySubscriptionResponse } from '@/types/subscription'
 
 type SubscriptionTab = 'users' | 'manage'
@@ -57,13 +58,14 @@ export default function SubscriptionPage() {
     name: '',
     bio: '',
     avatar: DEFAULT_AVATAR,
-    interests: ['food', 'travel'],
+    interests: [],
   })
   const [subscriptions, setSubscriptions] = useState<MySubscriptionResponse[]>([])
   const [subscriptionsLoading, setSubscriptionsLoading] = useState(false)
   const [subscriptionsError, setSubscriptionsError] = useState<string | null>(null)
   const [cancelingId, setCancelingId] = useState<number | null>(null)
   const [pendingCancel, setPendingCancel] = useState<MySubscriptionResponse | null>(null)
+  const [refundDone, setRefundDone] = useState(false)
   const [subscriberCount, setSubscriberCount] = useState<number | null>(null)
   const [subscriberCountError, setSubscriberCountError] = useState<string | null>(null)
   const [monthlyIncome, setMonthlyIncome] = useState<number | null>(null)
@@ -85,7 +87,7 @@ export default function SubscriptionPage() {
       name: me.nickname || viewer.name,
       bio: me.introduction?.trim() || viewer.bio,
       avatar: resolveMemberImageUrl(me.profileImage) || viewer.avatar || DEFAULT_AVATAR,
-      interests: ['food', 'travel'],
+      interests: interestIdsFromCategoryIds(me.interestCategoryIds),
     })
   }, [me, viewer.avatar, viewer.bio, viewer.name])
 
@@ -181,10 +183,9 @@ export default function SubscriptionPage() {
     setCancelingId(pendingCancel.subscriptionId)
     setSubscriptionsError(null)
     try {
-      await refundSubscriptionByTarget(pendingCancel.targetId)
-      await cancelSubscription(pendingCancel.targetId)
+      await unsubscribeAndRefund(pendingCancel.targetId)
       setSubscriptions((current) => current.filter((row) => row.subscriptionId !== pendingCancel.subscriptionId))
-      setPendingCancel(null)
+      setRefundDone(true)
     } catch (error: unknown) {
       const message = error instanceof Error ? error.message : '구독 해제에 실패했습니다.'
       setSubscriptionsError(message)
@@ -388,7 +389,7 @@ export default function SubscriptionPage() {
                         disabled={cancelingId === item.subscriptionId}
                         onClick={() => setPendingCancel(item)}
                       >
-                        구독해제
+                        구독 취소
                       </button>
                     </article>
                   )
@@ -435,10 +436,14 @@ export default function SubscriptionPage() {
           name={pendingCancel.nickname}
           busy={cancelingId === pendingCancel.subscriptionId}
           error={subscriptionsError ?? ''}
+          done={refundDone}
           onClose={() => {
             if (cancelingId != null) return
+            const targetId = pendingCancel.targetId
             setPendingCancel(null)
+            setRefundDone(false)
             setSubscriptionsError(null)
+            if (refundDone) navigate(`/member/${targetId}`)
           }}
           onConfirm={() => {
             void confirmUnsubscribe()
@@ -449,8 +454,31 @@ export default function SubscriptionPage() {
         <ProfileEditModal
           profile={profile}
           onClose={() => setSettingsOpen(false)}
-          onSaveProfile={(next) => setProfile((current) => ({ ...current, ...next }))}
-          onSaveInterests={(interests) => setProfile((current) => ({ ...current, interests }))}
+          onSaveProfile={async (next) => {
+            await updateMyProfile({
+              nickname: next.name,
+              introduction: next.bio,
+              profileImage: next.avatarFile,
+              removeProfileImage: next.removeAvatar,
+            })
+            const me = await fetchMyProfile()
+            setViewerProfile(me)
+            setProfile((current) => ({
+              ...current,
+              name: me.nickname || next.name,
+              bio: me.introduction?.trim() || next.bio,
+              avatar: resolveMemberImageUrl(me.profileImage) || DEFAULT_AVATAR,
+            }))
+          }}
+          onSaveInterests={async (interests) => {
+            await updateMyInterests(categoryIdsFromInterestIds(interests))
+            const me = await fetchMyProfile()
+            setViewerProfile(me)
+            setProfile((current) => ({
+              ...current,
+              interests: interestIdsFromCategoryIds(me.interestCategoryIds),
+            }))
+          }}
         />
       )}
     </div>

@@ -1,16 +1,19 @@
 import { useEffect, useState, useSyncExternalStore } from 'react'
 import { Link, useNavigate, useParams } from 'react-router'
 import { DEFAULT_AVATAR, fetchMemberProfile, resolveMemberImageUrl, toFeedUser } from '@/api/member'
+import { preparePayment, unsubscribeAndRefund } from '@/api/payment'
+import { fetchSubscriptionStatus } from '@/api/subscription'
 import Header from '@/components/layout/Header'
 import PayMethodPicker from '@/components/payment/PayMethodPicker'
 import PaymentCompleteDialog from '@/components/payment/PaymentCompleteDialog'
+import UnsubscribeRefundDialog from '@/components/payment/UnsubscribeRefundDialog'
 import Sidebar from '@/components/layout/Sidebar'
 import WritePostModal, { type PostDraft } from '@/components/feed/WritePostModal'
 import { myPageCategories, type CategoryId } from '@/data/feed'
 import { memberById, type MemberProfile } from '@/data/members'
 import { getSubscribedIds, setSubscribed, subscribeMemberships } from '@/data/subscriptions'
 import { usePortOneCheckout } from '@/hooks/payment/usePortOneCheckout'
-import type { PayMethod } from '@/types/payment'
+import type { PayMethod, PaymentPrepareResponse } from '@/types/payment'
 import { useViewerUser } from '@/hooks/member/useViewerUser'
 import { usePublishPost } from '@/hooks/post/usePublishPost'
 
@@ -49,8 +52,16 @@ export default function PayPage() {
   const [writing, setWriting] = useState(false)
   const [payMethod, setPayMethod] = useState<PayMethod>('KAKAOPAY')
   const subscribedIds = useSyncExternalStore(subscribeMemberships, getSubscribedIds)
-  const { startCheckout, busy, phase, error, receipt, reset } = usePortOneCheckout()
-  const paid = member ? subscribedIds.has(member.id) : false
+  const { payPrepared, busy, phase, error, receipt, reset } = usePortOneCheckout()
+  const [quote, setQuote] = useState<PaymentPrepareResponse | null>(null)
+  const [quoteLoading, setQuoteLoading] = useState(false)
+  const [quoteError, setQuoteError] = useState('')
+  const [serverSubscribed, setServerSubscribed] = useState(false)
+  const [unsubscribeOpen, setUnsubscribeOpen] = useState(false)
+  const [refundDone, setRefundDone] = useState(false)
+  const [cancelError, setCancelError] = useState('')
+  const [cancelBusy, setCancelBusy] = useState(false)
+  const paid = member ? subscribedIds.has(member.id) || serverSubscribed : false
 
   useEffect(() => {
     reset()
@@ -60,7 +71,66 @@ export default function PayPage() {
   useEffect(() => {
     if (!receipt || !member) return
     setSubscribed(member.id, true)
+    setServerSubscribed(true)
   }, [receipt, member])
+
+  // 구독 버튼으로 들어온 결제 화면에서 prepare 금액·채널을 받는다
+  useEffect(() => {
+    if (!member || paid) {
+      setQuote(null)
+      setQuoteError('')
+      setQuoteLoading(false)
+      return
+    }
+
+    let cancelled = false
+    setQuote(null)
+    setQuoteLoading(true)
+    setQuoteError('')
+
+    async function loadQuote() {
+      try {
+        const prepared = await preparePayment({
+          paymentType: 'SUBSCRIPTION',
+          targetId: member!.backendId,
+          payMethod,
+        })
+        if (!cancelled) setQuote(prepared)
+      } catch (caught: unknown) {
+        if (!cancelled) {
+          setQuote(null)
+          setQuoteError(caught instanceof Error ? caught.message : '구독 금액을 불러오지 못했습니다.')
+        }
+      } finally {
+        if (!cancelled) setQuoteLoading(false)
+      }
+    }
+
+    void loadQuote()
+    return () => {
+      cancelled = true
+    }
+  }, [member, paid, payMethod])
+
+  useEffect(() => {
+    if (numericId == null) {
+      setServerSubscribed(false)
+      return
+    }
+    let cancelled = false
+    async function loadStatus() {
+      try {
+        const status = await fetchSubscriptionStatus(numericId!)
+        if (!cancelled) setServerSubscribed(status.subscribed)
+      } catch {
+        if (!cancelled) setServerSubscribed(false)
+      }
+    }
+    void loadStatus()
+    return () => {
+      cancelled = true
+    }
+  }, [numericId])
 
   // 숫자 경로면 GET /members/{id} 로 결제 대상 프로필을 받는다
   useEffect(() => {
@@ -133,9 +203,21 @@ export default function PayPage() {
                 <p>결제할 프로필을 찾을 수 없습니다.</p>
               ) : paid ? (
                 <>
-                  <h2>결제가 완료되었습니다</h2>
-                  <p>{member.name} 님 구독이 시작되었습니다.</p>
-                  <Link to={`/member/${member.id}`} className="pay-submit">
+                  <img src={member.avatar} alt="" />
+                  <h2>{member.name} 님을 구독 중입니다</h2>
+                  <button
+                    type="button"
+                    className="pay-submit"
+                    disabled={cancelBusy}
+                    onClick={() => {
+                      setRefundDone(false)
+                      setCancelError('')
+                      setUnsubscribeOpen(true)
+                    }}
+                  >
+                    구독 취소
+                  </button>
+                  <Link to={`/member/${member.id}`} className="pay-back">
                     프로필로 돌아가기
                   </Link>
                 </>
@@ -144,18 +226,24 @@ export default function PayPage() {
                   <img src={member.avatar} alt="" />
                   <h2>{member.name} 님 구독</h2>
                   <p>구독자 전용 글을 보려면 결제가 필요합니다.</p>
-                  <PayMethodPicker value={payMethod} disabled={busy} onChange={setPayMethod} />
+                  {quoteLoading ? (
+                    <p>구독 금액을 불러오는 중…</p>
+                  ) : quote ? (
+                    <strong className="pay-done-amount">{quote.amount.toLocaleString('ko-KR')}원</strong>
+                  ) : null}
+                  {quoteError && (
+                    <p className="pay-error" role="alert">
+                      {quoteError}
+                    </p>
+                  )}
+                  <PayMethodPicker value={payMethod} disabled={busy || quoteLoading} onChange={setPayMethod} />
                   <button
                     type="button"
                     className="pay-submit"
-                    disabled={busy}
+                    disabled={busy || quoteLoading || quote == null}
                     onClick={() => {
-                      void startCheckout({
-                        paymentType: 'SUBSCRIPTION',
-                        targetId: member.backendId,
-                        orderName: `${member.name} 님 구독`,
-                        payMethod,
-                      })
+                      if (!quote) return
+                      void payPrepared(quote, `${member.name} 님 구독`)
                     }}
                   >
                     {busy ? (phase === 'confirm' ? '결제 확인 중…' : '결제창 여는 중…') : '결제하기'}
@@ -174,6 +262,37 @@ export default function PayPage() {
           </main>
         </div>
       </div>
+      {unsubscribeOpen && member && (
+        <UnsubscribeRefundDialog
+          name={member.name}
+          busy={cancelBusy}
+          error={cancelError}
+          done={refundDone}
+          onClose={() => {
+            if (cancelBusy) return
+            setUnsubscribeOpen(false)
+            setCancelError('')
+            if (refundDone) navigate(`/member/${member.id}`)
+            setRefundDone(false)
+          }}
+          onConfirm={() => {
+            void (async () => {
+              setCancelBusy(true)
+              setCancelError('')
+              try {
+                await unsubscribeAndRefund(member.backendId)
+                setSubscribed(member.id, false)
+                setServerSubscribed(false)
+                setRefundDone(true)
+              } catch (caught: unknown) {
+                setCancelError(caught instanceof Error ? caught.message : '구독 취소에 실패했습니다.')
+              } finally {
+                setCancelBusy(false)
+              }
+            })()
+          }}
+        />
+      )}
       {receipt && (
         <PaymentCompleteDialog
           orderName={receipt.orderName}

@@ -12,6 +12,7 @@ export type ThemeTone =
   | 'hidden'
   | 'watermelon'
   | 'skiper'
+  | 'spring'
 
 /** 서버 썸네일이 없을 때 / themeCode 매핑용 미리보기 */
 const previewImages: Record<ThemeTone, string> = {
@@ -26,6 +27,7 @@ const previewImages: Record<ThemeTone, string> = {
   hidden: '/images/themes/hidden.png',
   watermelon: '/images/themes/default.png',
   skiper: '/images/themes/default.png',
+  spring: '/images/themes/default.png',
 }
 
 const tones: ThemeTone[] = [
@@ -40,6 +42,7 @@ const tones: ThemeTone[] = [
   'hidden',
   'watermelon',
   'skiper',
+  'spring',
 ]
 
 const referenceTones = new Set<ThemeTone>(['watermelon', 'skiper'])
@@ -51,6 +54,7 @@ export function toneFromThemeCode(themeCode: string): ThemeTone {
   if (lower === 'cream' || lower === 'cotton') return 'cream'
   if (lower === 'sky' || lower === 'skylight') return 'sky'
   if (lower === 'hidden' || lower === 'hide') return 'hidden'
+  if (lower === 'spring' || lower === 'bom' || lower === 'springday') return 'spring'
   if ((tones as string[]).includes(lower)) return lower as ThemeTone
   let hash = 0
   for (let i = 0; i < lower.length; i += 1) {
