@@ -1,5 +1,5 @@
 import { apiFetch, apiJson } from '@/lib/apiClient'
-import type { AdminPayment } from '@/data/admin'
+import type { AdminPayment, AdminRefund } from '@/data/admin'
 
 type AdminPaymentBody = {
   paymentId: number
@@ -106,12 +106,33 @@ export async function fetchAdminPayments(): Promise<AdminPayment[]> {
   return normalizeList(raw).map(toPayment)
 }
 
-/** GET /api/v1/admin/payments/refunds — 환불 완료(PS04)만, 결제 목록과 같은 칸 */
-export async function fetchAdminRefunds(): Promise<AdminPayment[]> {
+function toRefund(record: Record<string, unknown>): AdminRefund | null {
+  const id = asNumber(record.id)
+  const paymentId = asNumber(record.paymentId)
+  if (id == null || paymentId == null) return null
+  const refundAmount = asNumber(record.refundAmount)
+  const deductionAmount = asNumber(record.deductionAmount)
+  return {
+    id: String(id),
+    paymentId: String(paymentId),
+    cancellationId: asString(record.cancellationId) || '—',
+    refundReason: asString(record.refundReason) || '—',
+    refundAmount: String(refundAmount ?? 0),
+    deductionAmount: String(deductionAmount ?? 0),
+    requestedOn: formatDay(asString(record.requestedAt)) || '—',
+    refundedOn: formatDay(asString(record.refundedAt)) || '—',
+  }
+}
+
+/** GET /api/v1/admin/payments/refunds — payment_refund 목록 */
+export async function fetchAdminRefunds(): Promise<AdminRefund[]> {
   const raw = await apiJson<unknown>('/admin/payments/refunds')
-  return normalizeList(raw)
-    .map(toPayment)
-    .filter((item) => item.status.includes('환불 완료'))
+  if (!Array.isArray(raw)) return []
+  return raw.flatMap((item) => {
+    if (typeof item !== 'object' || item === null) return []
+    const row = toRefund(item as Record<string, unknown>)
+    return row ? [row] : []
+  })
 }
 
 /** PATCH /api/v1/admin/payments/{paymentId}/refund */
