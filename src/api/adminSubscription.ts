@@ -44,9 +44,15 @@ function toSubscription(item: Record<string, unknown>): AdminSubscription | null
 export async function fetchAdminSubscriptions(): Promise<AdminSubscription[]> {
   const raw = await apiJson<unknown>('/admin/subscriptions')
   if (!Array.isArray(raw)) return []
-  return raw.flatMap((item) => {
-    if (typeof item !== 'object' || item === null) return []
-    const row = toSubscription(item as Record<string, unknown>)
-    return row ? [row] : []
-  })
+  return raw
+    .flatMap((item) => {
+      if (typeof item !== 'object' || item === null) return []
+      const row = toSubscription(item as Record<string, unknown>)
+      return row ? [row] : []
+    })
+    .sort((left, right) => {
+      const byStart = right.startedOn.localeCompare(left.startedOn)
+      if (byStart !== 0) return byStart
+      return Number(right.subscriptionId) - Number(left.subscriptionId)
+    })
 }
