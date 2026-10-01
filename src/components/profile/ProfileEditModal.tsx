@@ -1,10 +1,6 @@
-import { useEffect, useId, useRef, useState, useSyncExternalStore } from 'react'
+import { useEffect, useId, useRef, useState } from 'react'
 import { createPortal } from 'react-dom'
-import { useNavigate } from 'react-router'
-import { logout } from '@/api/auth'
 import { DEFAULT_AVATAR } from '@/api/member'
-import { creatorSubscriberCount, getMemberships, subscribeMemberships } from '@/data/subscriptions'
-import WithdrawModal, { type WithdrawKind } from './WithdrawModal'
 import { CloseIcon } from '@/components/icons'
 
 export type InterestId =
@@ -75,24 +71,16 @@ export default function ProfileEditModal({
   const [selected, setSelected] = useState<InterestId[]>(profile.interests)
   const [interestSaving, setInterestSaving] = useState(false)
   const [interestError, setInterestError] = useState('')
-  const [withdrawOpen, setWithdrawOpen] = useState(false)
   const [confirmCancel, setConfirmCancel] = useState(false)
-  const withdrawOpenRef = useRef(false)
   const confirmCancelRef = useRef(false)
-  withdrawOpenRef.current = withdrawOpen
   confirmCancelRef.current = confirmCancel
-  const navigate = useNavigate()
-  const memberships = useSyncExternalStore(subscribeMemberships, getMemberships)
-  // 구독자가 있으면 창작자 안내, 없으면 내 유료 구독 여부만 본다
-  const withdrawKind: WithdrawKind =
-    creatorSubscriberCount > 0 ? 'creator' : memberships.length > 0 ? 'subscriber' : 'general'
 
   useEffect(() => {
     const previousOverflow = document.body.style.overflow
     document.body.style.overflow = 'hidden'
 
     function onKeyDown(event: KeyboardEvent) {
-      if (event.key === 'Escape' && !withdrawOpenRef.current && !confirmCancelRef.current) {
+      if (event.key === 'Escape' && !confirmCancelRef.current) {
         onCloseRef.current()
       }
     }
@@ -284,9 +272,11 @@ export default function ProfileEditModal({
         {interestError ? <p className="profile-save-error">{interestError}</p> : null}
 
         <footer className="profile-edit-foot">
+          {/* 회원 탈퇴는 미구현
           <button type="button" className="leave-link" onClick={() => setWithdrawOpen(true)}>
             회원 탈퇴
           </button>
+          */}
           <div className="edit-apply">
             <button
               type="button"
@@ -333,6 +323,7 @@ export default function ProfileEditModal({
           </div>
         </div>
       )}
+      {/* 회원 탈퇴는 미구현
       {withdrawOpen && (
         <WithdrawModal
           kind={withdrawKind}
@@ -342,6 +333,7 @@ export default function ProfileEditModal({
           }}
         />
       )}
+      */}
     </>,
     document.body,
   )

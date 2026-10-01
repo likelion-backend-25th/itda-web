@@ -11,7 +11,7 @@ import { categories, openPostDetail, type CategoryId, type Post } from '@/data/f
 import { subscribePostViews } from '@/data/postViewSync'
 import { getLoggedIn, setLoggedIn, subscribeSession } from '@/data/session'
 import { ensureViewerLoaded, getViewerProfile, subscribeViewer } from '@/data/viewer'
-import { profilePath } from '@/data/members'
+import { profileHrefForMember } from '@/data/members'
 import { useViewerUser } from '@/hooks/member/useViewerUser'
 import { usePublishPost } from '@/hooks/post/usePublishPost'
 import { ApiError } from '@/lib/apiClient'
@@ -24,7 +24,10 @@ export default function HomePage() {
   const keyword = (searchParams.get('keyword') ?? '').trim()
   const loggedIn = useSyncExternalStore(subscribeSession, getLoggedIn)
   const [query, setQuery] = useState(keyword)
-  const [category, setCategory] = useState<CategoryId>('all')
+  const [category, setCategory] = useState<CategoryId>(() => {
+    const state = location.state as { feedCategory?: CategoryId } | null
+    return state?.feedCategory ?? 'all'
+  })
   const [categoriesOpen, setCategoriesOpen] = useState(true)
   const [posts, setPosts] = useState<Post[]>([])
   const [feedLoading, setFeedLoading] = useState(true)
@@ -312,6 +315,18 @@ export default function HomePage() {
     if (!Number.isInteger(numericId) || actionLockRef.current.has(`like:${id}`)) return
     actionLockRef.current.add(`like:${id}`)
     setActionError('')
+    const previous = { liked: target?.liked === true, likes: target?.likes ?? 0 }
+    setPosts((current) =>
+      current.map((post) =>
+        post.id === id
+          ? {
+              ...post,
+              liked: !previous.liked,
+              likes: Math.max(0, post.likes + (previous.liked ? -1 : 1)),
+            }
+          : post,
+      ),
+    )
     try {
       const result = await togglePostLike(numericId)
       setPosts((current) =>
@@ -320,6 +335,11 @@ export default function HomePage() {
         ),
       )
     } catch (error: unknown) {
+      setPosts((current) =>
+        current.map((post) =>
+          post.id === id ? { ...post, liked: previous.liked, likes: previous.likes } : post,
+        ),
+      )
       const message = error instanceof Error ? error.message : '좋아요를 반영하지 못했습니다.'
       setActionError(message)
       if (error instanceof ApiError && error.status === 401) setLoggedIn(false)
@@ -339,6 +359,10 @@ export default function HomePage() {
     if (!Number.isInteger(numericId) || actionLockRef.current.has(`scrap:${id}`)) return
     actionLockRef.current.add(`scrap:${id}`)
     setActionError('')
+    const previous = target?.bookmarked === true
+    setPosts((current) =>
+      current.map((post) => (post.id === id ? { ...post, bookmarked: !previous } : post)),
+    )
     try {
       const result = await togglePostScrap(numericId)
       setPosts((current) =>
@@ -347,6 +371,9 @@ export default function HomePage() {
         ),
       )
     } catch (error: unknown) {
+      setPosts((current) =>
+        current.map((post) => (post.id === id ? { ...post, bookmarked: previous } : post)),
+      )
       const message = error instanceof Error ? error.message : '스크랩을 반영하지 못했습니다.'
       setActionError(message)
       if (error instanceof ApiError && error.status === 401) setLoggedIn(false)
@@ -413,7 +440,7 @@ export default function HomePage() {
                   }}
                   onToggleLike={toggleLike}
                   onToggleBookmark={toggleBookmark}
-                  profileHref={profilePath(post.author)}
+                  profileHref={profileHrefForMember(post.memberId, post.author, profile?.id)}
                 />
               ))
             )}

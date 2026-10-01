@@ -1,7 +1,6 @@
 ﻿import { useEffect, useMemo, useState, useSyncExternalStore, type FormEvent } from 'react'
 import { Link, useNavigate, useParams } from 'react-router'
 import { applyTheme, claimFreeTheme, fetchOwnedThemeList, fetchThemeDetail, fetchThemeList } from '@/api/theme'
-import CategoryFeed from '@/components/feed/CategoryFeed'
 import Header from '@/components/layout/Header'
 import Sidebar from '@/components/layout/Sidebar'
 import ThemeShot, { toneFromThemeCode } from '@/components/theme/ThemeShot'
@@ -77,14 +76,14 @@ export default function ThemePage() {
   const [detailError, setDetailError] = useState('')
   const { startCheckout, busy, phase, error, receipt, reset } = usePortOneCheckout()
 
-  // GET /themes — 판매 목록
+  // GET /themes — 판매 목록 (keyword면 서버에서 전체 검색)
   useEffect(() => {
     let cancelled = false
     async function loadThemes() {
       setLoading(true)
       setListError('')
       try {
-        const result = await fetchThemeList(page, PAGE_SIZE)
+        const result = await fetchThemeList(page, PAGE_SIZE, keyword)
         if (cancelled) return
         setThemes(result.content)
         setTotalPages(Math.max(1, result.totalPages))
@@ -105,7 +104,7 @@ export default function ThemePage() {
     return () => {
       cancelled = true
     }
-  }, [loggedIn, page])
+  }, [loggedIn, page, keyword])
 
   // GET /themes/owned — 보유 테마로 로컬 owned/적용 상태 동기화
   useEffect(() => {
@@ -204,13 +203,8 @@ export default function ThemePage() {
     [applied.palette, applied.themeId, themes],
   )
 
-  const matched = useMemo(() => {
-    const text = keyword.trim().toLowerCase()
-    if (!text) return catalog
-    return catalog.filter((theme) => theme.themeName.toLowerCase().includes(text))
-  }, [catalog, keyword])
-
-  const visible = matched
+  // 검색은 서버 keyword로 처리. 현재 페이지 content를 그대로 보여준다.
+  const visible = catalog
   const currentPage = Math.min(page, totalPages)
 
   const selected = useMemo(() => {
@@ -245,7 +239,9 @@ export default function ThemePage() {
 
   function search(event: FormEvent<HTMLFormElement>) {
     event.preventDefault()
-    setKeyword(draft)
+    const next = draft.trim()
+    setPage(1)
+    setKeyword(next)
   }
 
   /** 구매·무료 수령 성공: 보유만 반영 (적용은 별도) */
@@ -326,114 +322,115 @@ export default function ThemePage() {
             category={category}
             categories={myPageCategories}
             categoriesOpen={categoriesOpen}
-            onCategoryChange={setCategory}
+            onCategoryChange={(next) => {
+              if (next === 'all') {
+                setCategory('all')
+                return
+              }
+              // 카테고리 피드는 홈 API 피드로 보낸다
+              navigate('/', { state: { feedCategory: next } })
+            }}
             onToggleCategories={() => setCategoriesOpen((open) => !open)}
             onWrite={() => setWriting(true)}
           />
           <main className="my-main" aria-label="테마 구매">
-            {category !== 'all' ? (
-              <CategoryFeed category={category} query={query} />
-            ) : (
-              <>
-                <h2 className="shop-title">구매 가능한 테마 목록</h2>
-                <p className="shop-lead">다양한 테마로 나만의 특별한 ITDA를 만들어보세요.</p>
-                <form className="shop-search" onSubmit={search}>
-                  <label>
-                    <SearchIcon />
-                    <input
-                      value={draft}
-                      placeholder="테마 이름 검색 창"
-                      aria-label="테마 이름 검색 창"
-                      onChange={(event) => setDraft(event.target.value)}
-                    />
-                  </label>
-                  <button type="submit">검색</button>
-                </form>
-                <div className="shop-catalog">
-                  <div className="shop-catalog-body">
-                    {loading ? (
-                      <div className="empty">테마를 불러오는 중…</div>
-                    ) : listError ? (
-                      <div className="empty">{listError}</div>
-                    ) : visible.length === 0 ? (
-                      <div className="empty">검색된 테마가 없습니다.</div>
-                    ) : (
-                      <div className="shop-grid">
-                        {Array.from({ length: PAGE_SIZE }, (_, index) => {
-                          const theme = visible[index]
-                          if (!theme) {
-                            return (
-                              <div
-                                key={`shop-slot-${index}`}
-                                className="shop-card shop-card-slot"
-                                aria-hidden="true"
-                              >
-                                <div className="theme-shot thumb" />
-                                <span className="shop-card-foot">
-                                  <strong>&nbsp;</strong>
-                                  <em>&nbsp;</em>
-                                </span>
-                              </div>
-                            )
-                          }
-                          return (
-                            <Link key={theme.id} to={`/theme/${theme.id}`} className="shop-card">
-                              <ThemeShot
-                                tone={toneFromThemeCode(theme.themeCode)}
-                                thumbnailUrl={theme.thumbnailUrl}
-                              />
-                              <span className="shop-card-foot">
-                                <strong>{theme.themeName}</strong>
-                                <em>
-                                  {theme.isApplied
-                                    ? '적용 중'
-                                    : theme.isOwned
-                                      ? '보유 중'
-                                      : formatThemePrice(theme.price)}
-                                </em>
-                              </span>
-                            </Link>
-                          )
-                        })}
-                      </div>
-                    )}
-                  </div>
-                  <nav className="shop-pages" aria-label="테마 목록 페이지">
-                    <button
-                      type="button"
-                      aria-label="이전 페이지"
-                      disabled={currentPage === 1 || loading}
-                      onClick={() => setPage(currentPage - 1)}
-                    >
-                      ‹
-                    </button>
-                    {Array.from({ length: totalPages }, (_, index) => {
-                      const number = index + 1
+            <h2 className="shop-title">구매 가능한 테마 목록</h2>
+            <p className="shop-lead">다양한 테마로 나만의 특별한 ITDA를 만들어보세요.</p>
+            <form className="shop-search" onSubmit={search}>
+              <label>
+                <SearchIcon />
+                <input
+                  value={draft}
+                  placeholder="테마 이름 검색 창"
+                  aria-label="테마 이름 검색 창"
+                  onChange={(event) => setDraft(event.target.value)}
+                />
+              </label>
+              <button type="submit">검색</button>
+            </form>
+            <div className="shop-catalog">
+              <div className="shop-catalog-body">
+                {loading ? (
+                  <div className="empty">테마를 불러오는 중…</div>
+                ) : listError ? (
+                  <div className="empty">{listError}</div>
+                ) : visible.length === 0 ? (
+                  <div className="empty">검색된 테마가 없습니다.</div>
+                ) : (
+                  <div className="shop-grid">
+                    {Array.from({ length: PAGE_SIZE }, (_, index) => {
+                      const theme = visible[index]
+                      if (!theme) {
+                        return (
+                          <div
+                            key={`shop-slot-${index}`}
+                            className="shop-card shop-card-slot"
+                            aria-hidden="true"
+                          >
+                            <div className="theme-shot thumb" />
+                            <span className="shop-card-foot">
+                              <strong>&nbsp;</strong>
+                              <em>&nbsp;</em>
+                            </span>
+                          </div>
+                        )
+                      }
                       return (
-                        <button
-                          key={number}
-                          type="button"
-                          className={number === currentPage ? 'on' : undefined}
-                          aria-current={number === currentPage ? 'page' : undefined}
-                          disabled={loading}
-                          onClick={() => setPage(number)}
-                        >
-                          {number}
-                        </button>
+                        <Link key={theme.id} to={`/theme/${theme.id}`} className="shop-card">
+                          <ThemeShot
+                            tone={toneFromThemeCode(theme.themeCode)}
+                            thumbnailUrl={theme.thumbnailUrl}
+                          />
+                          <span className="shop-card-foot">
+                            <strong>{theme.themeName}</strong>
+                            <em>
+                              {theme.isApplied
+                                ? '적용 중'
+                                : theme.isOwned
+                                  ? '보유 중'
+                                  : formatThemePrice(theme.price)}
+                            </em>
+                          </span>
+                        </Link>
                       )
                     })}
+                  </div>
+                )}
+              </div>
+              <nav className="shop-pages" aria-label="테마 목록 페이지">
+                <button
+                  type="button"
+                  aria-label="이전 페이지"
+                  disabled={currentPage === 1 || loading}
+                  onClick={() => setPage(currentPage - 1)}
+                >
+                  ‹
+                </button>
+                {Array.from({ length: totalPages }, (_, index) => {
+                  const number = index + 1
+                  return (
                     <button
+                      key={number}
                       type="button"
-                      aria-label="다음 페이지"
-                      disabled={currentPage === totalPages || loading}
-                      onClick={() => setPage(currentPage + 1)}
+                      className={number === currentPage ? 'on' : undefined}
+                      aria-current={number === currentPage ? 'page' : undefined}
+                      disabled={loading}
+                      onClick={() => setPage(number)}
                     >
-                      ›
+                      {number}
                     </button>
-                  </nav>
-                </div>
-              </>
-            )}
+                  )
+                })}
+                <button
+                  type="button"
+                  aria-label="다음 페이지"
+                  disabled={currentPage === totalPages || loading}
+                  onClick={() => setPage(currentPage + 1)}
+                >
+                  ›
+                </button>
+              </nav>
+            </div>
           </main>
         </div>
       </div>

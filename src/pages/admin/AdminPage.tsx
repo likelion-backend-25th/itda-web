@@ -20,6 +20,7 @@ import {
   type AdminMember,
   type AdminPayment,
   type AdminPost,
+  type AdminRefund,
   type AdminSubscription,
   type AdminTheme,
   type ThemeDraft,
@@ -32,11 +33,12 @@ import {
   fetchAdminPosts,
   fetchAdminReplies,
   fetchAdminThemes,
+  setAdminThemeDefault,
   setAdminThemeStatus,
   setAdminMemberStatus,
   updateAdminTheme,
 } from '@/api/admin'
-import { fetchAdminPayments, fetchAdminRefunds, refundAdminPayment } from '@/api/adminPayment'
+import { fetchAdminPayments, fetchAdminRefunds } from '@/api/adminPayment'
 import { fetchAdminSubscriptions } from '@/api/adminSubscription'
 import { logout } from '@/api/auth'
 import { getAdmin, subscribeAdmin } from '@/data/adminSession'
@@ -67,17 +69,16 @@ const searchFields: Record<SectionId, { value: string; label: string }[]> = {
     { value: 'payType', label: '결제 유형' },
   ],
   refunds: [
-    { value: 'orderNo', label: '결제 번호' },
-    { value: 'memberId', label: 'member_id' },
-    { value: 'paymentType', label: 'payment_type' },
-    { value: 'payType', label: '결제 유형' },
+    { value: 'id', label: '환불 번호' },
+    { value: 'refundAmount', label: '환불 금액' },
+    { value: 'requestedOn', label: '신청일' },
+    { value: 'refundedOn', label: '환불일' },
   ],
   subscriptions: [
     { value: 'subscriptionId', label: '구독 번호' },
     { value: 'memberNickname', label: '구독자' },
     { value: 'memberEmail', label: '이메일' },
     { value: 'targetNickname', label: '대상' },
-    { value: 'status', label: '상태' },
   ],
   posts: [
     { value: 'id', label: 'id' },
@@ -189,11 +190,13 @@ function AdminBoard({ section }: { section: SectionId }) {
   const [keyword, setKeyword] = useState('')
   const [page, setPage] = useState(1)
   const [payment, setPayment] = useState<AdminPayment | null>(null)
+  const [refund, setRefund] = useState<AdminRefund | null>(null)
   const [editing, setEditing] = useState<AdminTheme | null>(null)
   const [adding, setAdding] = useState(false)
+  const [defaultTarget, setDefaultTarget] = useState<AdminTheme | null>(null)
   const [themeForm, setThemeForm] = useState<ThemeDraft>(newTheme)
   const [apiPayments, setApiPayments] = useState<AdminPayment[]>([])
-  const [apiRefunds, setApiRefunds] = useState<AdminPayment[]>([])
+  const [apiRefunds, setApiRefunds] = useState<AdminRefund[]>([])
   const [apiMembers, setApiMembers] = useState<AdminMember[]>([])
   const [apiPosts, setApiPosts] = useState<AdminPost[]>([])
   const [apiThemes, setApiThemes] = useState<AdminTheme[]>([])
@@ -202,7 +205,6 @@ function AdminBoard({ section }: { section: SectionId }) {
   const [boardError, setBoardError] = useState<string | null>(null)
   const [payLoading, setPayLoading] = useState(false)
   const [payError, setPayError] = useState<string | null>(null)
-  const [refundingId, setRefundingId] = useState<string | null>(null)
   const [busyId, setBusyId] = useState<string | null>(null)
 
   useEffect(() => {
@@ -280,13 +282,21 @@ function AdminBoard({ section }: { section: SectionId }) {
     setKeyword('')
     setPage(1)
     setPayment(null)
+    setRefund(null)
     setEditing(null)
     setAdding(false)
   }, [section])
 
   const memberPage = slicePage(filterRows(apiMembers, field, keyword), page)
   const paymentPage = slicePage(filterRows(apiPayments, field, keyword), page)
-  const subscriptionPage = slicePage(filterRows(apiSubscriptions, field, keyword), page)
+  const subscriptionPage = slicePage(
+    filterRows(
+      apiSubscriptions.filter((item) => item.status === '구독 중'),
+      field,
+      keyword,
+    ),
+    page,
+  )
   const refundPage = slicePage(filterRows(apiRefunds, field, keyword), page)
   const postPage = slicePage(filterRows(apiPosts, field, keyword), page)
   const themePage = slicePage(filterRows(apiThemes, field, keyword), page)
@@ -302,23 +312,6 @@ function AdminBoard({ section }: { section: SectionId }) {
             : section === 'posts'
               ? postPage
               : themePage
-
-  async function acceptRefund(item: AdminPayment) {
-    if (refundingId != null) return
-    const paymentId = Number(item.id)
-    if (!Number.isInteger(paymentId)) return
-    setRefundingId(item.id)
-    setPayError(null)
-    try {
-      await refundAdminPayment(paymentId)
-      setApiRefunds((current) => current.filter((row) => row.id !== item.id))
-    } catch (error: unknown) {
-      const message = error instanceof Error ? error.message : '환불 수락에 실패했습니다.'
-      setPayError(message)
-    } finally {
-      setRefundingId(null)
-    }
-  }
 
   async function toggleMemberStatus(item: AdminMember) {
     const memberId = Number(item.id)
@@ -371,6 +364,30 @@ function AdminBoard({ section }: { section: SectionId }) {
       )
     } catch (error: unknown) {
       setBoardError(error instanceof Error ? error.message : '테마 상태 변경에 실패했습니다.')
+    } finally {
+      setBusyId(null)
+    }
+  }
+
+  async function makeDefaultTheme(theme: AdminTheme) {
+    const themeId = Number(theme.id)
+    if (!Number.isInteger(themeId) || busyId != null || theme.isDefault) return
+
+    setBusyId(theme.id)
+    setBoardError(null)
+    try {
+      await setAdminThemeDefault(themeId)
+      setApiThemes((current) =>
+        current.map((row) => ({
+          ...row,
+          isDefault: row.id === theme.id,
+          // 기본 지정 시 BE가 ON_SALE로 맞춤
+          active: row.id === theme.id ? true : row.active,
+        })),
+      )
+      setDefaultTarget(null)
+    } catch (error: unknown) {
+      setBoardError(error instanceof Error ? error.message : '기본 테마 지정에 실패했습니다.')
     } finally {
       setBusyId(null)
     }
@@ -456,7 +473,7 @@ function AdminBoard({ section }: { section: SectionId }) {
       )}
 
       {(section === 'payments' || section === 'refunds') && payLoading ? (
-        <p className="admin-empty">{section === 'refunds' ? '환불 신청을 불러오는 중…' : '결제 내역을 불러오는 중…'}</p>
+        <p className="admin-empty">{section === 'refunds' ? '환불 내역을 불러오는 중…' : '결제 내역을 불러오는 중…'}</p>
       ) : (section === 'members' || section === 'posts' || section === 'themes' || section === 'subscriptions') && boardLoading ? (
         <p className="admin-empty">목록을 불러오는 중…</p>
       ) : (section === 'payments' || section === 'refunds') && payError && active.visible.length === 0 ? (
@@ -473,7 +490,7 @@ function AdminBoard({ section }: { section: SectionId }) {
             <article key={theme.id} className={theme.active ? 'admin-theme' : 'admin-theme off'}>
               <ThemeShot tone={theme.tone} thumbnailUrl={theme.image || null} />
               <strong>{theme.name}</strong>
-              <div>
+              <div className="admin-theme-actions">
                 <button
                   type="button"
                   onClick={() => {
@@ -484,16 +501,28 @@ function AdminBoard({ section }: { section: SectionId }) {
                 >
                   수정
                 </button>
-                <button
-                  type="button"
-                  className={theme.active ? undefined : 'theme-on'}
-                  disabled={busyId === theme.id}
-                  onClick={() => {
-                    void toggleThemeActive(theme)
-                  }}
-                >
-                  {theme.active ? '비활성화' : '활성화'}
-                </button>
+                <div className="theme-side-actions">
+                  <button
+                    type="button"
+                    className="theme-default"
+                    disabled={busyId === theme.id || Boolean(theme.isDefault)}
+                    onClick={() => {
+                      setDefaultTarget(theme)
+                    }}
+                  >
+                    {theme.isDefault ? '기본 테마' : '기본 테마로 설정'}
+                  </button>
+                  <button
+                    type="button"
+                    className={theme.active ? undefined : 'theme-on'}
+                    disabled={busyId === theme.id}
+                    onClick={() => {
+                      void toggleThemeActive(theme)
+                    }}
+                  >
+                    {theme.active ? '비활성화' : '활성화'}
+                  </button>
+                </div>
               </div>
             </article>
           ))}
@@ -558,7 +587,6 @@ function AdminBoard({ section }: { section: SectionId }) {
                 <Cell label="구독자" value={item.memberNickname} />
                 <Cell label="이메일" value={item.memberEmail} />
                 <Cell label="대상" value={item.targetNickname} />
-                <Cell label="상태" value={item.status} />
                 <Cell label="시작일" value={item.startedOn} />
                 <Cell label="종료일" value={item.endedOn} />
               </article>
@@ -566,21 +594,13 @@ function AdminBoard({ section }: { section: SectionId }) {
           {section === 'refunds' &&
             refundPage.visible.map((item) => (
               <article key={item.id} className="admin-row refunds">
-                <Cell label="결제 번호" value={item.orderNo} />
-                <Cell label="member_id" value={item.memberId} />
-                <Cell label="payment_type" value={item.paymentType} />
-                <Cell label="결제일" value={item.paidOn} />
-                <Cell label="결제금액" value={formatAmount(item.amount)} />
-                <Cell label="결제 유형" value={item.payType} />
-                <button
-                  type="button"
-                  className="refund-accept"
-                  disabled={refundingId === item.id}
-                  onClick={() => {
-                    void acceptRefund(item)
-                  }}
-                >
-                  {refundingId === item.id ? '처리 중…' : '환불 수락'}
+                <Cell label="환불 번호" value={item.id} />
+                <Cell label="환불 금액" value={formatAmount(item.refundAmount)} />
+                <Cell label="차감 금액" value={formatAmount(item.deductionAmount)} />
+                <Cell label="신청일" value={item.requestedOn} />
+                <Cell label="환불일" value={item.refundedOn} />
+                <button type="button" className="admin-danger" onClick={() => setRefund(item)}>
+                  상세보기
                 </button>
               </article>
             ))}
@@ -659,6 +679,52 @@ function AdminBoard({ section }: { section: SectionId }) {
         </div>
       )}
 
+      {refund && (
+        <div className="detail-backdrop" onClick={() => setRefund(null)}>
+          <div
+            className="pay-detail"
+            role="dialog"
+            aria-modal="true"
+            aria-label="환불 상세"
+            onClick={(event) => event.stopPropagation()}
+          >
+            <button type="button" className="detail-close" aria-label="닫기" onClick={() => setRefund(null)}>
+              <CloseIcon />
+            </button>
+            <div className="pay-detail-ids">
+              <p>
+                <small>환불 번호</small>
+                <strong>{refund.id}</strong>
+              </p>
+            </div>
+            <label>
+              payment id
+              <input readOnly value={refund.paymentId} />
+            </label>
+            <label>
+              cancellation id
+              <input readOnly value={refund.cancellationId} />
+            </label>
+            <label>
+              환불 금액
+              <input readOnly value={formatAmount(refund.refundAmount)} />
+            </label>
+            <label>
+              차감 금액
+              <input readOnly value={formatAmount(refund.deductionAmount)} />
+            </label>
+            <label>
+              신청일
+              <input readOnly value={refund.requestedOn} />
+            </label>
+            <label className="pay-detail-paid">
+              환불일
+              <input readOnly value={refund.refundedOn} />
+            </label>
+          </div>
+        </div>
+      )}
+
       {(editing || adding) && (
         <ThemeFormDialog
           mode={editing ? 'edit' : 'add'}
@@ -672,6 +738,48 @@ function AdminBoard({ section }: { section: SectionId }) {
           onSubmit={saveTheme}
           error={boardError}
         />
+      )}
+
+      {defaultTarget && (
+        <div
+          className="detail-backdrop"
+          onClick={() => {
+            if (busyId == null) setDefaultTarget(null)
+          }}
+        >
+          <div
+            className="admin-dialog admin-confirm-dialog"
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="admin-default-theme-title"
+            onClick={(event) => event.stopPropagation()}
+          >
+            <h2 id="admin-default-theme-title">기본 테마 설정</h2>
+            <p>이 테마를 기본 테마로 설정하시겠습니까?</p>
+            <p className="admin-confirm-target">
+              <strong>{defaultTarget.name}</strong>
+            </p>
+            <div>
+              <button
+                type="button"
+                disabled={busyId === defaultTarget.id}
+                onClick={() => setDefaultTarget(null)}
+              >
+                취소
+              </button>
+              <button
+                type="button"
+                className="admin-confirm-ok"
+                disabled={busyId === defaultTarget.id}
+                onClick={() => {
+                  void makeDefaultTheme(defaultTarget)
+                }}
+              >
+                확인
+              </button>
+            </div>
+          </div>
+        </div>
       )}
     </main>
   )

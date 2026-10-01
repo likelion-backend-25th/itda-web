@@ -94,14 +94,20 @@ function assertPositiveInt(value: number, label: string): void {
   }
 }
 
-/** GET /api/v1/themes — 판매중 테마 목록 (비로그인 가능) */
-export function fetchThemeList(page = 1, size = 6): Promise<PageResponse<ThemeResponse>> {
+/** GET /api/v1/themes — 판매중 테마 목록 (비로그인 가능). keyword면 이름·코드 전체 검색 */
+export function fetchThemeList(
+  page = 1,
+  size = 6,
+  keyword?: string,
+): Promise<PageResponse<ThemeResponse>> {
   const safePage = Number.isFinite(page) && page >= 1 ? Math.floor(page) : 1
   const safeSize = Number.isFinite(size) && size >= 1 ? Math.floor(size) : 6
   const params = new URLSearchParams({
     page: String(safePage),
     size: String(safeSize),
   })
+  const trimmed = keyword?.trim() ?? ''
+  if (trimmed) params.set('keyword', trimmed)
   return apiJson<unknown>(`/themes?${params}`).then(normalizePage)
 }
 

@@ -166,6 +166,34 @@ export function CrownIcon() {
   )
 }
 
+export function StarIcon() {
+  return (
+    <Icon>
+      <path d="M12 3.8 14.4 9.2 20.2 9.9 15.9 13.9 17.1 19.6 12 16.7 6.9 19.6 8.1 13.9 3.8 9.9 9.6 9.2Z" />
+    </Icon>
+  )
+}
+
+export function DiamondIcon() {
+  return (
+    <Icon>
+      <path d="M7.2 5.5h9.6L21 10.2 12 19.5 3 10.2Z" />
+      <path d="M3.4 10.2h17.2" />
+      <path d="M9.2 5.5 12 10.2 14.8 5.5" />
+    </Icon>
+  )
+}
+
+export function TicketIcon() {
+  return (
+    <Icon>
+      <path d="M4.5 8.2A1.8 1.8 0 0 0 6.3 10 1.8 1.8 0 0 1 6.3 13.6 1.8 1.8 0 0 0 4.5 15.4h15A1.8 1.8 0 0 0 17.7 13.6 1.8 1.8 0 0 1 17.7 10 1.8 1.8 0 0 0 19.5 8.2Z" />
+      <path d="M10.2 8.4v1.2" />
+      <path d="M10.2 12.2v1.2" />
+    </Icon>
+  )
+}
+
 export function SubscribeIcon() {
   return (
     <Icon>

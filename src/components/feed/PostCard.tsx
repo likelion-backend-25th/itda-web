@@ -3,6 +3,7 @@ import { Link } from 'react-router'
 import { DEFAULT_AVATAR } from '@/api/member'
 import type { Post } from '@/data/feed'
 import { BookmarkIcon, CommentIcon, DotsIcon, EyeIcon, HeartIcon } from '@/components/icons'
+import SubOnlyBadge from '@/components/feed/SubOnlyBadge'
 
 type PostCardProps = {
   post: Post
@@ -52,6 +53,7 @@ export default function PostCard({
               <div className="author-name">
                 <strong>{post.author}</strong>
                 {post.isMe && <span className="me-badge">나</span>}
+                {post.visibility === 'subscribers' && <SubOnlyBadge />}
               </div>
               <p className="post-meta">
                 {post.time}
@@ -73,6 +75,7 @@ export default function PostCard({
               <div className="author-name">
                 <strong>{post.author}</strong>
                 {post.isMe && <span className="me-badge">나</span>}
+                {post.visibility === 'subscribers' && <SubOnlyBadge />}
               </div>
               <p className="post-meta">
                 {post.time}

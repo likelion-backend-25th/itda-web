@@ -1,5 +1,6 @@
-import type { MyPost } from '@/data/mypage'
 import { BookmarkIcon, CommentIcon, DotsIcon, EyeIcon, HeartIcon } from '@/components/icons'
+import SubOnlyBadge from '@/components/feed/SubOnlyBadge'
+import type { MyPost } from '@/data/mypage'
 
 type MyPostCardProps = {
   post: MyPost
@@ -27,13 +28,31 @@ export default function MyPostCard({
   scrapped = false,
   onToggleScrap,
 }: MyPostCardProps) {
+  const content = [post.title, post.body].filter((line) => line && line.trim().length > 0).join('\n')
+  const timeLabel = post.time || post.createdAt || ''
+  const singleImage = post.images.length === 1
+  const galleryClass = post.images.length === 2 ? 'gallery two' : 'gallery'
+
   return (
-    <article className="my-post" onClick={onOpen}>
-      <header className="my-post-head">
-        <img src={post.avatar} alt="" />
-        <div>
-          <strong>{post.author}</strong>
-          <p>{post.intro}</p>
+    <article className="post" onClick={onOpen}>
+      <header className="post-head">
+        <div className="author">
+          <img src={post.avatar} alt="" />
+          <div>
+            <div className="author-name">
+              <strong>{post.author}</strong>
+              {post.visibility === 'subscribers' && <SubOnlyBadge />}
+            </div>
+            <p className="post-meta">
+              {timeLabel}
+              {post.categoryLabel ? (
+                <>
+                  <span aria-hidden="true"> · </span>
+                  {post.categoryLabel}
+                </>
+              ) : null}
+            </p>
+          </div>
         </div>
         {canManage && (
           <button
@@ -51,20 +70,23 @@ export default function MyPostCard({
         )}
       </header>
 
-      <div className="my-post-body">
-        <div className="my-post-copy">
-          <span className="detail-chip">{post.categoryLabel}</span>
-          <h3>{post.title}</h3>
-          {post.body && <p>{post.body}</p>}
+      {singleImage ? (
+        <div className="post-split">
+          <p className="post-text">{content}</p>
+          <img src={post.images[0].src} alt={post.images[0].alt} />
         </div>
-        {post.images.length > 0 && (
-          <div className={post.images.length > 1 ? 'my-post-photos' : 'my-post-photos single'}>
-            {post.images.map((image) => (
-              <img key={image.src} src={image.src} alt={image.alt} />
-            ))}
-          </div>
-        )}
-      </div>
+      ) : (
+        <>
+          <p className="post-text">{content}</p>
+          {post.images.length > 0 && (
+            <div className={galleryClass}>
+              {post.images.map((image) => (
+                <img key={image.src} src={image.src} alt={image.alt} />
+              ))}
+            </div>
+          )}
+        </>
+      )}
 
       <footer className="post-actions">
         <span className="stat">
@@ -94,12 +116,12 @@ export default function MyPostCard({
           <EyeIcon />
           <span>조회수 {post.views}</span>
         </span>
-        {onToggleScrap && (
+        {onToggleScrap ? (
           <button
             type="button"
             className={scrapped ? 'bookmark on' : 'bookmark'}
             aria-pressed={scrapped}
-            aria-label={scrapped ? '북마크 해제' : '북마크'}
+            aria-label={scrapped ? '스크랩 해제' : '스크랩'}
             onClick={(event) => {
               event.stopPropagation()
               onToggleScrap()
@@ -107,11 +129,15 @@ export default function MyPostCard({
           >
             <BookmarkIcon filled={scrapped} />
           </button>
+        ) : (
+          <span className="bookmark" aria-label="스크랩">
+            <BookmarkIcon filled={false} />
+          </span>
         )}
       </footer>
 
       {menuOpen && (
-        <div className="post-menu" onClick={(event) => event.stopPropagation()}>
+        <div className="post-menu in-card" onClick={(event) => event.stopPropagation()}>
           <button type="button" onClick={onEdit}>
             수정
           </button>

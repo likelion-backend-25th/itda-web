@@ -4,7 +4,6 @@ import { DEFAULT_AVATAR, fetchMyProfile, resolveMemberImageUrl, updateMyProfile,
 import { unsubscribeAndRefund } from '@/api/payment'
 import { fetchMonthlyIncome, fetchMySubscriptions, fetchSubscriberCount } from '@/api/subscription'
 import UnsubscribeRefundDialog from '@/components/payment/UnsubscribeRefundDialog'
-import CategoryFeed from '@/components/feed/CategoryFeed'
 import Header from '@/components/layout/Header'
 import FollowList, { type FollowTab } from '@/components/profile/FollowList'
 import ProfileEditModal, { type ProfileForm } from '@/components/profile/ProfileEditModal'
@@ -13,7 +12,6 @@ import WritePostModal, { type PostDraft } from '@/components/feed/WritePostModal
 import { GearIcon } from '@/components/icons'
 import { myPageCategories, type CategoryId } from '@/data/feed'
 import { getLoggedIn, subscribeSession } from '@/data/session'
-import { members } from '@/data/members'
 import { ensureViewerLoaded, getViewerProfile, refreshViewerProfile, setViewerProfile, subscribeViewer } from '@/data/viewer'
 import { useFollow } from '@/hooks/member/useFollow'
 import { useMyFollows } from '@/hooks/member/useMyFollows'
@@ -24,14 +22,9 @@ import type { MySubscriptionResponse } from '@/types/subscription'
 
 type SubscriptionTab = 'users' | 'manage'
 
-const banks = ['국민', '신한', '우리', '하나', '농협', '기업', '카카오뱅크', '토스뱅크']
+const SUBSCRIPTION_PAGE_SIZE = 6
 
-/** 백엔드 회원 id가 목 프로필 하나와만 맞을 때 프로필로 이동 */
-function subscriptionProfileHref(targetId: number): string | null {
-  const matched = members.filter((member) => member.backendId === targetId)
-  if (matched.length !== 1) return null
-  return `/member/${matched[0].id}`
-}
+const banks = ['국민', '신한', '우리', '하나', '농협', '기업', '카카오뱅크', '토스뱅크']
 
 export default function SubscriptionPage() {
   const { memberId = '' } = useParams()
@@ -61,8 +54,11 @@ export default function SubscriptionPage() {
     interests: [],
   })
   const [subscriptions, setSubscriptions] = useState<MySubscriptionResponse[]>([])
+  const [subscriptionPage, setSubscriptionPage] = useState(1)
+  const [subscriptionTotalPages, setSubscriptionTotalPages] = useState(1)
   const [subscriptionsLoading, setSubscriptionsLoading] = useState(false)
   const [subscriptionsError, setSubscriptionsError] = useState<string | null>(null)
+  const [subscriptionListVersion, setSubscriptionListVersion] = useState(0)
   const [cancelingId, setCancelingId] = useState<number | null>(null)
   const [pendingCancel, setPendingCancel] = useState<MySubscriptionResponse | null>(null)
   const [refundDone, setRefundDone] = useState(false)
@@ -139,10 +135,11 @@ export default function SubscriptionPage() {
     }
   }, [loggedIn, me])
 
-  // GET /api/v1/subscriptions/me — 내가 구독 중인 사용자
+  // GET /api/v1/subscriptions/me — 내가 구독 중인 사용자. page는 1부터
   useEffect(() => {
     if (!loggedIn) {
       setSubscriptions([])
+      setSubscriptionTotalPages(1)
       setSubscriptionsLoading(false)
       setSubscriptionsError('로그인 후 구독한 사용자를 볼 수 있습니다.')
       return
@@ -154,8 +151,10 @@ export default function SubscriptionPage() {
 
     async function loadSubscriptions() {
       try {
-        const list = await fetchMySubscriptions()
-        if (!cancelled) setSubscriptions(list)
+        const result = await fetchMySubscriptions(subscriptionPage, SUBSCRIPTION_PAGE_SIZE)
+        if (cancelled) return
+        setSubscriptions(result.content)
+        setSubscriptionTotalPages(Math.max(1, result.totalPages))
       } catch (error: unknown) {
         if (cancelled) return
         setSubscriptions([])
@@ -170,7 +169,11 @@ export default function SubscriptionPage() {
     return () => {
       cancelled = true
     }
-  }, [loggedIn])
+  }, [loggedIn, subscriptionPage, subscriptionListVersion])
+
+  useEffect(() => {
+    if (subscriptionPage > subscriptionTotalPages) setSubscriptionPage(subscriptionTotalPages)
+  }, [subscriptionPage, subscriptionTotalPages])
 
   const visible = useMemo(() => {
     const keyword = query.trim().toLowerCase()
@@ -184,8 +187,8 @@ export default function SubscriptionPage() {
     setSubscriptionsError(null)
     try {
       await unsubscribeAndRefund(pendingCancel.targetId)
-      setSubscriptions((current) => current.filter((row) => row.subscriptionId !== pendingCancel.subscriptionId))
       setRefundDone(true)
+      setSubscriptionListVersion((current) => current + 1)
     } catch (error: unknown) {
       const message = error instanceof Error ? error.message : '구독 해제에 실패했습니다.'
       setSubscriptionsError(message)
@@ -218,15 +221,17 @@ export default function SubscriptionPage() {
             category={category}
             categories={myPageCategories}
             categoriesOpen={categoriesOpen}
-            onCategoryChange={setCategory}
+            onCategoryChange={(next) => {
+              if (next === 'all') {
+                setCategory('all')
+                return
+              }
+              navigate('/', { state: { feedCategory: next } })
+            }}
             onToggleCategories={() => setCategoriesOpen((open) => !open)}
             onWrite={() => setWriting(true)}
           />
           <main className="my-main" aria-label="구독">
-            {category !== 'all' ? (
-              <CategoryFeed category={category} query={query} />
-            ) : (
-            <>
             <section className="my-summary member-summary">
               <img src={profile.avatar} alt="" />
               <div>
@@ -341,6 +346,7 @@ export default function SubscriptionPage() {
                 </form>
               </section>
             ) : (
+            <>
             <div className="sub-list">
               {subscriptionsError && <p className="settle-error">{subscriptionsError}</p>}
               {subscriptionsLoading ? (
@@ -349,38 +355,22 @@ export default function SubscriptionPage() {
                 <div className="empty">구독한 사용자가 없습니다.</div>
               ) : (
                 visible.map((item) => {
-                  const href = subscriptionProfileHref(item.targetId)
+                  const href = `/member/${item.targetId}`
                   const avatar = resolveMemberImageUrl(item.profileImage)
                   return (
                     <article key={item.subscriptionId} className="sub-card">
-                      {href ? (
-                        <Link to={href} className="sub-photo" aria-label={`${item.nickname} 프로필`}>
-                          <img
-                            src={avatar}
-                            alt=""
-                            onError={(event) => {
-                              event.currentTarget.src = DEFAULT_AVATAR
-                            }}
-                          />
-                        </Link>
-                      ) : (
+                      <Link to={href} className="sub-card-link" aria-label={`${item.nickname} 프로필`} />
+                      <div className="sub-photo">
                         <img
-                          className="sub-photo"
                           src={avatar}
                           alt=""
                           onError={(event) => {
                             event.currentTarget.src = DEFAULT_AVATAR
                           }}
                         />
-                      )}
+                      </div>
                       <div className="sub-copy">
-                        {href ? (
-                          <Link to={href} className="sub-name">
-                            {item.nickname}
-                          </Link>
-                        ) : (
-                          <strong className="sub-name">{item.nickname}</strong>
-                        )}
+                        <span className="sub-name">{item.nickname}</span>
                       </div>
                       <p className="sub-days">{item.remainingDays}일 남음</p>
                       <button
@@ -396,6 +386,40 @@ export default function SubscriptionPage() {
                 })
               )}
             </div>
+            {subscriptionTotalPages > 1 && (
+              <nav className="shop-pages" aria-label="구독 목록 페이지">
+                <button
+                  type="button"
+                  aria-label="이전 페이지"
+                  disabled={subscriptionPage <= 1 || subscriptionsLoading}
+                  onClick={() => setSubscriptionPage(subscriptionPage - 1)}
+                >
+                  ‹
+                </button>
+                {Array.from({ length: subscriptionTotalPages }, (_, index) => {
+                  const number = index + 1
+                  return (
+                    <button
+                      key={number}
+                      type="button"
+                      className={number === subscriptionPage ? 'on' : undefined}
+                      aria-current={number === subscriptionPage ? 'page' : undefined}
+                      disabled={subscriptionsLoading}
+                      onClick={() => setSubscriptionPage(number)}
+                    >
+                      {number}
+                    </button>
+                  )
+                })}
+                <button
+                  type="button"
+                  aria-label="다음 페이지"
+                  disabled={subscriptionPage >= subscriptionTotalPages || subscriptionsLoading}
+                  onClick={() => setSubscriptionPage(subscriptionPage + 1)}
+                >
+                  ›
+                </button>
+              </nav>
             )}
             </>
             )}

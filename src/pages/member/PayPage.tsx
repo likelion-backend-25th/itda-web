@@ -10,7 +10,7 @@ import UnsubscribeRefundDialog from '@/components/payment/UnsubscribeRefundDialo
 import Sidebar from '@/components/layout/Sidebar'
 import WritePostModal, { type PostDraft } from '@/components/feed/WritePostModal'
 import { myPageCategories, type CategoryId } from '@/data/feed'
-import { memberById, type MemberProfile } from '@/data/members'
+import { type MemberProfile } from '@/data/members'
 import { getSubscribedIds, setSubscribed, subscribeMemberships } from '@/data/subscriptions'
 import { usePortOneCheckout } from '@/hooks/payment/usePortOneCheckout'
 import type { PayMethod, PaymentPrepareResponse } from '@/types/payment'
@@ -39,11 +39,10 @@ export default function PayPage() {
   const { memberId = '' } = useParams()
   const navigate = useNavigate()
   const numericId = /^\d+$/.test(memberId) ? Number(memberId) : null
-  const mockMember = numericId == null ? memberById(memberId) : undefined
   const [apiMember, setApiMember] = useState<MemberProfile | null>(null)
   const [loadError, setLoadError] = useState<string | null>(null)
   const [loading, setLoading] = useState(numericId != null)
-  const member = apiMember ?? mockMember ?? null
+  const member = apiMember
   const viewer = useViewerUser()
   const { publish } = usePublishPost()
   const [query, setQuery] = useState('')
@@ -132,12 +131,12 @@ export default function PayPage() {
     }
   }, [numericId])
 
-  // 숫자 경로면 GET /members/{id} 로 결제 대상 프로필을 받는다
+  // 숫자 경로만 API 프로필을 받는다. slug mock은 쓰지 않는다
   useEffect(() => {
     if (numericId == null) {
       setApiMember(null)
       setLoading(false)
-      setLoadError(null)
+      setLoadError('결제할 프로필을 찾을 수 없습니다.')
       return
     }
 

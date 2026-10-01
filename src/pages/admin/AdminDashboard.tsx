@@ -16,12 +16,12 @@ import {
 } from '@/api/admin'
 import { fetchAdminPayments, fetchAdminRefunds } from '@/api/adminPayment'
 import { fetchAdminSubscriptions } from '@/api/adminSubscription'
-import type { AdminMember, AdminPayment, AdminPost, AdminSubscription, AdminTheme } from '@/data/admin'
+import type { AdminMember, AdminPayment, AdminPost, AdminRefund, AdminSubscription, AdminTheme } from '@/data/admin'
 
 type DashData = {
   members: AdminMember[]
   payments: AdminPayment[]
-  refunds: AdminPayment[]
+  refunds: AdminRefund[]
   subscriptions: AdminSubscription[]
   posts: AdminPost[]
   replies: AdminPost[]
@@ -131,10 +131,10 @@ export default function AdminDashboard() {
     },
     {
       to: '/admin/refunds',
-      label: '환불 대기',
+      label: '환불 내역',
       icon: RefreshIcon,
       value: loading ? '…' : countLabel(failed.refunds, data.refunds.length),
-      detail: failed.refunds ? '불러오기 실패' : '수락 대기 중인 신청',
+      detail: failed.refunds ? '불러오기 실패' : '환불 완료',
     },
     {
       to: '/admin/subscriptions',
@@ -214,23 +214,23 @@ export default function AdminDashboard() {
         </section>
         <section className="admin-panel">
           <header>
-            <h2>환불 대기</h2>
+            <h2>환불 내역</h2>
             <Link to="/admin/refunds">전체 보기</Link>
           </header>
           {loading ? (
-            <p className="admin-empty">환불 신청을 불러오는 중…</p>
+            <p className="admin-empty">환불 내역을 불러오는 중…</p>
           ) : failed.refunds ? (
-            <p className="admin-empty">환불 신청을 불러오지 못했습니다.</p>
+            <p className="admin-empty">환불 내역을 불러오지 못했습니다.</p>
           ) : data.refunds.length === 0 ? (
-            <p className="admin-empty">대기 중인 환불이 없습니다.</p>
+            <p className="admin-empty">환불 내역이 없습니다.</p>
           ) : (
             <ul>
               {data.refunds.slice(0, 5).map((item) => (
                 <li key={item.id}>
-                  <strong>#{item.orderNo}</strong>
-                  <span>{item.paymentType}</span>
-                  <span>{won(item.amount)}</span>
-                  <time>{item.paidOn}</time>
+                  <strong>#{item.id}</strong>
+                  <span>차감 {won(item.deductionAmount)}</span>
+                  <span>{won(item.refundAmount)}</span>
+                  <time>{item.requestedOn}</time>
                 </li>
               ))}
             </ul>

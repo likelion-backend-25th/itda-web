@@ -630,9 +630,7 @@ a.nav-item,
 a.top-action,
 a.author,
 a.comment-author,
-a.member-subscribe,
-a.sub-photo,
-a.sub-name {
+a.member-subscribe {
   text-decoration: none;
 }
 
@@ -804,6 +802,29 @@ button.feed-more {
   font-size: 11px;
   font-weight: 800;
   line-height: 1;
+}
+
+.sub-only-badge {
+  display: inline-grid;
+  place-items: center;
+  width: 20px;
+  height: 20px;
+  padding: 0;
+  border-radius: 6px;
+  color: #fff;
+  box-shadow:
+    inset 0 0 0 1px rgba(255, 255, 255, 0.22),
+    0 0 0 1px rgba(28, 36, 48, 0.12);
+  flex: 0 0 auto;
+}
+
+.sub-only-badge.is-diamond {
+  background: #2bb3e8;
+}
+
+.sub-only-badge svg {
+  width: 12px;
+  height: 12px;
 }
 
 .post-meta {
@@ -1286,6 +1307,7 @@ a.comment-avatar {
 
 .my-summary,
 .my-post,
+.my-feed .post,
 .theme-card {
   background: var(--surface);
   border: 1px solid var(--line);
@@ -1693,6 +1715,7 @@ a.comment-avatar {
 }
 
 .sub-card {
+  position: relative;
   display: flex;
   align-items: center;
   gap: 14px;
@@ -1701,24 +1724,48 @@ a.comment-avatar {
   border: 1px solid var(--line);
   border-radius: var(--radius);
   box-shadow: var(--shadow);
+  transition: border-color 0.15s ease, background 0.15s ease;
 }
 
-a.sub-photo,
-img.sub-photo {
+.sub-card:has(.sub-card-link:hover),
+.sub-card:has(.sub-card-link:focus-visible) {
+  border-color: var(--blue);
+  background: var(--blue-soft);
+}
+
+a.sub-card-link {
+  position: absolute;
+  inset: 0;
+  z-index: 0;
+  border-radius: inherit;
+  text-decoration: none;
+}
+
+.sub-photo {
+  position: relative;
+  z-index: 1;
   flex: 0 0 auto;
+  width: 72px;
+  height: 72px;
+  border-radius: 16px;
+  overflow: hidden;
+  background: #fff;
+  pointer-events: none;
 }
 
-.sub-photo img,
-img.sub-photo {
-  width: 72px;
-  height: 84px;
-  border-radius: 14px;
-  object-fit: cover;
+.sub-photo img {
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
+  object-position: center;
 }
 
 .sub-copy {
+  position: relative;
+  z-index: 1;
   flex: 1;
   min-width: 0;
+  pointer-events: none;
 }
 
 .sub-name {
@@ -1732,14 +1779,19 @@ img.sub-photo {
 }
 
 .sub-days {
+  position: relative;
+  z-index: 1;
   margin: 0;
   color: var(--text-soft);
   font-size: 14px;
   font-weight: 700;
   white-space: nowrap;
+  pointer-events: none;
 }
 
 .sub-cancel {
+  position: relative;
+  z-index: 1;
   height: 36px;
   padding: 0 14px;
   border: 1px solid var(--line);
@@ -4063,13 +4115,16 @@ img.sub-photo {
   grid-template-columns: 52px repeat(5, minmax(0, 1fr)) auto;
 }
 
-.admin-row.pays,
-.admin-row.refunds {
+.admin-row.pays {
   grid-template-columns: repeat(6, minmax(0, 1fr)) auto;
 }
 
+.admin-row.refunds {
+  grid-template-columns: repeat(5, minmax(0, 1fr)) auto;
+}
+
 .admin-row.subscriptions {
-  grid-template-columns: 0.7fr 1fr 1.5fr 1fr 0.7fr 0.9fr 0.9fr;
+  grid-template-columns: 0.7fr 1fr 1.5fr 1fr 0.9fr 0.9fr;
 }
 
 .admin-row.posts {
@@ -4332,18 +4387,40 @@ img.sub-photo {
   font-size: 15px;
 }
 
-.admin-theme div {
+.admin-theme-actions {
   display: flex;
+  align-items: flex-end;
   gap: 8px;
 }
 
-.admin-theme div button {
+.admin-theme-actions > button,
+.theme-side-actions {
   flex: 1;
+  min-width: 0;
+}
+
+.theme-side-actions {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.admin-theme-actions > button,
+.theme-side-actions > button {
   height: 36px;
   border: 1px solid #ffc1c1;
   border-radius: 10px;
   color: #ff5a5a;
   font-weight: 800;
+}
+
+.theme-side-actions > button.theme-default {
+  height: 28px;
+  border-color: #c5dbf8;
+  border-radius: 8px;
+  color: var(--blue);
+  font-size: 12px;
+  font-weight: 700;
 }
 
 .admin-theme.off {
@@ -4774,6 +4851,24 @@ img.sub-photo {
 }
 
 .admin-dialog button[type='submit'] {
+  background: var(--blue);
+  color: var(--on-accent);
+}
+
+.admin-confirm-dialog p {
+  margin: 0;
+  color: var(--text-soft);
+  font-size: 15px;
+  font-weight: 650;
+  line-height: 1.5;
+}
+
+.admin-confirm-dialog .admin-confirm-target {
+  color: var(--text);
+  font-size: 16px;
+}
+
+.admin-confirm-dialog .admin-confirm-ok {
   background: var(--blue);
   color: var(--on-accent);
 }

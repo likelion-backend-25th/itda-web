@@ -1,4 +1,5 @@
 import { apiFetch, apiJson } from '@/lib/apiClient'
+import type { PageResponse } from '@/types/page'
 import type {
   MonthlyIncomeResponse,
   MySubscriptionResponse,
@@ -76,11 +77,52 @@ function isMySubscription(item: unknown): item is MySubscriptionResponse {
   )
 }
 
-/** 로그인한 회원이 구독 중인 사용자 목록 */
-export async function fetchMySubscriptions(): Promise<MySubscriptionResponse[]> {
-  const raw = await apiJson<unknown>('/subscriptions/me')
-  if (!Array.isArray(raw)) return []
-  return raw.filter(isMySubscription)
+function asPageNumber(value: unknown): number | null {
+  return typeof value === 'number' && Number.isFinite(value) ? value : null
+}
+
+function toSubscriptionPage(raw: unknown): PageResponse<MySubscriptionResponse> {
+  // 재시작 전 서버는 목록 배열만 준다
+  if (Array.isArray(raw)) {
+    const content = raw.filter(isMySubscription)
+    return {
+      content,
+      page: 1,
+      size: content.length || 6,
+      totalElements: content.length,
+      totalPages: 1,
+    }
+  }
+  if (typeof raw !== 'object' || raw === null) {
+    throw new Error('구독 목록 응답 형식이 올바르지 않습니다.')
+  }
+  const record = raw as Record<string, unknown>
+  const contentRaw = Array.isArray(record.content) ? record.content : []
+  const content = contentRaw.filter(isMySubscription)
+  const size = asPageNumber(record.size) ?? content.length
+
+  return {
+    content,
+    page: asPageNumber(record.page) ?? 1,
+    size,
+    totalElements: asPageNumber(record.totalElements) ?? content.length,
+    totalPages: Math.max(1, asPageNumber(record.totalPages) ?? 1),
+  }
+}
+
+/** GET /api/v1/subscriptions/me — PageResponse. page는 1부터 */
+export async function fetchMySubscriptions(
+  page = 1,
+  size = 6,
+): Promise<PageResponse<MySubscriptionResponse>> {
+  const safePage = Number.isFinite(page) && page >= 1 ? Math.floor(page) : 1
+  const safeSize = Number.isFinite(size) && size >= 1 ? Math.floor(size) : 6
+  const params = new URLSearchParams({
+    page: String(safePage),
+    size: String(safeSize),
+  })
+  const raw = await apiJson<unknown>(`/subscriptions/me?${params.toString()}`)
+  return toSubscriptionPage(raw)
 }
 
 /** PATCH /api/v1/subscriptions/{targetId}/cancel — 본문 없는 200 */

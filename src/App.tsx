@@ -1,3 +1,4 @@
+import { useEffect } from 'react'
 import { BrowserRouter, Route, Routes, useLocation } from 'react-router'
 import RequireAuth from '@/components/auth/RequireAuth'
 import { useOAuthTokenCapture } from '@/hooks/auth/useOAuthTokenCapture'
@@ -22,6 +23,20 @@ function OAuthTokenCapture() {
 
 function SessionThemeSync() {
   useSessionThemeSync()
+  return null
+}
+
+/** SPA는 문서가 유지되므로 경로가 바뀔 때 직접 맨 위로 올린다. 게시글 모달은 제외. */
+function ScrollToTop() {
+  const location = useLocation()
+  const background = (location.state as PostModalState | null)?.backgroundLocation
+  const pagePath = background?.pathname ?? location.pathname
+
+  useEffect(() => {
+    if (background) return
+    window.scrollTo(0, 0)
+  }, [pagePath, background])
+
   return null
 }
 
@@ -85,6 +100,7 @@ export default function App() {
     <BrowserRouter>
       <OAuthTokenCapture />
       <SessionThemeSync />
+      <ScrollToTop />
       <AppRoutes />
     </BrowserRouter>
   )

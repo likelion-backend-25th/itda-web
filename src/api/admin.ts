@@ -135,6 +135,7 @@ function toAdminTheme(record: Record<string, unknown>): AdminTheme | null {
     tone: toneFromThemeCode(themeCode),
     // ON_SALE = 활성화, HIDDEN = 비활성화
     active: status === 'ON_SALE',
+    isDefault: record.isDefault === true,
   }
 }
 
@@ -149,21 +150,13 @@ export async function fetchAdminThemes(): Promise<AdminTheme[]> {
   })
 }
 
-/** 로컬 파일 미리보기(data URL)는 255자 제한에 걸려 등록이 실패한다 */
-function thumbnailForRequest(image: string): string | null {
-  const trimmed = image.trim()
-  if (!trimmed || trimmed.startsWith('data:')) return null
-  return trimmed
-}
-
-/** 등록·수정 요청. themeCode는 css_text의 data-theme 과 맞춰야 한다. */
+/** 등록·수정 JSON. 썸네일은 themeImage 파트로만 전달하고, 없으면 BE가 기존 key를 유지한다. */
 function toThemeRequest(draft: ThemeDraft) {
   return {
     themeName: draft.name.trim(),
     description: draft.description.trim(),
     price: parsePrice(draft.price),
-    // 새 파일이 있으면 BE가 S3 업로드 후 key 저장. JSON 쪽 thumbnailUrl 은 비운다.
-    thumbnailUrl: draft.imageFile ? null : thumbnailForRequest(draft.image),
+    thumbnailUrl: null,
     themeCode: draft.code.trim(),
     cssText: draft.cssText.trim(),
   }
@@ -185,12 +178,19 @@ export async function createAdminTheme(draft: ThemeDraft): Promise<void> {
   })
 }
 
-/** PUT /api/v1/admin/themes/{themeId} */
+/** PUT /api/v1/admin/themes/{themeId} — 게시글 수정과 동일하게 multipart */
 export async function updateAdminTheme(themeId: number, draft: ThemeDraft): Promise<void> {
+  const form = new FormData()
+  form.append(
+    'request',
+    new Blob([JSON.stringify(toThemeRequest(draft))], { type: 'application/json' }),
+  )
+  if (draft.imageFile && draft.imageFile.size > 0) {
+    form.append('themeImage', draft.imageFile, draft.imageFile.name || 'theme.png')
+  }
   await apiFetch(`/admin/themes/${themeId}`, {
     method: 'PUT',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify(toThemeRequest(draft)),
+    body: form,
   })
 }
 
@@ -198,4 +198,9 @@ export async function updateAdminTheme(themeId: number, draft: ThemeDraft): Prom
 export async function setAdminThemeStatus(themeId: number, active: boolean): Promise<void> {
   const status = active ? 'ON_SALE' : 'HIDDEN'
   await apiFetch(`/admin/themes/${themeId}/status?status=${status}`, { method: 'PATCH' })
+}
+
+/** PATCH /api/v1/admin/themes/{themeId}/default — 유일한 기본 테마로 지정 */
+export async function setAdminThemeDefault(themeId: number): Promise<void> {
+  await apiFetch(`/admin/themes/${themeId}/default`, { method: 'PATCH' })
 }
