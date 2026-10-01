@@ -6,6 +6,7 @@ import type { FeedUser, Post } from '@/data/feed'
 import { profileHrefForMember } from '@/data/members'
 import { getViewerProfile, subscribeViewer } from '@/data/viewer'
 import { BookmarkIcon, CloseIcon, CommentIcon, DotsIcon, EyeIcon, HeartIcon } from '@/components/icons'
+import SubOnlyBadge from '@/components/feed/SubOnlyBadge'
 
 type PostDetailProps = {
   post: Post
@@ -171,7 +172,8 @@ export default function PostDetail({
             name={post.author}
             avatar={post.avatar}
             isMe={post.isMe}
-            meta={post.visibility === 'subscribers' ? '구독자 전용' : '전체 공개'}
+            subscriberOnly={post.visibility === 'subscribers'}
+            meta={post.visibility === 'subscribers' ? '' : '전체 공개'}
           />
           <p className="post-text">{post.content}</p>
         </div>
@@ -359,19 +361,23 @@ export default function PostDetail({
   )
 }
 
+type AuthorIdentityProps = {
+  href: string | null
+  name: string
+  avatar: string
+  isMe?: boolean
+  meta: string
+  subscriberOnly?: boolean
+}
+
 function AuthorIdentity({
   href,
   name,
   avatar,
   isMe,
   meta,
-}: {
-  href: string | null
-  name: string
-  avatar: string
-  isMe?: boolean
-  meta: string
-}) {
+  subscriberOnly = false,
+}: AuthorIdentityProps) {
   const body = (
     <>
       <img src={avatar} alt="" />
@@ -379,8 +385,9 @@ function AuthorIdentity({
         <div className="author-name">
           <strong>{name}</strong>
           {isMe && <span className="me-badge">나</span>}
+          {subscriberOnly && <SubOnlyBadge />}
         </div>
-        <p className="post-meta">{meta}</p>
+        {meta ? <p className="post-meta">{meta}</p> : null}
       </div>
     </>
   )

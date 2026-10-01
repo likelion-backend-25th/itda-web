@@ -88,14 +88,14 @@ export function profilePath(name: string) {
 /** 게시글·댓글 작성자. 백엔드 memberId가 있으면 /member/{id} 로 간다 */
 export function profileHrefForMember(
   memberId: number | undefined,
-  name: string,
+  _name: string,
   viewerMemberId?: number,
 ): string | null {
   if (memberId != null && Number.isInteger(memberId) && memberId > 0) {
     if (viewerMemberId != null && memberId === viewerMemberId) return '/mypage'
     return `/member/${memberId}`
   }
-  return profilePath(name)
+  return null
 }
 
 /** 목 데이터 id → FollowList 표시용 */
