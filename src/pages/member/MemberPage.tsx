@@ -11,8 +11,7 @@ import WritePostModal, { type PostDraft } from '@/components/feed/WritePostModal
 import { BookmarkIcon, CommentIcon, CrownIcon, DotsIcon, EyeIcon, HeartIcon } from '@/components/icons'
 import SubOnlyBadge from '@/components/feed/SubOnlyBadge'
 import { myPageCategories, openPostDetail, type CategoryId, type Post } from '@/data/feed'
-import { memberFollowIds } from '@/data/follows'
-import { followListItemsFromIds, type MemberProfile } from '@/data/members'
+import { type MemberProfile } from '@/data/members'
 import { setSubscribed } from '@/data/subscriptions'
 import { getLoggedIn, setLoggedIn, subscribeSession } from '@/data/session'
 import { getViewerProfile, subscribeViewer } from '@/data/viewer'
@@ -112,26 +111,13 @@ export default function MemberPage() {
   const followBusy = member ? follow.pendingIds.has(member.id) : false
   // 서버 회원은 내 팔로잉 목록을 받기 전까지 팔로우 여부를 모르므로 버튼을 잠근다
   const followLocked = followBusy || (apiMember != null && !follow.ready)
-  const network = member ? memberFollowIds(member.id) : { followers: [], following: [] }
   const apiFollows = useMemberFollows(
     isNumericRoute ? numericId : (member?.backendId ?? null),
     Boolean(member) && loggedIn,
     follow.version,
   )
-  const followerItems = apiFollows.followers.items.length > 0
-    ? apiFollows.followers
-    : {
-        items: followListItemsFromIds(network.followers),
-        loading: apiFollows.followers.loading,
-        error: apiFollows.followers.error,
-      }
-  const followingItems = apiFollows.following.items.length > 0
-    ? apiFollows.following
-    : {
-        items: followListItemsFromIds(network.following),
-        loading: apiFollows.following.loading,
-        error: apiFollows.following.error,
-      }
+  const followerItems = apiFollows.followers
+  const followingItems = apiFollows.following
 
   // GET /members/{memberId}
   useEffect(() => {
@@ -459,13 +445,13 @@ export default function MemberPage() {
                     <p className="my-intro">{member.bio}</p>
                     <p className="my-counts">
                       <button type="button" className="count-link" onClick={() => setFollowTab('followers')}>
-                        팔로워 <b>{apiMember ? (apiCounts?.followers ?? apiMember.followers) : network.followers.length}</b>
+                        팔로워 <b>{apiCounts?.followers ?? apiMember.followers}</b>
                       </button>
                       <button type="button" className="count-link" onClick={() => setFollowTab('following')}>
-                        팔로잉 <b>{apiMember ? (apiCounts?.following ?? apiMember.following) : network.following.length}</b>
+                        팔로잉 <b>{apiCounts?.following ?? apiMember.following}</b>
                       </button>
                       <span>
-                        게시글 <b>{apiMember ? (apiCounts?.posts ?? apiMember.posts) : member.posts}</b>
+                        게시글 <b>{apiCounts?.posts ?? apiMember.posts}</b>
                       </span>
                     </p>
                     {subscribeError && (

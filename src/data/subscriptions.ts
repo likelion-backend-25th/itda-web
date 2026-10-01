@@ -1,19 +1,11 @@
-export const creatorSubscriberCount = 123
-export const settlementAmount = 123456
-
 export type Membership = {
   memberId: string
   daysLeft: number
 }
 
-const starter: Membership[] = [
-  { memberId: 'minsu', daysLeft: 7 },
-  { memberId: 'haneul', daysLeft: 9 },
-  { memberId: 'minseo', daysLeft: 30 },
-]
-
-let memberships: Membership[] = starter
-let idSnapshot = new Set(starter.map((item) => item.memberId))
+/** 결제·구독 토글 직후 UI용. 시드 없이 서버 상태와 맞춰 갱신한다. */
+let memberships: Membership[] = []
+let idSnapshot = new Set<string>()
 const listeners = new Set<() => void>()
 
 function emit() {
@@ -27,10 +19,6 @@ export function subscribeMemberships(listener: () => void) {
 
 export function getSubscribedIds() {
   return idSnapshot
-}
-
-export function getMemberships() {
-  return memberships
 }
 
 export function setSubscribed(memberId: string, subscribed: boolean) {
