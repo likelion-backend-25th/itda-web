@@ -108,6 +108,19 @@ img {
   text-align: center;
 }
 
+.auth-card:has(.auth-subtitle) h1 {
+  margin-bottom: 6px;
+}
+
+.auth-subtitle {
+  margin: 0 0 28px;
+  color: var(--text);
+  font-size: 18px;
+  font-weight: 700;
+  letter-spacing: -0.03em;
+  text-align: center;
+}
+
 .auth-field {
   display: flex;
   align-items: center;
@@ -262,6 +275,14 @@ img {
 }
 
 .auth-card.is-interest h1 {
+  margin-bottom: 16px;
+}
+
+.auth-card.is-interest:has(.auth-subtitle) h1 {
+  margin-bottom: 6px;
+}
+
+.auth-card.is-interest .auth-subtitle {
   margin-bottom: 16px;
 }
 
@@ -1132,8 +1153,6 @@ button.stat {
 
 .detail-date {
   margin-left: auto;
-  padding-left: 18px;
-  border-left: 1px solid var(--line);
   color: var(--muted);
   font-size: 13px;
 }

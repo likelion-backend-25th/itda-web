@@ -8,7 +8,7 @@ import PostCard from '@/components/feed/PostCard'
 import Sidebar from '@/components/layout/Sidebar'
 import WritePostModal, { type PostDraft } from '@/components/feed/WritePostModal'
 import { categories, openPostDetail, type CategoryId, type Post } from '@/data/feed'
-import { subscribePostViews } from '@/data/postViewSync'
+import { subscribePostComments, subscribePostViews } from '@/data/postViewSync'
 import { getLoggedIn, setLoggedIn, subscribeSession } from '@/data/session'
 import { ensureViewerLoaded, getViewerProfile, subscribeViewer } from '@/data/viewer'
 import { profileHrefForMember } from '@/data/members'
@@ -60,13 +60,24 @@ export default function HomePage() {
     [location, navigate],
   )
 
-  // 상세에서 조회한 viewCount를 피드 카드에 반영
+  // 상세에서 조회한 viewCount·댓글 수를 피드 카드에 반영
   useEffect(() => {
-    return subscribePostViews((postId, views) => {
+    const unsubViews = subscribePostViews((postId, views) => {
       setPosts((current) =>
         current.map((item) => (item.id === postId && item.views !== views ? { ...item, views } : item)),
       )
     })
+    const unsubComments = subscribePostComments((postId, comments) => {
+      setPosts((current) =>
+        current.map((item) =>
+          item.id === postId && item.comments !== comments ? { ...item, comments } : item,
+        ),
+      )
+    })
+    return () => {
+      unsubViews()
+      unsubComments()
+    }
   }, [])
 
   // 로그인 후 내 프로필은 viewer 캐시로 공유 (페이지 이동 시 목 사용자 깜빡임 방지)

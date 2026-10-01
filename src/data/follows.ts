@@ -3,46 +3,15 @@ import { ensureViewerLoaded, refreshViewerProfile } from '@/data/viewer'
 
 /**
  * 내가 팔로우 중인 회원 id 저장소.
- * - 숫자 id: 서버 회원 (GET /members/{me}/followings 로 채우고 POST·DELETE /members/{id}/follow 로 변경)
- * - 문자열 id: 목 데이터 회원 (서버에 없으므로 로컬에서만 토글)
+ * GET /members/{me}/followings 로 채우고 POST·DELETE /members/{id}/follow 로 변경한다.
  */
-const mockFollowing = new Set<string>(['minsu', 'haneul', 'minseo', 'dohyun'])
 let serverFollowing = new Set<string>()
 let serverLoaded = false
 let loadPromise: Promise<void> | null = null
-let following: ReadonlySet<string> = new Set(mockFollowing)
+let following: ReadonlySet<string> = new Set()
 let pending: ReadonlySet<string> = new Set()
 let version = 0
 const listeners = new Set<() => void>()
-
-const myFollowers = ['minsu', 'minseo', 'dohyun', 'cat']
-
-const networks: Record<string, { followers: string[]; following: string[] }> = {
-  minsu: {
-    followers: ['haneul', 'minseo', 'dohyun', 'cat'],
-    following: ['haneul', 'minseo', 'jieun', 'cat'],
-  },
-  haneul: {
-    followers: ['minsu', 'minseo', 'jieun', 'cat'],
-    following: ['minsu', 'dohyun', 'minseo'],
-  },
-  minseo: {
-    followers: ['minsu', 'haneul', 'dohyun', 'jieun'],
-    following: ['haneul', 'cat', 'dohyun', 'minsu'],
-  },
-  dohyun: {
-    followers: ['minseo', 'haneul', 'cat', 'jieun'],
-    following: ['minsu', 'minseo', 'haneul'],
-  },
-  cat: {
-    followers: ['minseo', 'dohyun', 'haneul'],
-    following: ['minsu', 'minseo', 'jieun', 'dohyun'],
-  },
-  jieun: {
-    followers: ['minsu', 'haneul', 'minseo'],
-    following: ['minsu', 'dohyun', 'cat'],
-  },
-}
 
 function toServerId(memberId: string): number | null {
   const id = Number(memberId)
@@ -50,7 +19,7 @@ function toServerId(memberId: string): number | null {
 }
 
 function emit() {
-  following = new Set([...mockFollowing, ...serverFollowing])
+  following = new Set(serverFollowing)
   listeners.forEach((listener) => listener())
 }
 
@@ -119,14 +88,7 @@ export function resetServerFollows() {
  */
 export async function toggleFollow(memberId: string, next: boolean): Promise<void> {
   const serverId = toServerId(memberId)
-
-  if (serverId == null) {
-    if (mockFollowing.has(memberId) === next) return
-    if (next) mockFollowing.add(memberId)
-    else mockFollowing.delete(memberId)
-    emit()
-    return
-  }
+  if (serverId == null) return
 
   if (pending.has(memberId)) return
   const previous = serverFollowing.has(memberId)
@@ -157,12 +119,4 @@ export async function toggleFollow(memberId: string, next: boolean): Promise<voi
     pending = nextPending
     emit()
   }
-}
-
-export function myFollowerIds() {
-  return myFollowers
-}
-
-export function memberFollowIds(memberId: string) {
-  return networks[memberId] ?? { followers: [], following: [] }
 }

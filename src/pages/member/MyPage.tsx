@@ -18,7 +18,7 @@ import { myPageCategories, openPostDetail, type CategoryId } from '@/data/feed'
 import { usePublishPost } from '@/hooks/post/usePublishPost'
 import { applyAppThemeAsync, getAppliedTheme, resolveAppTheme, subscribeAppTheme } from '@/data/appTheme'
 import { syncOwnedThemes } from '@/data/themes'
-import { subscribePostViews } from '@/data/postViewSync'
+import { subscribePostComments, subscribePostViews } from '@/data/postViewSync'
 import { getLoggedIn, setLoggedIn, subscribeSession } from '@/data/session'
 import {
   ensureViewerLoaded,
@@ -117,15 +117,26 @@ export default function MyPage() {
     [location, navigate],
   )
 
-  // 상세 조회수를 마이페이지 목록(작성/좋아요/스크랩)에 반영
+  // 상세 조회수·댓글 수를 마이페이지 목록(작성/좋아요/스크랩)에 반영
   useEffect(() => {
-    return subscribePostViews((postId, views) => {
+    const unsubViews = subscribePostViews((postId, views) => {
       const patch = (item: MyPost) =>
         item.id === postId && item.views !== views ? { ...item, views } : item
       setPosts((current) => current.map(patch))
       setLiked((current) => current.map(patch))
       setScraps((current) => current.map(patch))
     })
+    const unsubComments = subscribePostComments((postId, comments) => {
+      const patch = (item: MyPost) =>
+        item.id === postId && item.comments !== comments ? { ...item, comments } : item
+      setPosts((current) => current.map(patch))
+      setLiked((current) => current.map(patch))
+      setScraps((current) => current.map(patch))
+    })
+    return () => {
+      unsubViews()
+      unsubComments()
+    }
   }, [])
 
   // GET /members/me — 캐시 공유. 있으면 즉시 반영, 없으면 한 번만 조회
