@@ -23,11 +23,4 @@ export interface ThemeStylesResponse {
   cssText: string
 }
 
-/** 백엔드 PageResponse 공통 래퍼 */
-export interface PageResponse<T> {
-  content: T[]
-  page: number
-  size: number
-  totalElements: number
-  totalPages: number
-}
+export type { PageResponse } from '@/types/page'
