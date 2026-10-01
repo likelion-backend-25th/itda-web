@@ -36,7 +36,7 @@ import {
   setAdminMemberStatus,
   updateAdminTheme,
 } from '@/api/admin'
-import { fetchAdminPayments, fetchAdminRefunds, refundAdminPayment } from '@/api/adminPayment'
+import { fetchAdminPayments, fetchAdminRefunds } from '@/api/adminPayment'
 import { fetchAdminSubscriptions } from '@/api/adminSubscription'
 import { logout } from '@/api/auth'
 import { getAdmin, subscribeAdmin } from '@/data/adminSession'
@@ -202,7 +202,6 @@ function AdminBoard({ section }: { section: SectionId }) {
   const [boardError, setBoardError] = useState<string | null>(null)
   const [payLoading, setPayLoading] = useState(false)
   const [payError, setPayError] = useState<string | null>(null)
-  const [refundingId, setRefundingId] = useState<string | null>(null)
   const [busyId, setBusyId] = useState<string | null>(null)
 
   useEffect(() => {
@@ -302,23 +301,6 @@ function AdminBoard({ section }: { section: SectionId }) {
             : section === 'posts'
               ? postPage
               : themePage
-
-  async function acceptRefund(item: AdminPayment) {
-    if (refundingId != null) return
-    const paymentId = Number(item.id)
-    if (!Number.isInteger(paymentId)) return
-    setRefundingId(item.id)
-    setPayError(null)
-    try {
-      await refundAdminPayment(paymentId)
-      setApiRefunds((current) => current.filter((row) => row.id !== item.id))
-    } catch (error: unknown) {
-      const message = error instanceof Error ? error.message : '환불 수락에 실패했습니다.'
-      setPayError(message)
-    } finally {
-      setRefundingId(null)
-    }
-  }
 
   async function toggleMemberStatus(item: AdminMember) {
     const memberId = Number(item.id)
@@ -456,7 +438,7 @@ function AdminBoard({ section }: { section: SectionId }) {
       )}
 
       {(section === 'payments' || section === 'refunds') && payLoading ? (
-        <p className="admin-empty">{section === 'refunds' ? '환불 신청을 불러오는 중…' : '결제 내역을 불러오는 중…'}</p>
+        <p className="admin-empty">{section === 'refunds' ? '환불 내역을 불러오는 중…' : '결제 내역을 불러오는 중…'}</p>
       ) : (section === 'members' || section === 'posts' || section === 'themes' || section === 'subscriptions') && boardLoading ? (
         <p className="admin-empty">목록을 불러오는 중…</p>
       ) : (section === 'payments' || section === 'refunds') && payError && active.visible.length === 0 ? (
@@ -572,16 +554,6 @@ function AdminBoard({ section }: { section: SectionId }) {
                 <Cell label="결제일" value={item.paidOn} />
                 <Cell label="결제금액" value={formatAmount(item.amount)} />
                 <Cell label="결제 유형" value={item.payType} />
-                <button
-                  type="button"
-                  className="refund-accept"
-                  disabled={refundingId === item.id}
-                  onClick={() => {
-                    void acceptRefund(item)
-                  }}
-                >
-                  {refundingId === item.id ? '처리 중…' : '환불 수락'}
-                </button>
               </article>
             ))}
           {section === 'posts' &&
