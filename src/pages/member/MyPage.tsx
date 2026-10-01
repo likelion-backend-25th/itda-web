@@ -330,6 +330,12 @@ export default function MyPage() {
     if (!Number.isInteger(numericId) || actionLockRef.current.has(`like:${post.id}`)) return
     actionLockRef.current.add(`like:${post.id}`)
     setActionError('')
+    const previous = { liked: post.liked === true, likes: post.likes }
+    patchPost(post.id, (item) => ({
+      ...item,
+      liked: !previous.liked,
+      likes: Math.max(0, item.likes + (previous.liked ? -1 : 1)),
+    }))
     try {
       const result = await togglePostLike(numericId)
       patchPost(post.id, (item) => ({ ...item, liked: result.liked, likes: result.likesCount }))
@@ -337,6 +343,7 @@ export default function MyPage() {
         setLiked((current) => current.filter((item) => item.id !== post.id))
       }
     } catch (error: unknown) {
+      patchPost(post.id, (item) => ({ ...item, liked: previous.liked, likes: previous.likes }))
       setActionError(error instanceof Error ? error.message : '좋아요를 반영하지 못했습니다.')
       if (error instanceof ApiError && error.status === 401) setLoggedIn(false)
     } finally {
@@ -350,6 +357,8 @@ export default function MyPage() {
     if (!Number.isInteger(numericId) || actionLockRef.current.has(`scrap:${post.id}`)) return
     actionLockRef.current.add(`scrap:${post.id}`)
     setActionError('')
+    const previous = post.scrapped === true
+    patchPost(post.id, (item) => ({ ...item, scrapped: !previous }))
     try {
       const result = await togglePostScrap(numericId)
       patchPost(post.id, (item) => ({ ...item, scrapped: result.scrapped }))
@@ -357,6 +366,7 @@ export default function MyPage() {
         setScraps((current) => current.filter((item) => item.id !== post.id))
       }
     } catch (error: unknown) {
+      patchPost(post.id, (item) => ({ ...item, scrapped: previous }))
       setActionError(error instanceof Error ? error.message : '스크랩을 반영하지 못했습니다.')
       if (error instanceof ApiError && error.status === 401) setLoggedIn(false)
     } finally {

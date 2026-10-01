@@ -372,7 +372,20 @@ export default function MemberPage() {
     }
     const numericPostId = Number(id)
     if (!Number.isInteger(numericPostId)) return
+    const target = posts.find((post) => post.id === id)
+    const previous = { liked: target?.liked === true, likes: target?.likes ?? 0 }
     setListError('')
+    setPosts((current) =>
+      current.map((post) =>
+        post.id === id
+          ? {
+              ...post,
+              liked: !previous.liked,
+              likes: Math.max(0, post.likes + (previous.liked ? -1 : 1)),
+            }
+          : post,
+      ),
+    )
     try {
       const result = await togglePostLike(numericPostId)
       setPosts((current) =>
@@ -381,6 +394,11 @@ export default function MemberPage() {
         ),
       )
     } catch (error: unknown) {
+      setPosts((current) =>
+        current.map((post) =>
+          post.id === id ? { ...post, liked: previous.liked, likes: previous.likes } : post,
+        ),
+      )
       setListError(error instanceof Error ? error.message : '좋아요를 반영하지 못했습니다.')
       if (error instanceof ApiError && error.status === 401) setLoggedIn(false)
     }
@@ -393,13 +411,21 @@ export default function MemberPage() {
     }
     const numericPostId = Number(id)
     if (!Number.isInteger(numericPostId)) return
+    const target = posts.find((post) => post.id === id)
+    const previous = target?.bookmarked === true
     setListError('')
+    setPosts((current) =>
+      current.map((post) => (post.id === id ? { ...post, bookmarked: !previous } : post)),
+    )
     try {
       const result = await togglePostScrap(numericPostId)
       setPosts((current) =>
         current.map((post) => (post.id === id ? { ...post, bookmarked: result.scrapped } : post)),
       )
     } catch (error: unknown) {
+      setPosts((current) =>
+        current.map((post) => (post.id === id ? { ...post, bookmarked: previous } : post)),
+      )
       setListError(error instanceof Error ? error.message : '스크랩을 반영하지 못했습니다.')
       if (error instanceof ApiError && error.status === 401) setLoggedIn(false)
     }
