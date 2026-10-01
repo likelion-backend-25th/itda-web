@@ -23,6 +23,8 @@ import type { MySubscriptionResponse } from '@/types/subscription'
 
 type SubscriptionTab = 'users' | 'manage'
 
+const SUBSCRIPTION_PAGE_SIZE = 6
+
 const banks = ['국민', '신한', '우리', '하나', '농협', '기업', '카카오뱅크', '토스뱅크']
 
 export default function SubscriptionPage() {
@@ -53,8 +55,11 @@ export default function SubscriptionPage() {
     interests: [],
   })
   const [subscriptions, setSubscriptions] = useState<MySubscriptionResponse[]>([])
+  const [subscriptionPage, setSubscriptionPage] = useState(1)
+  const [subscriptionTotalPages, setSubscriptionTotalPages] = useState(1)
   const [subscriptionsLoading, setSubscriptionsLoading] = useState(false)
   const [subscriptionsError, setSubscriptionsError] = useState<string | null>(null)
+  const [subscriptionListVersion, setSubscriptionListVersion] = useState(0)
   const [cancelingId, setCancelingId] = useState<number | null>(null)
   const [pendingCancel, setPendingCancel] = useState<MySubscriptionResponse | null>(null)
   const [refundDone, setRefundDone] = useState(false)
@@ -131,10 +136,11 @@ export default function SubscriptionPage() {
     }
   }, [loggedIn, me])
 
-  // GET /api/v1/subscriptions/me — 내가 구독 중인 사용자
+  // GET /api/v1/subscriptions/me — 내가 구독 중인 사용자. page는 1부터
   useEffect(() => {
     if (!loggedIn) {
       setSubscriptions([])
+      setSubscriptionTotalPages(1)
       setSubscriptionsLoading(false)
       setSubscriptionsError('로그인 후 구독한 사용자를 볼 수 있습니다.')
       return
@@ -146,8 +152,10 @@ export default function SubscriptionPage() {
 
     async function loadSubscriptions() {
       try {
-        const list = await fetchMySubscriptions()
-        if (!cancelled) setSubscriptions(list)
+        const result = await fetchMySubscriptions(subscriptionPage, SUBSCRIPTION_PAGE_SIZE)
+        if (cancelled) return
+        setSubscriptions(result.content)
+        setSubscriptionTotalPages(Math.max(1, result.totalPages))
       } catch (error: unknown) {
         if (cancelled) return
         setSubscriptions([])
@@ -162,7 +170,11 @@ export default function SubscriptionPage() {
     return () => {
       cancelled = true
     }
-  }, [loggedIn])
+  }, [loggedIn, subscriptionPage, subscriptionListVersion])
+
+  useEffect(() => {
+    if (subscriptionPage > subscriptionTotalPages) setSubscriptionPage(subscriptionTotalPages)
+  }, [subscriptionPage, subscriptionTotalPages])
 
   const visible = useMemo(() => {
     const keyword = query.trim().toLowerCase()
@@ -176,8 +188,8 @@ export default function SubscriptionPage() {
     setSubscriptionsError(null)
     try {
       await unsubscribeAndRefund(pendingCancel.targetId)
-      setSubscriptions((current) => current.filter((row) => row.subscriptionId !== pendingCancel.subscriptionId))
       setRefundDone(true)
+      setSubscriptionListVersion((current) => current + 1)
     } catch (error: unknown) {
       const message = error instanceof Error ? error.message : '구독 해제에 실패했습니다.'
       setSubscriptionsError(message)
@@ -333,6 +345,7 @@ export default function SubscriptionPage() {
                 </form>
               </section>
             ) : (
+            <>
             <div className="sub-list">
               {subscriptionsError && <p className="settle-error">{subscriptionsError}</p>}
               {subscriptionsLoading ? (
@@ -373,6 +386,42 @@ export default function SubscriptionPage() {
                 })
               )}
             </div>
+            {subscriptionTotalPages > 1 && (
+              <nav className="shop-pages" aria-label="구독 목록 페이지">
+                <button
+                  type="button"
+                  aria-label="이전 페이지"
+                  disabled={subscriptionPage <= 1 || subscriptionsLoading}
+                  onClick={() => setSubscriptionPage(subscriptionPage - 1)}
+                >
+                  ‹
+                </button>
+                {Array.from({ length: subscriptionTotalPages }, (_, index) => {
+                  const number = index + 1
+                  return (
+                    <button
+                      key={number}
+                      type="button"
+                      className={number === subscriptionPage ? 'on' : undefined}
+                      aria-current={number === subscriptionPage ? 'page' : undefined}
+                      disabled={subscriptionsLoading}
+                      onClick={() => setSubscriptionPage(number)}
+                    >
+                      {number}
+                    </button>
+                  )
+                })}
+                <button
+                  type="button"
+                  aria-label="다음 페이지"
+                  disabled={subscriptionPage >= subscriptionTotalPages || subscriptionsLoading}
+                  onClick={() => setSubscriptionPage(subscriptionPage + 1)}
+                >
+                  ›
+                </button>
+              </nav>
+            )}
+            </>
             )}
             </>
             )}
