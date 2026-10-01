@@ -135,6 +135,7 @@ function toAdminTheme(record: Record<string, unknown>): AdminTheme | null {
     tone: toneFromThemeCode(themeCode),
     // ON_SALE = 활성화, HIDDEN = 비활성화
     active: status === 'ON_SALE',
+    isDefault: record.isDefault === true,
   }
 }
 
@@ -197,4 +198,9 @@ export async function updateAdminTheme(themeId: number, draft: ThemeDraft): Prom
 export async function setAdminThemeStatus(themeId: number, active: boolean): Promise<void> {
   const status = active ? 'ON_SALE' : 'HIDDEN'
   await apiFetch(`/admin/themes/${themeId}/status?status=${status}`, { method: 'PATCH' })
+}
+
+/** PATCH /api/v1/admin/themes/{themeId}/default — 유일한 기본 테마로 지정 */
+export async function setAdminThemeDefault(themeId: number): Promise<void> {
+  await apiFetch(`/admin/themes/${themeId}/default`, { method: 'PATCH' })
 }

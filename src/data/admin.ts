@@ -80,6 +80,8 @@ export type AdminTheme = ThemeDraft & {
   id: string
   tone: ThemeTone
   active: boolean
+  /** theme.is_default — 신규 가입 시 적용되는 기본 테마 */
+  isDefault?: boolean
 }
 
 const avatars = [

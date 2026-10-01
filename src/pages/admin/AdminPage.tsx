@@ -33,6 +33,7 @@ import {
   fetchAdminPosts,
   fetchAdminReplies,
   fetchAdminThemes,
+  setAdminThemeDefault,
   setAdminThemeStatus,
   setAdminMemberStatus,
   updateAdminTheme,
@@ -192,6 +193,7 @@ function AdminBoard({ section }: { section: SectionId }) {
   const [refund, setRefund] = useState<AdminRefund | null>(null)
   const [editing, setEditing] = useState<AdminTheme | null>(null)
   const [adding, setAdding] = useState(false)
+  const [defaultTarget, setDefaultTarget] = useState<AdminTheme | null>(null)
   const [themeForm, setThemeForm] = useState<ThemeDraft>(newTheme)
   const [apiPayments, setApiPayments] = useState<AdminPayment[]>([])
   const [apiRefunds, setApiRefunds] = useState<AdminRefund[]>([])
@@ -367,6 +369,30 @@ function AdminBoard({ section }: { section: SectionId }) {
     }
   }
 
+  async function makeDefaultTheme(theme: AdminTheme) {
+    const themeId = Number(theme.id)
+    if (!Number.isInteger(themeId) || busyId != null || theme.isDefault) return
+
+    setBusyId(theme.id)
+    setBoardError(null)
+    try {
+      await setAdminThemeDefault(themeId)
+      setApiThemes((current) =>
+        current.map((row) => ({
+          ...row,
+          isDefault: row.id === theme.id,
+          // 기본 지정 시 BE가 ON_SALE로 맞춤
+          active: row.id === theme.id ? true : row.active,
+        })),
+      )
+      setDefaultTarget(null)
+    } catch (error: unknown) {
+      setBoardError(error instanceof Error ? error.message : '기본 테마 지정에 실패했습니다.')
+    } finally {
+      setBusyId(null)
+    }
+  }
+
   function search(event: FormEvent<HTMLFormElement>) {
     event.preventDefault()
     setKeyword(draft)
@@ -476,8 +502,15 @@ function AdminBoard({ section }: { section: SectionId }) {
                   수정
                 </button>
                 <div className="theme-side-actions">
-                  <button type="button" className="theme-default">
-                    디폴트 테마로 설정
+                  <button
+                    type="button"
+                    className="theme-default"
+                    disabled={busyId === theme.id || Boolean(theme.isDefault)}
+                    onClick={() => {
+                      setDefaultTarget(theme)
+                    }}
+                  >
+                    {theme.isDefault ? '기본 테마' : '기본 테마로 설정'}
                   </button>
                   <button
                     type="button"
@@ -705,6 +738,48 @@ function AdminBoard({ section }: { section: SectionId }) {
           onSubmit={saveTheme}
           error={boardError}
         />
+      )}
+
+      {defaultTarget && (
+        <div
+          className="detail-backdrop"
+          onClick={() => {
+            if (busyId == null) setDefaultTarget(null)
+          }}
+        >
+          <div
+            className="admin-dialog admin-confirm-dialog"
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="admin-default-theme-title"
+            onClick={(event) => event.stopPropagation()}
+          >
+            <h2 id="admin-default-theme-title">기본 테마 설정</h2>
+            <p>이 테마를 기본 테마로 설정하시겠습니까?</p>
+            <p className="admin-confirm-target">
+              <strong>{defaultTarget.name}</strong>
+            </p>
+            <div>
+              <button
+                type="button"
+                disabled={busyId === defaultTarget.id}
+                onClick={() => setDefaultTarget(null)}
+              >
+                취소
+              </button>
+              <button
+                type="button"
+                className="admin-confirm-ok"
+                disabled={busyId === defaultTarget.id}
+                onClick={() => {
+                  void makeDefaultTheme(defaultTarget)
+                }}
+              >
+                확인
+              </button>
+            </div>
+          </div>
+        </div>
       )}
     </main>
   )
