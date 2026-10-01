@@ -178,7 +178,7 @@ export default function AdminPage() {
           })}
         </nav>
       </aside>
-      {section ? <AdminBoard section={section} /> : <AdminDashboard />}
+      {isSection(section) ? <AdminBoard section={section} /> : <AdminDashboard />}
     </div>
   )
 }

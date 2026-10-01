@@ -158,7 +158,6 @@ export async function applyAppThemeAsync(
   themeId: number | null = null,
 ): Promise<void> {
   const generation = ++applyGeneration
-  const palette = resolveAppTheme(themeCode)
 
   if (isFreeThemeCode(themeCode)) {
     clearPaidThemeCss()
