@@ -77,7 +77,6 @@ const searchFields: Record<SectionId, { value: string; label: string }[]> = {
     { value: 'memberNickname', label: '구독자' },
     { value: 'memberEmail', label: '이메일' },
     { value: 'targetNickname', label: '대상' },
-    { value: 'status', label: '상태' },
   ],
   posts: [
     { value: 'id', label: 'id' },
@@ -540,7 +539,6 @@ function AdminBoard({ section }: { section: SectionId }) {
                 <Cell label="구독자" value={item.memberNickname} />
                 <Cell label="이메일" value={item.memberEmail} />
                 <Cell label="대상" value={item.targetNickname} />
-                <Cell label="상태" value={item.status} />
                 <Cell label="시작일" value={item.startedOn} />
                 <Cell label="종료일" value={item.endedOn} />
               </article>
