@@ -4,7 +4,6 @@ import { DEFAULT_AVATAR, fetchMyProfile, resolveMemberImageUrl, updateMyProfile,
 import { unsubscribeAndRefund } from '@/api/payment'
 import { fetchMonthlyIncome, fetchMySubscriptions, fetchSubscriberCount } from '@/api/subscription'
 import UnsubscribeRefundDialog from '@/components/payment/UnsubscribeRefundDialog'
-import CategoryFeed from '@/components/feed/CategoryFeed'
 import Header from '@/components/layout/Header'
 import FollowList, { type FollowTab } from '@/components/profile/FollowList'
 import ProfileEditModal, { type ProfileForm } from '@/components/profile/ProfileEditModal'
@@ -222,15 +221,17 @@ export default function SubscriptionPage() {
             category={category}
             categories={myPageCategories}
             categoriesOpen={categoriesOpen}
-            onCategoryChange={setCategory}
+            onCategoryChange={(next) => {
+              if (next === 'all') {
+                setCategory('all')
+                return
+              }
+              navigate('/', { state: { feedCategory: next } })
+            }}
             onToggleCategories={() => setCategoriesOpen((open) => !open)}
             onWrite={() => setWriting(true)}
           />
           <main className="my-main" aria-label="구독">
-            {category !== 'all' ? (
-              <CategoryFeed category={category} query={query} />
-            ) : (
-            <>
             <section className="my-summary member-summary">
               <img src={profile.avatar} alt="" />
               <div>
@@ -358,7 +359,8 @@ export default function SubscriptionPage() {
                   const avatar = resolveMemberImageUrl(item.profileImage)
                   return (
                     <article key={item.subscriptionId} className="sub-card">
-                      <Link to={href} className="sub-photo" aria-label={`${item.nickname} 프로필`}>
+                      <Link to={href} className="sub-card-link" aria-label={`${item.nickname} 프로필`} />
+                      <div className="sub-photo">
                         <img
                           src={avatar}
                           alt=""
@@ -366,11 +368,9 @@ export default function SubscriptionPage() {
                             event.currentTarget.src = DEFAULT_AVATAR
                           }}
                         />
-                      </Link>
+                      </div>
                       <div className="sub-copy">
-                        <Link to={href} className="sub-name">
-                          {item.nickname}
-                        </Link>
+                        <span className="sub-name">{item.nickname}</span>
                       </div>
                       <p className="sub-days">{item.remainingDays}일 남음</p>
                       <button
@@ -420,8 +420,6 @@ export default function SubscriptionPage() {
                   ›
                 </button>
               </nav>
-            )}
-            </>
             )}
             </>
             )}

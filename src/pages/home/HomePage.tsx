@@ -11,7 +11,7 @@ import { categories, openPostDetail, type CategoryId, type Post } from '@/data/f
 import { subscribePostViews } from '@/data/postViewSync'
 import { getLoggedIn, setLoggedIn, subscribeSession } from '@/data/session'
 import { ensureViewerLoaded, getViewerProfile, subscribeViewer } from '@/data/viewer'
-import { profilePath } from '@/data/members'
+import { profileHrefForMember } from '@/data/members'
 import { useViewerUser } from '@/hooks/member/useViewerUser'
 import { usePublishPost } from '@/hooks/post/usePublishPost'
 import { ApiError } from '@/lib/apiClient'
@@ -24,7 +24,10 @@ export default function HomePage() {
   const keyword = (searchParams.get('keyword') ?? '').trim()
   const loggedIn = useSyncExternalStore(subscribeSession, getLoggedIn)
   const [query, setQuery] = useState(keyword)
-  const [category, setCategory] = useState<CategoryId>('all')
+  const [category, setCategory] = useState<CategoryId>(() => {
+    const state = location.state as { feedCategory?: CategoryId } | null
+    return state?.feedCategory ?? 'all'
+  })
   const [categoriesOpen, setCategoriesOpen] = useState(true)
   const [posts, setPosts] = useState<Post[]>([])
   const [feedLoading, setFeedLoading] = useState(true)
@@ -413,7 +416,7 @@ export default function HomePage() {
                   }}
                   onToggleLike={toggleLike}
                   onToggleBookmark={toggleBookmark}
-                  profileHref={profilePath(post.author)}
+                  profileHref={profileHrefForMember(post.memberId, post.author, profile?.id)}
                 />
               ))
             )}

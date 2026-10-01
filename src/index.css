@@ -630,9 +630,7 @@ a.nav-item,
 a.top-action,
 a.author,
 a.comment-author,
-a.member-subscribe,
-a.sub-photo,
-a.sub-name {
+a.member-subscribe {
   text-decoration: none;
 }
 
@@ -804,6 +802,29 @@ button.feed-more {
   font-size: 11px;
   font-weight: 800;
   line-height: 1;
+}
+
+.sub-only-badge {
+  display: inline-grid;
+  place-items: center;
+  width: 20px;
+  height: 20px;
+  padding: 0;
+  border-radius: 6px;
+  color: #fff;
+  box-shadow:
+    inset 0 0 0 1px rgba(255, 255, 255, 0.22),
+    0 0 0 1px rgba(28, 36, 48, 0.12);
+  flex: 0 0 auto;
+}
+
+.sub-only-badge.is-diamond {
+  background: #2bb3e8;
+}
+
+.sub-only-badge svg {
+  width: 12px;
+  height: 12px;
 }
 
 .post-meta {
@@ -1694,6 +1715,7 @@ a.comment-avatar {
 }
 
 .sub-card {
+  position: relative;
   display: flex;
   align-items: center;
   gap: 14px;
@@ -1702,15 +1724,33 @@ a.comment-avatar {
   border: 1px solid var(--line);
   border-radius: var(--radius);
   box-shadow: var(--shadow);
+  transition: border-color 0.15s ease, background 0.15s ease;
 }
 
-a.sub-photo {
+.sub-card:has(.sub-card-link:hover),
+.sub-card:has(.sub-card-link:focus-visible) {
+  border-color: var(--blue);
+  background: var(--blue-soft);
+}
+
+a.sub-card-link {
+  position: absolute;
+  inset: 0;
+  z-index: 0;
+  border-radius: inherit;
+  text-decoration: none;
+}
+
+.sub-photo {
+  position: relative;
+  z-index: 1;
   flex: 0 0 auto;
   width: 72px;
   height: 72px;
   border-radius: 16px;
   overflow: hidden;
   background: #fff;
+  pointer-events: none;
 }
 
 .sub-photo img {
@@ -1721,8 +1761,11 @@ a.sub-photo {
 }
 
 .sub-copy {
+  position: relative;
+  z-index: 1;
   flex: 1;
   min-width: 0;
+  pointer-events: none;
 }
 
 .sub-name {
@@ -1736,14 +1779,19 @@ a.sub-photo {
 }
 
 .sub-days {
+  position: relative;
+  z-index: 1;
   margin: 0;
   color: var(--text-soft);
   font-size: 14px;
   font-weight: 700;
   white-space: nowrap;
+  pointer-events: none;
 }
 
 .sub-cancel {
+  position: relative;
+  z-index: 1;
   height: 36px;
   padding: 0 14px;
   border: 1px solid var(--line);

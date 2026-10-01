@@ -9,9 +9,10 @@ import Header from '@/components/layout/Header'
 import Sidebar from '@/components/layout/Sidebar'
 import WritePostModal, { type PostDraft } from '@/components/feed/WritePostModal'
 import { BookmarkIcon, CommentIcon, CrownIcon, DotsIcon, EyeIcon, HeartIcon } from '@/components/icons'
-import { initialPosts, myPageCategories, openPostDetail, type CategoryId, type Post } from '@/data/feed'
+import SubOnlyBadge from '@/components/feed/SubOnlyBadge'
+import { myPageCategories, openPostDetail, type CategoryId, type Post } from '@/data/feed'
 import { memberFollowIds } from '@/data/follows'
-import { followListItemsFromIds, memberById, type MemberProfile } from '@/data/members'
+import { followListItemsFromIds, type MemberProfile } from '@/data/members'
 import { setSubscribed } from '@/data/subscriptions'
 import { getLoggedIn, setLoggedIn, subscribeSession } from '@/data/session'
 import { getViewerProfile, subscribeViewer } from '@/data/viewer'
@@ -74,14 +75,13 @@ export default function MemberPage() {
   const { publish } = usePublishPost()
   const numericId = Number(memberId)
   const isNumericRoute = Number.isInteger(numericId) && numericId > 0
-  const mockMember = !isNumericRoute ? memberById(memberId) : undefined
   const [apiMember, setApiMember] = useState<MemberProfile | null>(null)
   const [profileLoading, setProfileLoading] = useState(isNumericRoute)
   const [profileError, setProfileError] = useState('')
   const loadedMemberIdRef = useRef<number | null>(null)
   // 팔로우 변경 후 카운트만 갱신할 때 member 객체를 바꾸면 화면 상태가 초기화되므로 분리한다
   const [apiCounts, setApiCounts] = useState<{ followers: number; following: number; posts: number } | null>(null)
-  const member = apiMember ?? mockMember
+  const member = apiMember
   const [query, setQuery] = useState('')
   const [category, setCategory] = useState<CategoryId>('all')
   const [categoriesOpen, setCategoriesOpen] = useState(true)
@@ -194,10 +194,11 @@ export default function MemberPage() {
     setTab('public')
     setCategory('all')
     if (!isNumericRoute) {
-      setPosts(member ? initialPosts.filter((post) => post.author === member.name) : [])
+      setPosts([])
       setHasMore(false)
+      setProfileError('프로필을 찾을 수 없습니다.')
     }
-  }, [isNumericRoute, member])
+  }, [isNumericRoute, memberId])
 
   // 게시글 탭은 공개 글, 구독자 전용 탭은 구독 중인 경우의 subscriberOnly 글
   useEffect(() => {
@@ -365,16 +366,6 @@ export default function MemberPage() {
   if (member?.name === viewer.name) return <Navigate to="/mypage" replace />
 
   async function toggleLike(id: string) {
-    if (!isNumericRoute) {
-      setPosts((current) =>
-        current.map((post) =>
-          post.id === id
-            ? { ...post, liked: !post.liked, likes: post.likes + (post.liked ? -1 : 1) }
-            : post,
-        ),
-      )
-      return
-    }
     if (!loggedIn) {
       navigate('/login')
       return
@@ -396,12 +387,6 @@ export default function MemberPage() {
   }
 
   async function toggleBookmark(id: string) {
-    if (!isNumericRoute) {
-      setPosts((current) =>
-        current.map((post) => (post.id === id ? { ...post, bookmarked: !post.bookmarked } : post)),
-      )
-      return
-    }
     if (!loggedIn) {
       navigate('/login')
       return
@@ -547,7 +532,10 @@ export default function MemberPage() {
                         <header>
                           <img src={post.avatar} alt="" />
                           <div>
-                            <strong>{post.author}</strong>
+                            <div className="author-name">
+                              <strong>{post.author}</strong>
+                              {(tab === 'exclusive' || post.visibility === 'subscribers') && <SubOnlyBadge />}
+                            </div>
                             <p>
                               {post.createdAt}
                               <span aria-hidden="true"> | </span>

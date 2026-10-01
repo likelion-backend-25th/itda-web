@@ -1,4 +1,5 @@
 import { BookmarkIcon, CommentIcon, DotsIcon, EyeIcon, HeartIcon } from '@/components/icons'
+import SubOnlyBadge from '@/components/feed/SubOnlyBadge'
 import type { MyPost } from '@/data/mypage'
 
 type MyPostCardProps = {
@@ -38,7 +39,10 @@ export default function MyPostCard({
         <div className="author">
           <img src={post.avatar} alt="" />
           <div>
-            <strong>{post.author}</strong>
+            <div className="author-name">
+              <strong>{post.author}</strong>
+              {post.visibility === 'subscribers' && <SubOnlyBadge />}
+            </div>
             <p className="post-meta">
               {timeLabel}
               {post.categoryLabel ? (
