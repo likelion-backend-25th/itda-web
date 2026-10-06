@@ -7,7 +7,7 @@ import { resolveMemberImageUrl } from '@/api/member'
 import PostDetail from '@/components/feed/PostDetail'
 import type { Post } from '@/data/feed'
 import type { PostModalState } from '@/data/feed'
-import { publishPostComments, publishPostViews } from '@/data/postViewSync'
+import { publishPostComments, publishPostReaction, publishPostViews } from '@/data/postViewSync'
 import { getLoggedIn, setLoggedIn, subscribeSession } from '@/data/session'
 import { ensureViewerLoaded, getViewerProfile, subscribeViewer } from '@/data/viewer'
 import { useViewerUser } from '@/hooks/member/useViewerUser'
@@ -115,28 +115,20 @@ export default function PostDetailPage() {
     actionLockRef.current.add(`like:${id}`)
     setActionError('')
     const previous = { liked: post?.liked === true, likes: post?.likes ?? 0 }
-    setPost((current) =>
-      current && current.id === id
-        ? {
-            ...current,
-            liked: !previous.liked,
-            likes: Math.max(0, current.likes + (previous.liked ? -1 : 1)),
-          }
-        : current,
-    )
+    const optimistic = {
+      liked: !previous.liked,
+      likes: Math.max(0, previous.likes + (previous.liked ? -1 : 1)),
+    }
+    setPost((current) => (current && current.id === id ? { ...current, ...optimistic } : current))
+    publishPostReaction(id, optimistic)
     try {
       const result = await togglePostLike(numericId)
-      setPost((current) =>
-        current && current.id === id
-          ? { ...current, liked: result.liked, likes: result.likesCount }
-          : current,
-      )
+      const confirmed = { liked: result.liked, likes: result.likesCount }
+      setPost((current) => (current && current.id === id ? { ...current, ...confirmed } : current))
+      publishPostReaction(id, confirmed)
     } catch (err: unknown) {
-      setPost((current) =>
-        current && current.id === id
-          ? { ...current, liked: previous.liked, likes: previous.likes }
-          : current,
-      )
+      setPost((current) => (current && current.id === id ? { ...current, ...previous } : current))
+      publishPostReaction(id, previous)
       setActionError(err instanceof Error ? err.message : '좋아요를 반영하지 못했습니다.')
       if (err instanceof ApiError && err.status === 401) setLoggedIn(false)
     } finally {
@@ -158,15 +150,18 @@ export default function PostDetailPage() {
     setPost((current) =>
       current && current.id === id ? { ...current, bookmarked: !previous } : current,
     )
+    publishPostReaction(id, { bookmarked: !previous })
     try {
       const result = await togglePostScrap(numericId)
       setPost((current) =>
         current && current.id === id ? { ...current, bookmarked: result.scrapped } : current,
       )
+      publishPostReaction(id, { bookmarked: result.scrapped })
     } catch (err: unknown) {
       setPost((current) =>
         current && current.id === id ? { ...current, bookmarked: previous } : current,
       )
+      publishPostReaction(id, { bookmarked: previous })
       setActionError(err instanceof Error ? err.message : '스크랩을 반영하지 못했습니다.')
       if (err instanceof ApiError && err.status === 401) setLoggedIn(false)
     } finally {

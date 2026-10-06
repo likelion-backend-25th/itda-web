@@ -18,7 +18,12 @@ import { myPageCategories, openPostDetail, type CategoryId } from '@/data/feed'
 import { usePublishPost } from '@/hooks/post/usePublishPost'
 import { applyAppThemeAsync, getAppliedTheme, resolveAppTheme, subscribeAppTheme } from '@/data/appTheme'
 import { syncOwnedThemes } from '@/data/themes'
-import { subscribePostComments, subscribePostViews } from '@/data/postViewSync'
+import {
+  subscribePostComments,
+  subscribePostReaction,
+  subscribePostViews,
+  type PostReactionPatch,
+} from '@/data/postViewSync'
 import { getLoggedIn, setLoggedIn, subscribeSession } from '@/data/session'
 import {
   ensureViewerLoaded,
@@ -36,6 +41,46 @@ import { interestIdsFromCategoryIds, categoryIdsFromInterestIds } from '@/data/i
 import type { MyPost, OwnedTheme } from '@/data/mypage'
 
 type MyTab = 'posts' | 'likes' | 'scraps' | 'themes'
+
+type StashedPost = { post: MyPost; index: number }
+
+function applyReaction(item: MyPost, postId: string, patch: PostReactionPatch): MyPost {
+  if (item.id !== postId) return item
+  return {
+    ...item,
+    ...(patch.liked !== undefined ? { liked: patch.liked } : {}),
+    ...(patch.likes !== undefined ? { likes: patch.likes } : {}),
+    ...(patch.bookmarked !== undefined ? { scrapped: patch.bookmarked } : {}),
+  }
+}
+
+/** 상세에서 취소하면 목록에서 바로 빼고, 요청이 실패하면 원래 자리에 되돌린다. */
+function syncReactionList(
+  current: MyPost[],
+  postId: string,
+  patch: PostReactionPatch,
+  active: boolean | undefined,
+  stash: Map<string, StashedPost>,
+): MyPost[] {
+  if (active === false) {
+    const index = current.findIndex((item) => item.id === postId)
+    if (index < 0) return current
+    stash.set(postId, { post: current[index], index })
+    return current.filter((item) => item.id !== postId)
+  }
+  if (active === true) {
+    if (current.some((item) => item.id === postId)) {
+      return current.map((item) => applyReaction(item, postId, patch))
+    }
+    const saved = stash.get(postId)
+    if (saved) {
+      const next = [...current]
+      next.splice(Math.min(saved.index, next.length), 0, applyReaction(saved.post, postId, patch))
+      return next
+    }
+  }
+  return current.map((item) => applyReaction(item, postId, patch))
+}
 
 function ownedFromApi(themes: ThemeResponse[], appliedId: number | null): OwnedTheme[] {
   return themes.map((theme) => {
@@ -80,6 +125,8 @@ export default function MyPage() {
   const sentinelRef = useRef<HTMLDivElement>(null)
   const listGenRef = useRef(0)
   const actionLockRef = useRef(new Set<string>())
+  const removedLikedRef = useRef(new Map<string, StashedPost>())
+  const removedScrapRef = useRef(new Map<string, StashedPost>())
   const applied = useSyncExternalStore(subscribeAppTheme, getAppliedTheme)
   const [themes, setThemes] = useState<OwnedTheme[]>([])
   const [detailId, setDetailId] = useState<string | null>(null)
@@ -133,9 +180,17 @@ export default function MyPage() {
       setLiked((current) => current.map(patch))
       setScraps((current) => current.map(patch))
     })
+    const unsubReaction = subscribePostReaction((postId, patch) => {
+      setPosts((current) => current.map((item) => applyReaction(item, postId, patch)))
+      setLiked((current) => syncReactionList(current, postId, patch, patch.liked, removedLikedRef.current))
+      setScraps((current) =>
+        syncReactionList(current, postId, patch, patch.bookmarked, removedScrapRef.current),
+      )
+    })
     return () => {
       unsubViews()
       unsubComments()
+      unsubReaction()
     }
   }, [])
 

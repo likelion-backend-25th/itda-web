@@ -8,7 +8,7 @@ import PostCard from '@/components/feed/PostCard'
 import Sidebar from '@/components/layout/Sidebar'
 import WritePostModal, { type PostDraft } from '@/components/feed/WritePostModal'
 import { categories, openPostDetail, type CategoryId, type Post } from '@/data/feed'
-import { subscribePostComments, subscribePostViews } from '@/data/postViewSync'
+import { subscribePostComments, subscribePostReaction, subscribePostViews } from '@/data/postViewSync'
 import { getLoggedIn, setLoggedIn, subscribeSession } from '@/data/session'
 import { ensureViewerLoaded, getViewerProfile, subscribeViewer } from '@/data/viewer'
 import { profileHrefForMember } from '@/data/members'
@@ -74,9 +74,15 @@ export default function HomePage() {
         ),
       )
     })
+    const unsubReaction = subscribePostReaction((postId, patch) => {
+      setPosts((current) =>
+        current.map((item) => (item.id === postId ? { ...item, ...patch } : item)),
+      )
+    })
     return () => {
       unsubViews()
       unsubComments()
+      unsubReaction()
     }
   }, [])
 
